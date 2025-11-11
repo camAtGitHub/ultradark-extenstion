@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import { copyFileSync, readFileSync, writeFileSync } from "fs";
+import { copyFileSync, readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 import { resolve } from "path";
 
 export default defineConfig({
@@ -11,7 +11,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         content: "src/content/index.ts",
-        background: "src/background/index.ts",   // Add background
         popup: "src/popup/index.html",
         options: "src/options/index.html"
       },
@@ -23,41 +22,55 @@ export default defineConfig({
           if (name.endsWith(".css")) return "assets/[name][extname]";
           if (name.includes("optimizer-worker")) return "assets/[name].js";
           return "assets/[name]-[hash][extname]";
-        },
-        inlineDynamicImports: true,
-        format: 'iife'
+        }
       }
     }
   },
   plugins: [
     {
-      name: "fix-manifest",
+      name: "copy-assets",
       writeBundle() {
         const manifestPath = resolve(__dirname, "dist/manifest.json");
         const originalManifest = JSON.parse(readFileSync("manifest.json", "utf-8"));
 
-        // Ensure correct paths
-        const fixedManifest = {
-          ...originalManifest,
-          background: {
-            scripts: ["src/background/index.js"],
-            persistent: true
-          },
-          content_scripts: [
-            {
-              matches: ["<all_urls>"],
-              js: ["src/content/index.js"],
-              run_at: "document_idle"
+        // Copy icons
+        const iconsDir = resolve(__dirname, "dist/src/assets/icons");
+        if (!existsSync(iconsDir)) {
+          mkdirSync(iconsDir, { recursive: true });
+        }
+        
+        // Copy icon files from src
+        const srcIconsDir = resolve(__dirname, "src/assets/icons");
+        if (existsSync(srcIconsDir)) {
+          readdirSync(srcIconsDir).forEach(file => {
+            if (file.endsWith('.png')) {
+              copyFileSync(
+                resolve(srcIconsDir, file),
+                resolve(iconsDir, file)
+              );
             }
-          ],
-          web_accessible_resources: [
-            "assets/storage.js",
-            "assets/regex.js",
-            "assets/optimizer-worker-CdkjHAG0.js"
-          ]
+          });
+        }
+
+        // Dynamically list web_accessible_resources from dist/assets
+        const assetsDir = resolve(__dirname, "dist/assets");
+        const webAccessibleResources: string[] = [];
+        if (existsSync(assetsDir)) {
+          readdirSync(assetsDir).forEach(file => {
+            if (file.endsWith('.js')) {
+              webAccessibleResources.push(`assets/${file}`);
+            }
+          });
+        }
+
+        // Update manifest with dynamic resources
+        const updatedManifest = {
+          ...originalManifest,
+          web_accessible_resources: webAccessibleResources
         };
 
-        writeFileSync(manifestPath, JSON.stringify(fixedManifest, null, 2));
+        // Write manifest with correct paths
+        writeFileSync(manifestPath, JSON.stringify(updatedManifest, null, 2));
       }
     }
   ]

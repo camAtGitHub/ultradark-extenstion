@@ -3,8 +3,8 @@ import WorkerUrl from "./optimizer-worker?worker&url";
 
 import type { Settings } from "../types/settings";
 import { DEFAULTS, DATA_ATTR_APPLIED } from "../utils/defaults";
-import { S, g, D } from "../utils/storage.js";
-import { u } from "../utils/regex.js";
+import { getSettings } from "../utils/storage";
+import { urlExcluded } from "../utils/regex";
 import { ensureStyleTag, buildCss } from "./style-template";
 
 let activeSettings: Settings | null = null;
