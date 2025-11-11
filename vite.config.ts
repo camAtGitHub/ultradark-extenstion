@@ -10,7 +10,6 @@ export default defineConfig({
     modulePreload: false,
     rollupOptions: {
       input: {
-        content: "src/content/index.ts",
         popup: "src/popup/index.html",
         options: "src/options/index.html"
       },
@@ -53,6 +52,7 @@ export default defineConfig({
         }
 
         // Dynamically list web_accessible_resources from dist/assets
+        // Include both Vite-built assets and esbuild-built worker
         const assetsDir = resolve(__dirname, "dist/assets");
         const webAccessibleResources: string[] = [];
         if (existsSync(assetsDir)) {

@@ -17,6 +17,7 @@ Thumbs.db
 *.log
 *.tmp
 .cache/
+.temp-*.ts
 
 # Environment
 .env

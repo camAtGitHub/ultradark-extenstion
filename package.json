@@ -7,7 +7,8 @@
     "preinstall": "node scripts/write-icons.js",
     "dev": "vite --mode development",
     "build:bg": "node ./scripts/build-bg.cjs",
-    "build": "vite build && npm run build:bg",
+    "build:scripts": "node ./scripts/build-scripts.cjs",
+    "build": "vite build && npm run build:scripts",
     "test": "vitest run",
     "lint": "eslint .",
     "zip": "node scripts/zip-dist.js"
