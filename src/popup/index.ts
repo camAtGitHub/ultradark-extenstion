@@ -45,7 +45,7 @@ async function init() {
 
   function bindRange(el: HTMLInputElement, key: keyof Settings, label: HTMLElement) {
     el.oninput = async () => {
-      // @ts-expect-error
+      // @ts-expect-error - Settings type allows numeric values for slider keys
       s[key] = Number(el.value);
       label.textContent = `${el.value}%`;
       await setSettings(s);
