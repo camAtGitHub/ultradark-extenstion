@@ -1,0 +1,25 @@
+{
+  "name": "ultradark-reader",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preinstall": "node scripts/write-icons.js",
+    "dev": "vite --mode development",
+    "build:bg": "node ./scripts/build-bg.cjs",
+    "build": "vite build && npm run build:bg",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "zip": "node scripts/zip-dist.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12",
+    "eslint": "^9.12.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}

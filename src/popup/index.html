@@ -1,0 +1,57 @@
+<!-- src/popup/index.html -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>UltraDark</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link href="./style.css" rel="stylesheet" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>UltraDark</h1>
+        <button id="toggle">On</button>
+      </header>
+
+      <section class="row">
+        <label>Mode
+          <select id="mode">
+            <option value="dynamic">Dynamic</option>
+            <option value="static">Static</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="amoled" /> AMOLED</label>
+        <label><input type="checkbox" id="optimizer" /> Contrast Optimizer</label>
+      </section>
+
+      <section class="sliders">
+        <div class="slider">
+          <label>Brightness <span id="briV"></span></label>
+          <input id="brightness" type="range" min="50" max="120" />
+        </div>
+        <div class="slider">
+          <label>Contrast <span id="conV"></span></label>
+          <input id="contrast" type="range" min="50" max="200" />
+        </div>
+        <div class="slider">
+          <label>Sepia <span id="sepV"></span></label>
+          <input id="sepia" type="range" min="0" max="100" />
+        </div>
+        <div class="slider">
+          <label>Grayscale <span id="gryV"></span></label>
+          <input id="grayscale" type="range" min="0" max="100" />
+        </div>
+        <div class="slider">
+          <label>Blue shift <span id="bluV"></span></label>
+          <input id="blueShift" type="range" min="0" max="100" />
+        </div>
+      </section>
+
+      <section class="links">
+        <a id="openOptions" href="#">Options & Regex</a>
+      </section>
+    </main>
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>

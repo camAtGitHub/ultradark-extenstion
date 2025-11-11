@@ -1,0 +1,46 @@
+<!-- src/options/index.html -->
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>UltraDark Options</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link href="./style.css" rel="stylesheet" />
+  </head>
+  <body>
+    <main>
+      <h1>UltraDark Options</h1>
+
+      <section class="card">
+        <h2>Scheduling</h2>
+        <label><input id="schedEnabled" type="checkbox" /> Enable night schedule</label>
+        <div class="row">
+          <label>Start <input id="schedStart" type="time" value="21:00" /></label>
+          <label>End <input id="schedEnd" type="time" value="07:00" /></label>
+        </div>
+        <p class="hint">During the window, UltraDark toggles on automatically.</p>
+      </section>
+
+      <section class="card">
+        <h2>Regex Exclusions</h2>
+        <p class="hint">Add one pattern per line. Accepts plain strings or <code>/regex/flags</code>.</p>
+        <textarea id="regexList" rows="8" placeholder="e.g. /^.*\\.example\\.com$/"></textarea>
+        <div class="row">
+          <input id="testUrl" type="url" placeholder="https://site.example.com/page" />
+          <button id="testBtn">Test</button>
+        </div>
+        <div id="testResult" class="badge"></div>
+        <div class="row-right">
+          <button id="saveRegex">Save</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Per-Site Overrides</h2>
+        <div id="sites"></div>
+        <button id="refreshSites">Refresh Current Site</button>
+      </section>
+    </main>
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>

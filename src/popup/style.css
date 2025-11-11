@@ -1,0 +1,19 @@
+/* src/popup/style.css */
+:root { --bg:#0f1115; --fg:#e6e7ea; --muted:#a5adba; --accent:#6aa2ff; --card:#151823; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; width: 320px; background: var(--bg); color: var(--fg); font: 13px/1.4 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+main { padding: 12px; }
+header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+h1 { font-size: 16px; margin: 0; }
+button#toggle { background: var(--accent); color:#fff; border:none; border-radius:10px; padding:6px 10px; cursor:pointer; }
+button#toggle:hover { opacity:.9; }
+.row { display:flex; gap:8px; align-items:center; flex-wrap: wrap; margin-bottom:10px; }
+label { color: var(--muted); display:flex; gap:6px; align-items:center; }
+select, input[type="checkbox"] { accent-color: var(--accent); }
+.sliders { display:grid; gap:10px; }
+.slider { background: var(--card); border-radius:12px; padding:8px; }
+.slider label { display:flex; justify-content:space-between; width:100%; }
+input[type="range"] { width:100%; }
+.links { margin-top:10px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }

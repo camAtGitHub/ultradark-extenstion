@@ -1,0 +1,53 @@
+{
+  "manifest_version": 2,
+  "name": "UltraDark Reader",
+  "version": "1.0.0",
+  "description": "High-quality dark mode extension",
+  "browser_action": {
+    "default_title": "UltraDark",
+    "default_popup": "src/popup/index.html"
+  },
+  "options_ui": {
+    "page": "src/options/index.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "scripts": ["src/background/index.js"],
+    "persistent": true
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "alarms",
+    "contextMenus",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/index.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    "assets/storage.js",
+    "assets/regex.js",
+    "assets/optimizer-worker-CdkjHAG0.js"
+  ],
+  "icons": {
+    "48": "src/assets/icons/icon48.png",
+    "96": "src/assets/icons/icon96.png",
+    "128": "src/assets/icons/icon128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{daf44bf7-a45e-4450-979c-91cf07434c3d}",
+      "strict_min_version": "115.0",
+      "data_collection_permissions": {
+        "required": ["none"],
+        "optional": []
+      }
+    }
+  }
+}
