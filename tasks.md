@@ -91,7 +91,7 @@ This is a core feature rewrite to replace the current styling logic with two new
 *   The performance of both algorithms is optimized to avoid introducing input lag or slow page rendering.
 *   The codebase for the algorithms is modular, well-documented, and separated from the main content script logic for maintainability.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 

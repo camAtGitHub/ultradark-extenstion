@@ -5,9 +5,10 @@ import type { Settings } from "../types/settings";
 import { DATA_ATTR_APPLIED } from "../utils/defaults";
 import { getSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
-import { ensureStyleTag, buildCss } from "./style-template";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache, info } from "../utils/logger";
+import { applyArchitectMethod } from "./algorithms/architect";
+import { applySurgeonMethod } from "./algorithms/surgeon";
 
 let activeSettings: Settings | null = null;
 let worker: Worker | null = null;
@@ -34,18 +35,17 @@ async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use:
 }
 
 function applyCss(s: Settings) {
-  const tag = ensureStyleTag();
-  const hueDeg = Math.round((s.blueShift / 100) * 40); // 0..40deg tilt
-
-  tag.textContent = buildCss({
-    brightness: s.brightness,
-    contrast: s.contrast,
-    sepia: s.sepia,
-    grayscale: s.grayscale,
-    hueRotateDeg: hueDeg,
-    amoled: s.amoled,
-    mode: s.mode
-  });
+  debugSync('Applying CSS with mode:', s.mode);
+  
+  if (s.mode === "architect") {
+    applyArchitectMethod(s);
+  } else if (s.mode === "surgeon") {
+    applySurgeonMethod(s);
+  } else {
+    // Fallback to architect for unknown modes
+    debugSync('Unknown mode, falling back to architect');
+    applyArchitectMethod(s);
+  }
 
   document.documentElement.setAttribute("udr-applied", "true");
   (document.documentElement as any)[DATA_ATTR_APPLIED] = "1";
@@ -56,7 +56,15 @@ function removeCss() {
   const tag = document.getElementById("udr-style");
   if (tag?.parentNode) tag.parentNode.removeChild(tag);
   document.documentElement.removeAttribute("udr-applied");
+  document.documentElement.removeAttribute("data-udr-mode");
   (document.documentElement as any)[DATA_ATTR_APPLIED] = "";
+  
+  // Reset inline styles applied by surgeon method
+  if (document.body.style.backgroundColor) {
+    document.body.style.removeProperty('background-color');
+    document.body.style.removeProperty('color');
+  }
+  
   applied = false;
 }
 
@@ -127,7 +135,9 @@ async function tick() {
 
   debugSync('Applying dark theme with mode:', use.mode);
   applyCss(use);
-  if (use.mode === "dynamic") startOptimizerIfEnabled(use);
+  if (use.mode === "architect" && use.optimizerEnabled) {
+    startOptimizerIfEnabled(use);
+  }
 }
 
 browser.runtime.onMessage.addListener((msg) => {

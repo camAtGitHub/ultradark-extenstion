@@ -1,5 +1,5 @@
 // src/types/settings.d.ts
-export type Mode = "dynamic" | "static";
+export type Mode = "architect" | "surgeon";
 export interface Schedule {
   enabled: boolean;
   start: string; // "22:00"
