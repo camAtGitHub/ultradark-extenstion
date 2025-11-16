@@ -194,6 +194,12 @@ function bind() {
       return;
     }
     
+    // Explicitly prevent moz-extension:// and other internal URLs
+    if (tab.url.startsWith("moz-extension://") || tab.url.startsWith("about:") || tab.url.startsWith("chrome://")) {
+      alert("Cannot add override for internal extension/browser pages. Please navigate to a website (http:// or https://) first.");
+      return;
+    }
+    
     // Only allow http:// and https:// URLs
     if (!tab.url.startsWith("http://") && !tab.url.startsWith("https://")) {
       alert(`Cannot add override for ${tab.url.split(":")[0]}: URLs. Only http:// and https:// sites are supported.`);
