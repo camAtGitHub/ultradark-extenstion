@@ -18,7 +18,7 @@ Many modern websites already ship high-quality dark themes. Applying UltraDark R
   * A site with dark background but no explicit dark scheme declaration.
   * A site falsely matching detection heuristics and ensuring overrides work.
 
-**Status:** TODO
+**Status:** DONE
 
 
 # Task UD-2 – Implement New Popup UI from Mockups
