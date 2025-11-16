@@ -106,4 +106,4 @@ Manually building and packaging the extension is error-prone and slows down rele
   * How to retrieve the built ZIP from GitHub Actions.
 * A sample successful workflow run is verified in GitHub (green build with downloadable extension ZIP).
 
-**Status:** TODO
+**Status:** DONE

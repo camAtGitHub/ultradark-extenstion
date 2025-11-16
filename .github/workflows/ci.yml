@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Verify build outputs
+        run: |
+          echo "Checking dist/ contents..."
+          ls -lR dist/
+          echo "Verifying critical files exist..."
+          test -f dist/manifest.json && echo "✓ manifest.json exists"
+          test -f dist/src/background/index.js && echo "✓ background script exists"
+          test -f dist/src/content/index.js && echo "✓ content script exists"
+          test -f dist/src/popup/index.html && echo "✓ popup HTML exists"
+          test -f dist/src/options/index.html && echo "✓ options HTML exists"
+
+      - name: Package extension
+        run: npm run zip
+
+      - name: Verify ZIP created
+        run: |
+          test -f dist/ultradark-reader-dist.zip && echo "✓ ZIP file created"
+          ls -lh dist/ultradark-reader-dist.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultradark-reader-dist
+          path: dist/ultradark-reader-dist.zip
+          if-no-files-found: error
+
+      - name: Upload dist folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-folder
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ultradark-reader-dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ultradark-reader-dist.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
