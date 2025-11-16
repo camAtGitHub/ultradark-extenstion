@@ -2,8 +2,15 @@
 /// <reference types="web-ext-types" />
 import { getSettings, setSettings, updateSettings, originFromUrl } from "../utils/storage";
 import { applyScheduleTick } from "./scheduler";
+import { debugSync, initDebugCache, info } from "../utils/logger";
+
+(async () => {
+  await initDebugCache();
+  debugSync('Background script initialized');
+})();
 
 browser.runtime.onInstalled.addListener(() => {
+  info('Extension installed/updated');
   // Initialize context menus
   browser.contextMenus.create({
     id: "udr-toggle-site",
@@ -21,12 +28,16 @@ browser.runtime.onInstalled.addListener(() => {
 });
 
 browser.alarms.onAlarm.addListener((a) => {
-  if (a.name === "udr-schedule") applyScheduleTick();
+  if (a.name === "udr-schedule") {
+    debugSync('Running schedule check');
+    applyScheduleTick();
+  }
 });
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab?.url) return;
   const origin = originFromUrl(tab.url);
+  debugSync('Context menu clicked:', info.menuItemId, 'for', origin);
   const s = await getSettings();
   s.perSite[origin] ||= {};
   if (info.menuItemId === "udr-toggle-site") {
@@ -44,6 +55,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     return getSettings();
   }
   if (msg?.type === "udr:set-settings") {
+    debugSync('Settings updated via message');
     await setSettings(msg.payload);
     // Inform active tab to re-apply
     if (sender?.tab?.id) {
@@ -51,6 +63,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     }
   }
   if (msg?.type === "udr:update-settings") {
+    debugSync('Settings patched via message');
     await updateSettings(msg.payload);
     if (sender?.tab?.id) {
       browser.tabs.sendMessage(sender.tab.id, { type: "udr:settings-updated" }).catch(() => {});
