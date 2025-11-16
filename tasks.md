@@ -1,109 +1,113 @@
-# Task UD-1 – Detect Native Dark Sites and Avoid Double Dark-Theming
-
-**Priority:** HIGH
-
-**Goal / Why:**
-Many modern websites already ship high-quality dark themes. Applying UltraDark Reader on top can cause unreadable contrast, color distortions, and user frustration. Automatically detecting when a site is already dark and disabling UltraDark (unless overridden) improves readability and perceived quality.
-
-**Expected Outcome / Acceptance Criteria:**
-
-* UltraDark detects whether the current site is already using a dark theme (e.g., via `prefers-color-scheme: dark`, average background luminance, or heuristics).
-* If a site is detected as “already dark”, UltraDark’s dark mode is **not** applied by default.
-* A per-site override allows users to force UltraDark on dark sites and to disable detection logic for that site.
-* Detection logic does **not** significantly slow down page load or cause noticeable flicker when toggling.
-* No regression: sites that are light-themed continue to get UltraDark applied as before.
-* Manual QA verifies behavior on at least 5 known dark sites (e.g., GitHub dark mode, YouTube dark, Reddit dark, etc.) and 5 light sites.
-* Unit/functional tests cover:
-  * A site declaring `prefers-color-scheme: dark`.
-  * A site with dark background but no explicit dark scheme declaration.
-  * A site falsely matching detection heuristics and ensuring overrides work.
-
-**Status:** DONE
-
-
-# Task UD-2 – Implement New Popup UI from Mockups
-
-**Priority:** HIGH
-
-**Goal / Why:**
-The current popup UI is functional but clunky and confusing. Implementing a new design based on `mockup/UltraDark-MockUp-popup.html` and `mockup/UltraReader-Mockup-Options_and_regex.html` will improve usability, discoverability of features, and overall polish of the extension.
-
-**Expected Outcome / Acceptance Criteria:**
-
-* The popup UI layout and styling match the intent of `mockup/UltraDark-MockUp-popup.html` for the main view and `mockup/UltraReader-Mockup-Options_and_regex.html` for the secondary/options view (within reasonable platform constraints).
-* The popup supports navigation between:
-  * Main control view (on/off, quick actions).
-  * Options/regex/advanced settings view.
-* All existing popup functionality (on/off toggle, per-site overrides access, regex exclusions access, etc.) remains available in the new UI.
-* Popup UI remains responsive and usable at typical Firefox popup sizes, without horizontal scrollbars.
-* UI elements are keyboard accessible (tab order logical, focus styles visible, Space/Enter works on interactive elements).
-* All text and controls are accessible (sufficient contrast, ARIA roles where needed, screen-reader friendly labels).
-* No console errors or uncaught exceptions are produced by opening or interacting with the popup.
-* Manual QA confirms that existing users can still perform all prior key actions (turning extension on/off, managing site overrides, editing regexes) without confusion.
-
-**Status:** DONE
-
-
-# Task UD-3 – Fix Per-Site Overrides & Regex Options UX Issues in Popup
-
-**Priority:** HIGH
-
-**Goal / Why:**
-The old “options and regex” popup screen contains multiple UX and logic issues (bad handling of `moz-extension` URLs, no way to remove overrides, confusing enabled/exclude toggles, unnecessary “Save” button, and visible test result placeholder). Fixing these in the new design reduces errors and makes configuration intuitive.
-
-**Expected Outcome / Acceptance Criteria:**
-
-* Per-site override creation:
-  * “Refresh current site” (or equivalent add-site action) **never** adds URLs that don’t start with `http://` or `https://`.
-  * Pages with schemes like `moz-extension://`, `about:`, `file://`, etc. are **not** eligible for per-site overrides.
-* Per-site override removal:
-  * Each per-site entry has a clear way to delete/remove it (e.g., trash icon or dedicated “Remove” action).
-  * Removing an entry updates both the UI and stored configuration immediately (no reload required).
-* Mutually exclusive enable/exclude:
-  * Per-site settings use a mutually exclusive control (radio buttons, segmented control, or slider) rather than independent checkboxes.
-  * States and wording are clarified; for example:
-    * “Always on” / “Disabled on this site”, or
-    * “Use UltraDark” / “Exclude from UltraDark”.
-  * Only one state can be active at a time for a given site.
-* Autosave behavior:
-  * All changes to per-site settings (enable/exclude state, removal, additions) are autosaved without requiring a separate “Save” button.
-  * There is no visible “Save” button; existing “Save” controls are removed or disabled.
-  * Autosave feedback is provided where appropriate (e.g., slight visual confirmation or disabled state after change).
-* Regex test result visibility:
-  * The `div#testResult.badge` (or equivalent result indicator) is **hidden on initial load** when no test has been run.
-  * The result badge only appears after a user runs a regex test and shows a clear “match / no match / error” state.
-* On/Off toggle clarity:
-  * Global on/off is represented by a clear slider/toggle indicating two distinct states (e.g., “On | Off”).
-  * The toggle is visually obvious as interactive and not just static text.
-* Testing:
-  * Manual QA verifies all 6 issues in the original list are resolved in the new popup design.
-  * Automated tests (where feasible) confirm:
-    * `moz-extension://` and other non-HTTP(S) schemes are not added as per-site overrides.
-    * Site removal and state toggling persist across popup reopen and browser restart.
-
-**Status:** DONE
-
-
-# Task UD-4 – Set Up GitHub CI Pipeline to Build and Test Extension
+# Task 1 - Add Toggleable Debug Logging
 
 **Priority:** MEDIUM
 
 **Goal / Why:**
-Manually building and packaging the extension is error-prone and slows down releases. A GitHub-based build pipeline with tests ensures consistent builds, catches breakages early, and produces a ready-to-upload ZIP for AMO.
+To embed a robust, toggleable logging system throughout the extension's codebase. This will streamline future debugging, help diagnose user-reported issues without impacting general performance, and provide clear insight into the extension's runtime behavior.
 
 **Expected Outcome / Acceptance Criteria:**
 
-* A GitHub Actions workflow (or equivalent CI config) is added to the repository under `.github/workflows/`.
-* On pushes to `main` and on pull requests:
-  * CI installs dependencies (e.g., `npm install` / `pnpm install` / `yarn install` depending on repo).
-  * CI runs the existing test suite (unit/integration/linters). Builds fail if tests fail.
-  * CI runs the build script that produces the `dist/` folder.
-* A CI step packages the final `dist/` tree into a ZIP file suitable for Firefox/AMO submission.
-* Build artifacts (ZIP and optionally `dist/`) are uploaded as workflow artifacts for download from the GitHub Actions run.
-* The workflow is parameterized so version/tag builds (e.g., pushing a tag `vX.Y.Z`) also run the pipeline and produce artifacts.
-* Documentation is added/updated (`README` or `CONTRIBUTING`) explaining:
-  * How the CI pipeline works.
-  * How to retrieve the built ZIP from GitHub Actions.
-* A sample successful workflow run is verified in GitHub (green build with downloadable extension ZIP).
+*   A centralized logging utility is created and used for all debug messages.
+*   Logging can be enabled or disabled via a developer-facing switch in the extension's options UI.
+*   This setting is persisted in `storage.local` (e.g., `isDebugMode: true/false`).
+*   When disabled, no debug messages should appear in the console.
+*   Key events are logged, including: content script injection, algorithm selection and application, messages passed between scripts, and error states.
+*   Log messages are prefixed for easy filtering (e.g., `[UltraDark Reader]`).
 
-**Status:** DONE
+**Status:** TODO
+
+***
+
+# Task 2 - Resolve Popup UI and 'Refresh Site' Logic Issues
+
+**Priority:** HIGH
+
+**Goal / Why:**
+The current popup UI has critical logic flaws that create a confusing and broken user experience. This task aims to fix the 'Refresh Current Site' button's incorrect targeting and improve the UI's clarity, making it intuitive and functional.
+
+**Expected Outcome / Acceptance Criteria:**
+
+*   The 'Refresh Current Site' button, when clicked from the options page, must correctly identify the active user-facing website, not the internal `moz-extension://` page.
+*   Applying per-site settings via this button must add the correct domain (e.g., `example.com`) to the overrides list.
+*   The system must explicitly prevent `moz-extension://` URLs from being added to the site list.
+*   The main on/off slider in the initial popup view must be accompanied by a clear, descriptive label (e.g., "Global Dark Mode").
+
+**Status:** TODO
+
+***
+
+# Task 3 - Improve Detection of Native Dark Themes
+
+**Priority:** HIGH
+
+**Goal / Why:**
+To prevent the extension from applying its theme on top of websites that already provide a functional native dark mode. This avoids CSS conflicts, visual degradation, and respects the user's choice when a site-specific dark theme is enabled.
+
+**Expected Outcome / Acceptance Criteria:**
+
+*   The content script must run a check to detect pre-existing dark themes before applying its own styles.
+*   Detection logic should check for common patterns like a `dark` class or `data-theme="dark"` attribute on the `<html>` or `<body>` elements AND if they are active.
+*   If a native dark theme is detected, the extension's styling is automatically disabled for that page load.
+*   Users must be able to manually override this detection and force-enable the theme via the per-site settings.
+*   When debug logging is enabled, a message is printed to the console indicating that a native theme was detected and styling was skipped.
+
+**Status:** TODO
+
+***
+
+# Task 4 - Implement 'Reset to Defaults' for Settings
+
+**Priority:** MEDIUM
+
+**Goal / Why:**
+To provide users with a straightforward way to revert all custom configurations to the extension's original state. This improves usability by offering a simple recovery method for users who may have misconfigured their settings.
+
+**Expected Outcome / Acceptance Criteria:**
+
+*   A "Reset All Settings to Default" button is added to the extension's options page.
+*   Clicking the button must trigger a confirmation dialog (e.g., "Are you sure?") to prevent accidental data loss.
+*   Upon confirmation, all user-configured settings stored in `storage.local` (per-site rules, algorithm choice, etc.) are cleared and restored to their initial default values.
+*   The options page UI immediately reflects the reset default state.
+*   Any open tabs are re-themed to reflect the default settings upon reload.
+
+**Status:** TODO
+
+***
+
+
+# Task 5 - Rewrite and Implement Dual Dark Mode Algorithms
+
+**Priority:** CRITICAL
+
+**Goal / Why:**
+This is a core feature rewrite to replace the current styling logic with two new, superior dark mode algorithms. This will provide users with more choice, better results across a wider variety of websites, and forms the foundation of the extension's value.
+
+**Expected Outcome / Acceptance Criteria:**
+
+*   Follow the designed specifications for "Algorithm A" and "Algorithm B" as outlined in the design document `consultant_recommendations/algo-rewrite.md` (needs better names than A and B). 
+*   The two new, distinct dark mode algorithms are fully implemented and can be applied by the content script.
+*   The options page includes a setting for the user to choose between "Algorithm A" and "Algorithm B" as the global default.
+*   The selected algorithm is correctly applied on page load and during dynamic DOM updates.
+*   The performance of both algorithms is optimized to avoid introducing input lag or slow page rendering.
+*   The codebase for the algorithms is modular, well-documented, and separated from the main content script logic for maintainability.
+
+**Status:** TODO
+
+***
+
+# Task 6 - Eliminate 'Flash of Unstyled Content' (FOUC) on Load
+
+**Priority:** HIGH
+
+**Goal / Why:**
+The brief "flash" of a white page before the dark theme loads creates a jarring and unprofessional user experience. This task aims to eliminate that flash, ensuring a smooth, seamless transition into dark mode from the very start of page navigation.
+
+**Expected Outcome / Acceptance Criteria:**
+
+*   The manifest (`manifest.json`) is configured to inject the primary content script at `document_start`.
+*   A minimal, high-priority CSS block is injected instantly to apply a dark background color to the `<html>` and `<body>` elements, preventing the white flash.
+*   The full, more complex styling from the main algorithm is applied subsequently without causing a visual flicker.
+*   The solution is tested on a slow network connection (throttled) to confirm its effectiveness.
+*   Manual QA on a clean profile shows no white flash on at least 5 different complex websites (e.g., Wikipedia, news sites, etc.).
+
+**Status:** TODO
