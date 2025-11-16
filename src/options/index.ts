@@ -8,6 +8,10 @@ const $ = (s: string) => document.querySelector(s) as HTMLElement;
 async function loadAndReflect() {
   const s = await getSettings();
 
+  // Load debug mode setting from local storage
+  const debugModeResult = await browser.storage.local.get('isDebugMode');
+  (document.getElementById("debugMode") as HTMLInputElement).checked = debugModeResult.isDebugMode === true;
+
   (document.getElementById("schedEnabled") as HTMLInputElement).checked = s.schedule.enabled;
   (document.getElementById("schedStart") as HTMLInputElement).value = s.schedule.start;
   (document.getElementById("schedEnd") as HTMLInputElement).value = s.schedule.end;
@@ -132,6 +136,22 @@ function showFeedback(element: HTMLElement, message: string) {
 }
 
 function bind() {
+  // Debug mode toggle
+  const debugMode = document.getElementById("debugMode") as HTMLInputElement;
+  debugMode.onchange = async () => {
+    await browser.storage.local.set({ isDebugMode: debugMode.checked });
+    // Notify all tabs that debug mode changed
+    const tabs = await browser.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id) {
+        browser.tabs.sendMessage(tab.id, { 
+          type: "udr:debug-mode-changed", 
+          enabled: debugMode.checked 
+        }).catch(() => {}); // Ignore errors for tabs without content script
+      }
+    }
+  };
+
   const schedEnabled = document.getElementById("schedEnabled") as HTMLInputElement;
   const schedStart = document.getElementById("schedStart") as HTMLInputElement;
   const schedEnd = document.getElementById("schedEnd") as HTMLInputElement;

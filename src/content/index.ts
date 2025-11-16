@@ -2,18 +2,21 @@
 import WorkerUrl from "./optimizer-worker?worker&url";
 
 import type { Settings } from "../types/settings";
-import { DEFAULTS, DATA_ATTR_APPLIED } from "../utils/defaults";
+import { DATA_ATTR_APPLIED } from "../utils/defaults";
 import { getSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
 import { ensureStyleTag, buildCss } from "./style-template";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
+import { debugSync, initDebugCache, updateDebugCache, info } from "../utils/logger";
 
 let activeSettings: Settings | null = null;
 let worker: Worker | null = null;
 let applied = false;
-let lastAppliedOrigin = "";
 
-console.log('UltraDark Reader: content script started to load');
+(async () => {
+  await initDebugCache();
+  debugSync('content script started to load');
+})();
 
 async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use: Settings; excluded: boolean }> {
   const origin = new URL(url).origin;
@@ -104,10 +107,10 @@ async function tick() {
   activeSettings = use;
 
   const origin = new URL(location.href).origin;
-  lastAppliedOrigin = origin;
 
   // Check if should skip due to exclusion
   if (!use.enabled || excluded) {
+    debugSync('Skipping - extension disabled or URL excluded:', location.href);
     if (applied) removeCss();
     return;
   }
@@ -117,18 +120,23 @@ async function tick() {
   const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
   
   if (shouldDetectDark && isAlreadyDarkTheme()) {
-    console.log('UltraDark Reader: Site already uses dark theme, skipping');
+    debugSync('Site already uses dark theme, skipping');
     if (applied) removeCss();
     return;
   }
 
+  debugSync('Applying dark theme with mode:', use.mode);
   applyCss(use);
   if (use.mode === "dynamic") startOptimizerIfEnabled(use);
 }
 
 browser.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "udr:settings-updated") {
+    debugSync('Settings updated, reapplying theme');
     tick();
+  } else if (msg?.type === "udr:debug-mode-changed") {
+    // Update debug cache when debug mode changes
+    updateDebugCache(msg.enabled);
   }
 });
 
@@ -137,4 +145,4 @@ browser.runtime.onMessage.addListener((msg) => {
   startObserverForSpa();
 })();
 
-console.log('UltraDark Reader: content script loaded as module');
+debugSync('content script loaded as module');

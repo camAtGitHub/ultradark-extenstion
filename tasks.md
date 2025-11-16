@@ -14,7 +14,7 @@ To embed a robust, toggleable logging system throughout the extension's codebase
 *   Key events are logged, including: content script injection, algorithm selection and application, messages passed between scripts, and error states.
 *   Log messages are prefixed for easy filtering (e.g., `[UltraDark Reader]`).
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
