@@ -1,7 +1,7 @@
 # Copilot Coding Agent — Onboarding Instructions
 
 **Project:** UltraDark Reader — Firefox dark-mode WebExtension
-**Platform / Target:** Firefox (desktop Windows), Firefox for Android optional
+**Platform / Target:** Firefox (Windows x64 Only)
 **Stack:** Vite, TypeScript, esbuild, vanilla WebExtension APIs (MV2), minimal front-end (popup/options), Web Worker for optimizer
 
 ---
