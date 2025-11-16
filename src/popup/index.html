@@ -8,50 +8,100 @@
     <link href="./style.css" rel="stylesheet" />
   </head>
   <body>
-    <main>
-      <header>
-        <h1>UltraDark</h1>
-        <button id="toggle">On</button>
-      </header>
-
-      <section class="row">
-        <label>Mode
-          <select id="mode">
-            <option value="dynamic">Dynamic</option>
-            <option value="static">Static</option>
-          </select>
+    <main class="popup-container">
+      <div class="popup-header">
+        <div>
+          <h1 class="popup-title">UltraDark Reader</h1>
+          <p class="popup-subtitle">Dark mode controller</p>
+        </div>
+        <label class="switch main-switch">
+          <input type="checkbox" id="toggle" />
+          <span class="track"></span>
         </label>
-        <label><input type="checkbox" id="amoled" /> AMOLED</label>
-        <label><input type="checkbox" id="optimizer" /> Contrast Optimizer</label>
-        <label><input type="checkbox" id="detectDark" /> Skip dark sites</label>
-      </section>
+      </div>
 
-      <section class="sliders">
-        <div class="slider">
-          <label>Brightness <span id="briV"></span></label>
-          <input id="brightness" type="range" min="50" max="120" />
+      <div class="mode-selector">
+        <span class="mode-label">Mode</span>
+        <div class="mode-buttons">
+          <button type="button" class="mode-btn" data-mode="static">Static</button>
+          <button type="button" class="mode-btn" data-mode="dynamic">Dynamic</button>
         </div>
-        <div class="slider">
-          <label>Contrast <span id="conV"></span></label>
-          <input id="contrast" type="range" min="50" max="200" />
-        </div>
-        <div class="slider">
-          <label>Sepia <span id="sepV"></span></label>
-          <input id="sepia" type="range" min="0" max="100" />
-        </div>
-        <div class="slider">
-          <label>Grayscale <span id="gryV"></span></label>
-          <input id="grayscale" type="range" min="0" max="100" />
-        </div>
-        <div class="slider">
-          <label>Blue shift <span id="bluV"></span></label>
-          <input id="blueShift" type="range" min="0" max="100" />
-        </div>
-      </section>
+      </div>
 
-      <section class="links">
-        <a id="openOptions" href="#">Options & Regex</a>
-      </section>
+      <div class="toggles-row">
+        <div class="toggle">
+          <div class="toggle-text">
+            <span class="toggle-label">AMOLED mode</span>
+            <span class="toggle-caption">Use true black for panels</span>
+          </div>
+          <label class="switch small">
+            <input type="checkbox" id="amoled" />
+            <span class="track"></span>
+          </label>
+        </div>
+        <div class="toggle">
+          <div class="toggle-text">
+            <span class="toggle-label">Contrast optimizer</span>
+            <span class="toggle-caption">Improve readability</span>
+          </div>
+          <label class="switch small">
+            <input type="checkbox" id="optimizer" />
+            <span class="track"></span>
+          </label>
+        </div>
+        <div class="toggle">
+          <div class="toggle-text">
+            <span class="toggle-label">Skip dark sites</span>
+            <span class="toggle-caption">Auto-detect existing dark themes</span>
+          </div>
+          <label class="switch small">
+            <input type="checkbox" id="detectDark" />
+            <span class="track"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="sliders">
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Brightness</span>
+            <span class="slider-value" id="briV"></span>
+          </div>
+          <input type="range" id="brightness" min="50" max="120" />
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Contrast</span>
+            <span class="slider-value" id="conV"></span>
+          </div>
+          <input type="range" id="contrast" min="50" max="200" />
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Sepia</span>
+            <span class="slider-value" id="sepV"></span>
+          </div>
+          <input type="range" id="sepia" min="0" max="100" />
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Grayscale</span>
+            <span class="slider-value" id="gryV"></span>
+          </div>
+          <input type="range" id="grayscale" min="0" max="100" />
+        </div>
+        <div class="slider-row">
+          <div class="slider-label">
+            <span>Blue shift</span>
+            <span class="slider-value" id="bluV"></span>
+          </div>
+          <input type="range" id="blueShift" min="0" max="100" />
+        </div>
+      </div>
+
+      <div class="popup-footer">
+        <a href="#" id="openOptions" class="more-link">More options</a>
+      </div>
     </main>
     <script type="module" src="./index.ts"></script>
   </body>
