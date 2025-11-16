@@ -239,6 +239,42 @@ function bind() {
     await setSettings(s);
     renderSiteList(await getSettings());
   };
+
+  // Reset all settings to defaults
+  (document.getElementById("resetSettings") as HTMLButtonElement).onclick = async () => {
+    const confirmed = confirm(
+      "Are you sure you want to reset ALL settings to defaults?\n\n" +
+      "This will:\n" +
+      "• Clear all per-site overrides\n" +
+      "• Remove all regex exclusions\n" +
+      "• Restore default theme settings\n" +
+      "• Keep debug mode setting\n\n" +
+      "This action cannot be undone."
+    );
+    
+    if (!confirmed) return;
+
+    // Import DEFAULTS from defaults.ts
+    const { DEFAULTS } = await import("../utils/defaults");
+    
+    // Reset sync storage to defaults
+    await setSettings(DEFAULTS);
+    
+    // Reload the UI to reflect changes
+    await loadAndReflect();
+    
+    // Notify all tabs to update
+    const tabs = await browser.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id) {
+        browser.tabs.sendMessage(tab.id, { 
+          type: "udr:settings-updated"
+        }).catch(() => {});
+      }
+    }
+    
+    alert("Settings have been reset to defaults. All tabs will be refreshed with the default theme.");
+  };
 }
 
 loadAndReflect();

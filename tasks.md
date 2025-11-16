@@ -70,7 +70,7 @@ To provide users with a straightforward way to revert all custom configurations 
 *   The options page UI immediately reflects the reset default state.
 *   Any open tabs are re-themed to reflect the default settings upon reload.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
