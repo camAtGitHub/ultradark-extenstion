@@ -166,3 +166,18 @@ button:focus {
   opacity: 1;
   transition: opacity 0.2s;
 }
+
+/* Danger button */
+.danger-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+.danger-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  opacity: 1;
+}
+.danger-btn:focus {
+  outline: 2px solid var(--error);
+  outline-offset: 2px;
+}
