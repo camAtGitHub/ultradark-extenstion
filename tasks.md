@@ -41,7 +41,7 @@ The current popup UI is functional but clunky and confusing. Implementing a new 
 * No console errors or uncaught exceptions are produced by opening or interacting with the popup.
 * Manual QA confirms that existing users can still perform all prior key actions (turning extension on/off, managing site overrides, editing regexes) without confusion.
 
-**Status:** TODO
+**Status:** DONE
 
 
 # Task UD-3 – Fix Per-Site Overrides & Regex Options UX Issues in Popup

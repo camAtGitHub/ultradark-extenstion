@@ -3,15 +3,16 @@ import type { Settings } from "../types/settings";
 import { getSettings, setSettings } from "../utils/storage";
 
 const $ = (sel: string) => document.querySelector(sel) as HTMLElement;
+const $$ = (sel: string) => document.querySelectorAll(sel);
 
 async function init() {
   const s = await getSettings();
   // Bind controls
-  const toggle = $("#toggle") as HTMLButtonElement;
+  const toggle = $("#toggle") as HTMLInputElement;
   const amoled = $("#amoled") as HTMLInputElement;
   const optimizer = $("#optimizer") as HTMLInputElement;
   const detectDark = $("#detectDark") as HTMLInputElement;
-  const mode = $("#mode") as HTMLSelectElement;
+  const modeButtons = $$(".mode-btn");
 
   const brightness = $("#brightness") as HTMLInputElement;
   const contrast = $("#contrast") as HTMLInputElement;
@@ -19,46 +20,93 @@ async function init() {
   const grayscale = $("#grayscale") as HTMLInputElement;
   const blueShift = $("#blueShift") as HTMLInputElement;
 
-  const briV = $("#briV"), conV = $("#conV"), sepV = $("#sepV"), gryV = $("#gryV"), bluV = $("#bluV");
+  const briV = $("#briV"),
+    conV = $("#conV"),
+    sepV = $("#sepV"),
+    gryV = $("#gryV"),
+    bluV = $("#bluV");
 
   function reflect(st: Settings) {
-    toggle.textContent = st.enabled ? "On" : "Off";
+    toggle.checked = st.enabled;
     amoled.checked = st.amoled;
     optimizer.checked = st.optimizerEnabled;
     detectDark.checked = st.detectDarkSites;
-    mode.value = st.mode;
+
+    // Update mode buttons
+    modeButtons.forEach((btn) => {
+      const mode = (btn as HTMLElement).dataset.mode;
+      if (mode === st.mode) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+
     brightness.value = String(st.brightness);
     contrast.value = String(st.contrast);
     sepia.value = String(st.sepia);
     grayscale.value = String(st.grayscale);
     blueShift.value = String(st.blueShift);
-    briV.textContent = `${st.brightness}%`; conV.textContent = `${st.contrast}%`; sepV.textContent = `${st.sepia}%`; gryV.textContent = `${st.grayscale}%`; bluV.textContent = `${st.blueShift}%`;
+    briV.textContent = `${st.brightness}%`;
+    conV.textContent = `${st.contrast}%`;
+    sepV.textContent = `${st.sepia}%`;
+    gryV.textContent = `${st.grayscale}%`;
+    bluV.textContent = `${st.blueShift}%`;
+
+    // Update slider backgrounds
+    updateSliderBackground(brightness, st.brightness, 50, 120);
+    updateSliderBackground(contrast, st.contrast, 50, 200);
+    updateSliderBackground(sepia, st.sepia, 0, 100);
+    updateSliderBackground(grayscale, st.grayscale, 0, 100);
+    updateSliderBackground(blueShift, st.blueShift, 0, 100);
+  }
+
+  function updateSliderBackground(slider: HTMLInputElement, value: number, min: number, max: number) {
+    const percent = ((value - min) / (max - min)) * 100;
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    const track = getComputedStyle(document.documentElement).getPropertyValue("--slider-track").trim();
+    slider.style.background = `linear-gradient(to right, ${accent} 0%, ${accent} ${percent}%, ${track} ${percent}%, ${track} 100%)`;
   }
 
   reflect(s);
 
-  toggle.onclick = async () => {
-    s.enabled = !s.enabled;
+  toggle.onchange = async () => {
+    s.enabled = toggle.checked;
     reflect(s);
     await setSettings(s);
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
   };
 
-  function bindRange(el: HTMLInputElement, key: keyof Settings, label: HTMLElement) {
+  // Mode button click handler
+  modeButtons.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const mode = (btn as HTMLElement).dataset.mode as Settings["mode"];
+      if (mode && mode !== s.mode) {
+        s.mode = mode;
+        reflect(s);
+        await setSettings(s);
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
+      }
+    });
+  });
+
+  function bindRange(el: HTMLInputElement, key: keyof Settings, label: HTMLElement, min: number, max: number) {
     el.oninput = async () => {
+      const value = Number(el.value);
       // @ts-expect-error - Settings type allows numeric values for slider keys
-      s[key] = Number(el.value);
-      label.textContent = `${el.value}%`;
+      s[key] = value;
+      label.textContent = `${value}%`;
+      updateSliderBackground(el, value, min, max);
       await setSettings(s);
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
     };
   }
 
-  amoled.onchange = mode.onchange = optimizer.onchange = detectDark.onchange = async () => {
+  amoled.onchange = optimizer.onchange = detectDark.onchange = async () => {
     s.amoled = amoled.checked;
-    s.mode = mode.value as Settings["mode"];
     s.optimizerEnabled = optimizer.checked;
     s.detectDarkSites = detectDark.checked;
     await setSettings(s);
@@ -66,11 +114,11 @@ async function init() {
     if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
   };
 
-  bindRange(brightness, "brightness", briV);
-  bindRange(contrast, "contrast", conV);
-  bindRange(sepia, "sepia", sepV);
-  bindRange(grayscale, "grayscale", gryV);
-  bindRange(blueShift, "blueShift", bluV);
+  bindRange(brightness, "brightness", briV, 50, 120);
+  bindRange(contrast, "contrast", conV, 50, 200);
+  bindRange(sepia, "sepia", sepV, 0, 100);
+  bindRange(grayscale, "grayscale", gryV, 0, 100);
+  bindRange(blueShift, "blueShift", bluV, 0, 100);
 
   $("#openOptions").addEventListener("click", (e) => {
     e.preventDefault();
