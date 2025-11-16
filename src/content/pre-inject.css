@@ -1,0 +1,8 @@
+/* Minimal pre-injection CSS to prevent Flash of Unstyled Content (FOUC)
+   Applied immediately at document_start to avoid white flash */
+
+html,
+body {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+}
