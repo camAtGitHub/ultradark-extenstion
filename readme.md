@@ -79,6 +79,39 @@ npm run zip
 
 ---
 
+## CI/CD Pipeline
+
+This repository includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automatically:
+
+* **Runs on**: Pushes to `main`/`master`, pull requests, and version tags (`v*.*.*`)
+* **Build steps**:
+  1. Installs dependencies via `npm ci`
+  2. Runs linter (`npm run lint`)
+  3. Runs test suite (`npm run test`)
+  4. Builds the extension (`npm run build`)
+  5. Verifies critical files exist in `dist/`
+  6. Packages the extension into a ZIP file (`npm run zip`)
+* **Artifacts**: Uploads both the ZIP file and the full `dist/` folder as workflow artifacts
+* **Releases**: When a tag matching `v*.*.*` is pushed, automatically creates a GitHub release with the extension ZIP attached
+
+### Retrieving Built Extension
+
+1. Navigate to the **Actions** tab in GitHub
+2. Click on the latest successful workflow run
+3. Download the `ultradark-reader-dist` artifact (contains the ZIP file ready for AMO submission)
+
+### Creating a Release
+
+To trigger an automated release:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The CI will build, test, and create a GitHub release with the packaged extension ZIP.
+
+---
+
 ## Contributing
 
 * Code style: ESLint + Prettier
