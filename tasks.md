@@ -81,7 +81,7 @@ The old “options and regex” popup screen contains multiple UX and logic issu
     * `moz-extension://` and other non-HTTP(S) schemes are not added as per-site overrides.
     * Site removal and state toggling persist across popup reopen and browser restart.
 
-**Status:** TODO
+**Status:** DONE
 
 
 # Task UD-4 – Set Up GitHub CI Pipeline to Build and Test Extension
