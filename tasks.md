@@ -1,4 +1,3 @@
-```markdown
 # Task UD-1 – Detect Native Dark Sites and Avoid Double Dark-Theming
 
 **Priority:** HIGH
@@ -108,5 +107,3 @@ Manually building and packaging the extension is error-prone and slows down rele
 * A sample successful workflow run is verified in GitHub (green build with downloadable extension ZIP).
 
 **Status:** TODO
-```
-
