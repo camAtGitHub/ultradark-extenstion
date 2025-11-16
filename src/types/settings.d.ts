@@ -9,6 +9,7 @@ export interface SiteOverride {
   enabled?: boolean;
   exclude?: boolean;
   override?: Partial<Settings>;
+  forceDarkMode?: boolean; // Force UltraDark even if site is detected as dark
 }
 export interface Settings {
   enabled: boolean;
@@ -20,6 +21,7 @@ export interface Settings {
   grayscale: number;  // 0..100 (%)
   blueShift: number;  // 0..100 (%) -> hue rotation scaled internally
   optimizerEnabled: boolean;
+  detectDarkSites: boolean; // Auto-detect if sites are already dark
   perSite: Record<string, SiteOverride>;
   excludeRegex: string[];
   schedule: Schedule;

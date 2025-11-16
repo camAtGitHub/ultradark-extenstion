@@ -6,6 +6,7 @@ import { DEFAULTS, DATA_ATTR_APPLIED } from "../utils/defaults";
 import { getSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
 import { ensureStyleTag, buildCss } from "./style-template";
+import { isAlreadyDarkTheme } from "../utils/dark-detection";
 
 let activeSettings: Settings | null = null;
 let worker: Worker | null = null;
@@ -105,10 +106,22 @@ async function tick() {
   const origin = new URL(location.href).origin;
   lastAppliedOrigin = origin;
 
+  // Check if should skip due to exclusion
   if (!use.enabled || excluded) {
     if (applied) removeCss();
     return;
   }
+
+  // Check if site is already dark (unless forceDarkMode is set for this site)
+  const per = use.perSite[origin] || {};
+  const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
+  
+  if (shouldDetectDark && isAlreadyDarkTheme()) {
+    console.log('UltraDark Reader: Site already uses dark theme, skipping');
+    if (applied) removeCss();
+    return;
+  }
+
   applyCss(use);
   if (use.mode === "dynamic") startOptimizerIfEnabled(use);
 }

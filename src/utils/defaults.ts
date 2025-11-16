@@ -11,6 +11,7 @@ export const DEFAULTS: Settings = {
   grayscale: 0,
   blueShift: 0,
   optimizerEnabled: true,
+  detectDarkSites: true, // Auto-detect dark sites by default
   perSite: {},
   excludeRegex: [],
   schedule: { enabled: false, start: "21:00", end: "07:00" }

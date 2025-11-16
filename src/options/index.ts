@@ -33,6 +33,7 @@ function renderSiteList(s: Settings) {
       <code style="flex:1 1 auto">${origin}</code>
       <label><input type="checkbox" data-k="enabled" ${conf.enabled ? "checked": ""}/> enabled</label>
       <label><input type="checkbox" data-k="exclude" ${conf.exclude ? "checked": ""}/> exclude</label>
+      <label><input type="checkbox" data-k="forceDarkMode" ${conf.forceDarkMode ? "checked": ""}/> force on dark</label>
       <button class="save" data-origin="${origin}">Save</button>
     `;
     container.appendChild(row);
@@ -40,10 +41,12 @@ function renderSiteList(s: Settings) {
     row.querySelector(".save")!.addEventListener("click", async () => {
       const enabled = (row.querySelector('input[data-k="enabled"]') as HTMLInputElement).checked;
       const exclude = (row.querySelector('input[data-k="exclude"]') as HTMLInputElement).checked;
+      const forceDarkMode = (row.querySelector('input[data-k="forceDarkMode"]') as HTMLInputElement).checked;
       const st = await getSettings();
       st.perSite[origin] ||= {};
       st.perSite[origin].enabled = enabled;
       st.perSite[origin].exclude = exclude;
+      st.perSite[origin].forceDarkMode = forceDarkMode;
       await setSettings(st);
       (document.getElementById("sites") as HTMLElement).insertAdjacentHTML("beforeend", `<div class="hint">Saved ${origin}</div>`);
     });

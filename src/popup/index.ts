@@ -10,6 +10,7 @@ async function init() {
   const toggle = $("#toggle") as HTMLButtonElement;
   const amoled = $("#amoled") as HTMLInputElement;
   const optimizer = $("#optimizer") as HTMLInputElement;
+  const detectDark = $("#detectDark") as HTMLInputElement;
   const mode = $("#mode") as HTMLSelectElement;
 
   const brightness = $("#brightness") as HTMLInputElement;
@@ -24,6 +25,7 @@ async function init() {
     toggle.textContent = st.enabled ? "On" : "Off";
     amoled.checked = st.amoled;
     optimizer.checked = st.optimizerEnabled;
+    detectDark.checked = st.detectDarkSites;
     mode.value = st.mode;
     brightness.value = String(st.brightness);
     contrast.value = String(st.contrast);
@@ -54,10 +56,11 @@ async function init() {
     };
   }
 
-  amoled.onchange = mode.onchange = optimizer.onchange = async () => {
+  amoled.onchange = mode.onchange = optimizer.onchange = detectDark.onchange = async () => {
     s.amoled = amoled.checked;
     s.mode = mode.value as Settings["mode"];
     s.optimizerEnabled = optimizer.checked;
+    s.detectDarkSites = detectDark.checked;
     await setSettings(s);
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
