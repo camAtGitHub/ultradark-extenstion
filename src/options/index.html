@@ -13,7 +13,10 @@
 
       <section class="card">
         <h2>Scheduling</h2>
-        <label><input id="schedEnabled" type="checkbox" /> Enable night schedule</label>
+        <label class="toggle-label">
+          <input id="schedEnabled" type="checkbox" />
+          <span>Enable night schedule</span>
+        </label>
         <div class="row">
           <label>Start <input id="schedStart" type="time" value="21:00" /></label>
           <label>End <input id="schedEnd" type="time" value="07:00" /></label>
@@ -29,16 +32,14 @@
           <input id="testUrl" type="url" placeholder="https://site.example.com/page" />
           <button id="testBtn">Test</button>
         </div>
-        <div id="testResult" class="badge"></div>
-        <div class="row-right">
-          <button id="saveRegex">Save</button>
-        </div>
+        <div id="testResult" class="badge" style="display: none;"></div>
       </section>
 
       <section class="card">
         <h2>Per-Site Overrides</h2>
+        <p class="hint">Configure UltraDark behavior for specific sites. Changes are saved automatically.</p>
         <div id="sites"></div>
-        <button id="refreshSites">Refresh Current Site</button>
+        <button id="refreshSites">Add Current Site</button>
       </section>
     </main>
     <script type="module" src="./index.ts"></script>
