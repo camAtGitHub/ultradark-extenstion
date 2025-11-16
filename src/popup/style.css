@@ -89,6 +89,18 @@ body {
   flex-shrink: 0;
 }
 
+.switch.main-switch {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toggle-main-label {
+  font-size: 10px;
+  color: #9ca3af;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .switch input {
   position: absolute;
   opacity: 0;

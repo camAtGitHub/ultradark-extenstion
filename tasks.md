@@ -32,7 +32,7 @@ The current popup UI has critical logic flaws that create a confusing and broken
 *   The system must explicitly prevent `moz-extension://` URLs from being added to the site list.
 *   The main on/off slider in the initial popup view must be accompanied by a clear, descriptive label (e.g., "Global Dark Mode").
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
