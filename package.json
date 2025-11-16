@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "preinstall": "node scripts/write-icons.js",
     "dev": "vite --mode development",
     "build:bg": "node ./scripts/build-bg.cjs",
     "build:scripts": "node ./scripts/build-scripts.cjs",
