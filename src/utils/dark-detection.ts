@@ -129,12 +129,60 @@ export function siteDeclaresColorScheme(): boolean {
 }
 
 /**
+ * Check for common dark theme indicators in HTML/CSS classes and attributes
+ */
+export function hasExplicitDarkThemeMarkers(): boolean {
+  const html = document.documentElement;
+  const body = document.body;
+
+  if (!html || !body) return false;
+
+  // Check for common dark theme class names on html or body
+  const darkClassPatterns = /dark|night|black|theme-dark/i;
+  
+  if (darkClassPatterns.test(html.className) || darkClassPatterns.test(body.className)) {
+    return true;
+  }
+
+  // Check for data-theme attribute
+  const htmlTheme = html.getAttribute("data-theme") || html.getAttribute("theme");
+  const bodyTheme = body.getAttribute("data-theme") || body.getAttribute("theme");
+  
+  if (htmlTheme && /dark|night|black/i.test(htmlTheme)) {
+    return true;
+  }
+  
+  if (bodyTheme && /dark|night|black/i.test(bodyTheme)) {
+    return true;
+  }
+
+  // Check for color-scheme CSS property
+  const htmlColorScheme = getComputedStyle(html).colorScheme;
+  const bodyColorScheme = getComputedStyle(body).colorScheme;
+  
+  if (htmlColorScheme && /dark/i.test(htmlColorScheme)) {
+    return true;
+  }
+  
+  if (bodyColorScheme && /dark/i.test(bodyColorScheme)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Detect if the current page is already using a dark theme
  * Returns true if the site appears to be dark
  */
 export function isAlreadyDarkTheme(): boolean {
   // Threshold: luminance below 0.3 is considered dark
   const DARK_THRESHOLD = 0.3;
+
+  // Check for explicit markers first (fastest and most reliable)
+  if (hasExplicitDarkThemeMarkers()) {
+    return true;
+  }
 
   const avgLuminance = getAverageBackgroundLuminance();
   const declaresColorScheme = siteDeclaresColorScheme();

@@ -51,7 +51,7 @@ To prevent the extension from applying its theme on top of websites that already
 *   Users must be able to manually override this detection and force-enable the theme via the per-site settings.
 *   When debug logging is enabled, a message is printed to the console indicating that a native theme was detected and styling was skipped.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
