@@ -110,4 +110,4 @@ The brief "flash" of a white page before the dark theme loads creates a jarring 
 *   The solution is tested on a slow network connection (throttled) to confirm its effectiveness.
 *   Manual QA on a clean profile shows no white flash on at least 5 different complex websites (e.g., Wikipedia, news sites, etc.).
 
-**Status:** TODO
+**Status:** DONE
