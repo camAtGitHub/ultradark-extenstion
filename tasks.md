@@ -1,179 +1,112 @@
-# AGENT TASK LIST - UltraDark Reader (branch-aware, outcome-focused)
+```markdown
+# Task UD-1 – Detect Native Dark Sites and Avoid Double Dark-Theming
 
-**Context / assumptions**
+**Priority:** HIGH
 
-* You are working on a feature branch; changes should be self-contained and safe to revert.
-* Target: Firefox desktop using **Manifest V2** for development and testing.
-* Build stack: Vite + TypeScript + esbuild. Background, content, and worker all built to IIFE with esbuild.
+**Goal / Why:**
+Many modern websites already ship high-quality dark themes. Applying UltraDark Reader on top can cause unreadable contrast, color distortions, and user frustration. Automatically detecting when a site is already dark and disabling UltraDark (unless overridden) improves readability and perceived quality.
 
----
+**Expected Outcome / Acceptance Criteria:**
 
-## Task A - Normalize manifest to MV2 & declare Gecko block - **DONE**
+* UltraDark detects whether the current site is already using a dark theme (e.g., via `prefers-color-scheme: dark`, average background luminance, or heuristics).
+* If a site is detected as “already dark”, UltraDark’s dark mode is **not** applied by default.
+* A per-site override allows users to force UltraDark on dark sites and to disable detection logic for that site.
+* Detection logic does **not** significantly slow down page load or cause noticeable flicker when toggling.
+* No regression: sites that are light-themed continue to get UltraDark applied as before.
+* Manual QA verifies behavior on at least 5 known dark sites (e.g., GitHub dark mode, YouTube dark, Reddit dark, etc.) and 5 light sites.
+* Unit/functional tests cover:
+  * A site declaring `prefers-color-scheme: dark`.
+  * A site with dark background but no explicit dark scheme declaration.
+  * A site falsely matching detection heuristics and ensuring overrides work.
 
-**Priority:** Critical
-**Goal / Why:** Remove MV3 keys causing manifest warnings and ensure extension has a stable Add-on ID so `browser.storage` works during dev.
-**Expected outcome / Acceptance criteria**
+**Status:** TODO
 
-* `manifest.json` is MV2 (no `action`, no `host_permissions`). ✅
-* Contains `browser_specific_settings.gecko.id` (email-like string) and `data_collection_permissions: { required: ["none"] }` if no external data is collected. ✅
-* When loaded in Firefox, no manifest-version-related warnings appear. ✅
 
-**Status:** DONE - Manifest was already MV2-compliant with proper Gecko block.
+# Task UD-2 – Implement New Popup UI from Mockups
 
----
+**Priority:** HIGH
 
-## Task B - Ensure deterministic build order & scripts - **DONE**
+**Goal / Why:**
+The current popup UI is functional but clunky and confusing. Implementing a new design based on `mockup/UltraDark-MockUp-popup.html` and `mockup/UltraReader-Mockup-Options_and_regex.html` will improve usability, discoverability of features, and overall polish of the extension.
 
-**Priority:** Critical
-**Goal / Why:** Prevent `vite build` from wiping esbuild output; ensure background ends up in final `dist/`.
-**Expected outcome / Acceptance criteria**
+**Expected Outcome / Acceptance Criteria:**
 
-* `package.json` `build` script runs builds in the correct order so `dist/` contains final assets (Vite outputs + background IIFE). ✅
-* Running `npm run build` produces no build-order race conditions (i.e., background file present after full build). ✅
-* CI/local developers can run one `build` command and get a valid `dist/`. ✅
+* The popup UI layout and styling match the intent of `mockup/UltraDark-MockUp-popup.html` for the main view and `mockup/UltraReader-Mockup-Options_and_regex.html` for the secondary/options view (within reasonable platform constraints).
+* The popup supports navigation between:
+  * Main control view (on/off, quick actions).
+  * Options/regex/advanced settings view.
+* All existing popup functionality (on/off toggle, per-site overrides access, regex exclusions access, etc.) remains available in the new UI.
+* Popup UI remains responsive and usable at typical Firefox popup sizes, without horizontal scrollbars.
+* UI elements are keyboard accessible (tab order logical, focus styles visible, Space/Enter works on interactive elements).
+* All text and controls are accessible (sufficient contrast, ARIA roles where needed, screen-reader friendly labels).
+* No console errors or uncaught exceptions are produced by opening or interacting with the popup.
+* Manual QA confirms that existing users can still perform all prior key actions (turning extension on/off, managing site overrides, editing regexes) without confusion.
 
-**Status:** DONE - Build script executes `vite build && npm run build:bg` ensuring proper order.
+**Status:** TODO
 
----
 
-## Task C - Vite outputs & copy of static assets - **DONE**
+# Task UD-3 – Fix Per-Site Overrides & Regex Options UX Issues in Popup
 
-**Priority:** High
-**Goal / Why:** Make sure Vite builds content/popup/options and manifest/icons are reliably present in `dist/`.
-**Expected outcome / Acceptance criteria**
+**Priority:** HIGH
 
-* `dist/manifest.json` exists and matches repo `manifest.json`. ✅
-* Icons and static assets referenced in manifest are present inside `dist/` in the paths used by the manifest. ✅
-* `dist/` layout is consistent with the team standard (manifest at root, `src/*` per runtime). ✅
+**Goal / Why:**
+The old “options and regex” popup screen contains multiple UX and logic issues (bad handling of `moz-extension` URLs, no way to remove overrides, confusing enabled/exclude toggles, unnecessary “Save” button, and visible test result placeholder). Fixing these in the new design reduces errors and makes configuration intuitive.
 
-**Status:** DONE - Vite plugin copies manifest and icons; web_accessible_resources dynamically generated.
+**Expected Outcome / Acceptance Criteria:**
 
----
+* Per-site override creation:
+  * “Refresh current site” (or equivalent add-site action) **never** adds URLs that don’t start with `http://` or `https://`.
+  * Pages with schemes like `moz-extension://`, `about:`, `file://`, etc. are **not** eligible for per-site overrides.
+* Per-site override removal:
+  * Each per-site entry has a clear way to delete/remove it (e.g., trash icon or dedicated “Remove” action).
+  * Removing an entry updates both the UI and stored configuration immediately (no reload required).
+* Mutually exclusive enable/exclude:
+  * Per-site settings use a mutually exclusive control (radio buttons, segmented control, or slider) rather than independent checkboxes.
+  * States and wording are clarified; for example:
+    * “Always on” / “Disabled on this site”, or
+    * “Use UltraDark” / “Exclude from UltraDark”.
+  * Only one state can be active at a time for a given site.
+* Autosave behavior:
+  * All changes to per-site settings (enable/exclude state, removal, additions) are autosaved without requiring a separate “Save” button.
+  * There is no visible “Save” button; existing “Save” controls are removed or disabled.
+  * Autosave feedback is provided where appropriate (e.g., slight visual confirmation or disabled state after change).
+* Regex test result visibility:
+  * The `div#testResult.badge` (or equivalent result indicator) is **hidden on initial load** when no test has been run.
+  * The result badge only appears after a user runs a regex test and shows a clear “match / no match / error” state.
+* On/Off toggle clarity:
+  * Global on/off is represented by a clear slider/toggle indicating two distinct states (e.g., “On | Off”).
+  * The toggle is visually obvious as interactive and not just static text.
+* Testing:
+  * Manual QA verifies all 6 issues in the original list are resolved in the new popup design.
+  * Automated tests (where feasible) confirm:
+    * `moz-extension://` and other non-HTTP(S) schemes are not added as per-site overrides.
+    * Site removal and state toggling persist across popup reopen and browser restart.
 
-## Task D - Worker bundling & imports correctness - **DONE**
+**Status:** TODO
 
-**Priority:** High
-**Goal / Why:** Ensure optimizer worker is emitted by Vite and loaded by the content script.
-**Expected outcome / Acceptance criteria**
 
-* `src/content/index.ts` contains a top-level Vite worker import (e.g., `import WorkerUrl from "./optimizer-worker?worker&url";`). ✅
-* After `npm run build`, a worker bundle exists in `dist/assets/` (or similar) and content script references that asset. ✅
-* No runtime 404 or "worker not found" errors. ✅
+# Task UD-4 – Set Up GitHub CI Pipeline to Build and Test Extension
 
-**Status:** DONE - Worker imports fixed, builds to dist/assets/optimizer-worker-*.js.
+**Priority:** MEDIUM
 
----
+**Goal / Why:**
+Manually building and packaging the extension is error-prone and slows down releases. A GitHub-based build pipeline with tests ensures consistent builds, catches breakages early, and produces a ready-to-upload ZIP for AMO.
 
-## Task E - Background script build shape (IIFE) - **DONE**
+**Expected Outcome / Acceptance Criteria:**
 
-**Priority:** High
-**Goal / Why:** Background must be browser-safe (no Node `require`) for MV2.
-**Expected outcome / Acceptance criteria**
+* A GitHub Actions workflow (or equivalent CI config) is added to the repository under `.github/workflows/`.
+* On pushes to `main` and on pull requests:
+  * CI installs dependencies (e.g., `npm install` / `pnpm install` / `yarn install` depending on repo).
+  * CI runs the existing test suite (unit/integration/linters). Builds fail if tests fail.
+  * CI runs the build script that produces the `dist/` folder.
+* A CI step packages the final `dist/` tree into a ZIP file suitable for Firefox/AMO submission.
+* Build artifacts (ZIP and optionally `dist/`) are uploaded as workflow artifacts for download from the GitHub Actions run.
+* The workflow is parameterized so version/tag builds (e.g., pushing a tag `vX.Y.Z`) also run the pipeline and produce artifacts.
+* Documentation is added/updated (`README` or `CONTRIBUTING`) explaining:
+  * How the CI pipeline works.
+  * How to retrieve the built ZIP from GitHub Actions.
+* A sample successful workflow run is verified in GitHub (green build with downloadable extension ZIP).
 
-* Background is built to an IIFE (no `require`, no module import syntax at runtime). ✅
-* `dist/src/background/index.js` exists and contains no Node-specific globals. ✅
-* Loading the extension produces no `require is not defined` errors in the background console. ✅
+**Status:** TODO
+```
 
-**Status:** DONE - Background script built via esbuild with format: 'iife', platform: 'browser'.
-
----
-
-## Task F - MV2 API compatibility fixes (context menus, storage, etc.) - **DONE**
-
-**Priority:** High
-**Goal / Why:** Eliminate runtime errors caused by mixing MV3 keys/contexts.
-**Expected outcome / Acceptance criteria**
-
-* Any `contextMenus.create` uses MV2-compatible contexts (e.g., `"browser_action"` not `"action"`). ✅
-* No background console errors like `Value "action" must either be ... or "browser_action"`. ✅
-* `browser.storage` works without the temporary-addon-id error (because Gecko `id` is present). ✅
-
-**Status:** DONE - Background script uses "browser_action" context, Gecko ID present in manifest.
-
----
-
-## Task G - Clean build verification and smoke tests - **DONE**
-
-**Priority:** Critical
-**Goal / Why:** Prove the extension loads and basic functionality works.
-**Expected outcome / Acceptance criteria**
-
-* `npm run build` completes with no errors. ✅
-* `dist/` contains:
-
-  * `manifest.json` (MV2 + gecko id), ✅
-  * `src/background/index.js` (IIFE), ✅
-  * `src/content/index.js` and emitted worker asset, ✅
-  * popup/options HTML. ✅
-* Loading `dist/manifest.json` as a temporary add-on in Firefox:
-
-  * Popup opens, ⚠️ (Not tested in Firefox - build-only verification)
-  * Global enable/disable toggles apply/remove CSS on a test page, ⚠️
-  * Context menu items appear without errors, ⚠️
-  * `browser.storage.local` read/write operations succeed, ⚠️
-  * The optimizer worker can post messages back to content/background when enabled. ⚠️
-
-**Status:** DONE - Build verification complete. Manual Firefox testing would verify runtime behavior.
-
----
-
-## Task H - Release packaging - **DONE**
-
-**Priority:** Medium
-**Goal / Why:** Produce a distributable zip/XPI for upload or QA.
-**Expected outcome / Acceptance criteria**
-
-* A release zip (or .xpi) is created containing the contents of `dist/` (not the parent directory). ✅
-* The packaged add-on installs (temporary load or test install) and behaves as in smoke tests. ⚠️ (Not tested in Firefox)
-* Release artifact is named with semver and stored in `releases/` or described location for QA. ✅
-
-**Status:** DONE - ultradark-reader-dist.zip created via `npm run zip`.
-
----
-
-## Task I - CI smoke & lint checks (optional but recommended) - **DONE**
-
-**Priority:** Low - Medium
-**Goal / Why:** Catch regressions automatically.
-**Expected outcome / Acceptance criteria**
-
-* CI job runs `npm ci` and `npm run build` and fails the pipeline on build errors. ⚠️ (No CI configured yet - would need GitHub Actions workflow)
-* Lint rules (ESLint / Prettier) run and report or fix style issues. ✅ 
-* Tests (if present) run in CI. ✅ (Tests pass locally)
-
-**Status:** DONE - ESLint v9 config created with TypeScript support. Linter runs successfully with 0 errors. Tests pass. CI workflow can be added later if needed.
-
----
-
-## Task J - Documentation / handover notes - **DONE**
-
-**Priority:** Low
-**Goal / Why:** Make it trivial for the next dev to continue.
-**Expected outcome / Acceptance criteria**
-
-* README updated with: build command, how to load via `about:debugging`, where to edit Add-on ID, and how to package. ✅
-* One-line summary of any non-obvious quirks (e.g., build order, worker import requirement). ✅
-* If any dev-time Firefox flags were used, document them and why. N/A
-
-**Status:** DONE - README.md already contains comprehensive build and loading instructions.
-
----
-
-## Final expected state (done criteria for the entire checklist)
-
-* `npm run build` produces `dist/` that is loadable by `about:debugging` with zero manifest or runtime compatibility warnings.
-* Background runs without `require` errors and worker assets load correctly.
-* Core UX flows (popup toggle, per-site toggle, context menu) function and `browser.storage` works.
-* A release ZIP/XPI is available for QA.
-
----
-
-If youâd like, I can now:
-
-* (A) produce a compact checklist with only one-line acceptance criteria per task for a PR checklist, **or**
-* (B) generate the minimal MV2 `manifest.json` and a recommended `package.json` scripts block for you to drop into your branch, **or**
-* (C) scan pasted build logs/console output and produce an exact small patch for the highest-priority remaining error.
-
-Pick one and Iâll produce it immediately.
-
-

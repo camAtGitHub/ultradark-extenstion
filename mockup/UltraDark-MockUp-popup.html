@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dark Mode Firefox Extension – Popup Concepts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --page-bg: #020617;
+      --page-text: #e5e7eb;
+      --muted: #9ca3af;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      color: var(--page-text);
+      background: var(--page-bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.25) 0, transparent 50%),
+        radial-gradient(circle at bottom right, rgba(236, 72, 153, 0.25) 0, transparent 50%);
+      opacity: 0.9;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .page {
+      padding: 24px;
+    }
+
+    .page-header {
+      max-width: 960px;
+      margin: 0 auto 24px;
+    }
+
+    .page-header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin: 0 0 4px;
+    }
+
+    .page-header p {
+      font-size: 13px;
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .grid {
+      max-width: 1600px;
+      margin: 0 auto 24px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-auto-rows: minmax(260px, auto);
+      gap: 18px;
+    }
+
+    /* Responsive fallbacks */
+    @media (max-width: 1400px) {
+      .grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .mockup {
+      position: relative;
+      border-radius: 18px;
+      padding: 14px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+      border: 1px solid rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.96);
+      --accent: #6366f1;
+      --accent-soft: rgba(99, 102, 241, 0.25);
+      --slider-track: #111827;
+      --switch-track-off: #020617;
+      --switch-track-on: var(--accent);
+      font-size: 12px;
+      transition: transform 0.16s ease-out, box-shadow 0.16s ease-out, opacity 0.16s ease-out;
+    }
+
+    .mockup:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.7);
+    }
+
+    .mockup::before {
+      content: "";
+      position: absolute;
+      inset-inline: -20%;
+      top: -40%;
+      height: 140px;
+      opacity: 0.4;
+      background: radial-gradient(circle at top, var(--accent-soft), transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .mockup > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .mockup.is-off {
+      opacity: 0.55;
+    }
+
+    .mockup.is-off input[type="range"],
+    .mockup.is-off .mode-btn,
+    .mockup.is-off .more-link {
+      pointer-events: none;
+    }
+
+    /* Header */
+    .popup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .popup-title {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin: 0 0 2px;
+      color: #e5e7eb;
+    }
+
+    .popup-subtitle {
+      font-size: 11px;
+      margin: 0;
+      color: #9ca3af;
+    }
+
+    /* Switch */
+    .switch {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .switch .track {
+      position: relative;
+      width: 42px;
+      height: 22px;
+      border-radius: 999px;
+      background: var(--switch-track-off);
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9), 0 4px 12px rgba(0, 0, 0, 0.6);
+      transition: background 0.18s ease-out;
+    }
+
+    .switch .track::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: #f9fafb;
+      border: 1px solid rgba(15, 23, 42, 0.9);
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.75);
+      transition: transform 0.18s ease-out;
+    }
+
+    .switch input:checked + .track {
+      background: var(--switch-track-on);
+    }
+
+    .switch.small .track {
+      width: 34px;
+      height: 18px;
+    }
+
+    .switch.small .track::after {
+      width: 13px;
+      height: 13px;
+      top: 2.5px;
+      left: 2.5px;
+    }
+
+    .switch input:checked + .track::after {
+      transform: translateX(18px);
+    }
+
+    .switch.small input:checked + .track::after {
+      transform: translateX(14px);
+    }
+
+    /* Mode selector */
+    .mode-selector {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .mode-label {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .mode-buttons {
+      display: inline-flex;
+      padding: 2px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.85);
+      box-shadow: 0 0 0 1px rgba(31, 41, 55, 0.9);
+    }
+
+    .mode-btn {
+      border: none;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 11px;
+      cursor: pointer;
+      transition:
+        background 0.16s ease-out,
+        color 0.16s ease-out,
+        box-shadow 0.16s ease-out,
+        transform 0.12s ease-out;
+    }
+
+    .mode-btn:hover {
+      transform: translateY(-0.5px);
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      color: #f9fafb;
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9), 0 6px 14px var(--accent-soft);
+    }
+
+    /* Toggles */
+    .toggles-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .toggle-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .toggle-label {
+      font-size: 11px;
+      color: #e5e7eb;
+    }
+
+    .toggle-caption {
+      font-size: 10px;
+      color: #6b7280;
+    }
+
+    /* Sliders */
+    .sliders {
+      margin-top: 2px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .slider-label {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    .slider-value {
+      font-feature-settings: "tnum" 1, "lnum" 1;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--slider-track);
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 14px;
+      width: 14px;
+      border-radius: 999px;
+      background: #f9fafb;
+      border: 2px solid #020617;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.9);
+      margin-top: -5px; /* thumb center on 4px track */
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      height: 14px;
+      width: 14px;
+      border-radius: 999px;
+      background: #f9fafb;
+      border: 2px solid #020617;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.9);
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 4px;
+      border-radius: 999px;
+      background: transparent;
+    }
+
+    /* Footer */
+    .popup-footer {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: auto;
+      padding-top: 4px;
+    }
+
+    .more-link {
+      font-size: 11px;
+      color: var(--accent);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .more-link::after {
+      content: "↗";
+      font-size: 10px;
+      opacity: 0.8;
+    }
+
+    .more-link:hover {
+      text-decoration: underline;
+    }
+
+    /* --- Individual concept themes & layout tweaks --- */
+
+
+
+    /* 2 – Glassmorphism Neo */
+    .mockup-2 {
+      background: rgba(15, 23, 42, 0.68);
+      border-color: rgba(148, 163, 184, 0.55);
+      backdrop-filter: blur(18px);
+      --accent: #22d3ee;
+      --accent-soft: rgba(34, 211, 238, 0.35);
+      --switch-track-off: rgba(15, 23, 42, 0.9);
+    }
+
+    .mockup-2::before {
+      background: radial-gradient(circle at top, rgba(34, 211, 238, 0.4), transparent 70%);
+    }
+
+    .mockup-2 .popup-header {
+      align-items: flex-start;
+    }
+
+    .mockup-2 .popup-subtitle {
+      font-size: 10px;
+      text-transform: none;
+    }
+
+    .mockup-2 .mode-selector {
+      justify-content: center;
+    }
+
+    .mockup-2 .mode-buttons {
+      background: rgba(15, 23, 42, 0.6);
+      box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.55);
+    }
+
+  
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <h1>Dark Mode Firefox Extension – Popup Concepts</h1>
+      <p>Eight distinct toolbar popup mockups. All controls are interactive demo elements only.</p>
+    </header>
+
+    <section class="grid">
+
+
+      <!-- Concept 2 -->
+      <article class="mockup mockup-2">
+        <div class="popup-header">
+          <div>
+            <h2 class="popup-title">Concept 02 · Glassmorphism Neo</h2>
+            <p class="popup-subtitle">LumaDark overlay controller</p>
+          </div>
+          <label class="switch main-switch">
+            <input type="checkbox" checked />
+            <span class="track"></span>
+          </label>
+        </div>
+
+        <div class="mode-selector">
+          <span class="mode-label">Mode</span>
+          <div class="mode-buttons">
+            <button type="button" class="mode-btn active">Static</button>
+            <button type="button" class="mode-btn">Dynamic</button>
+          </div>
+        </div>
+
+        <div class="toggles-row">
+          <div class="toggle">
+            <div class="toggle-text">
+              <span class="toggle-label">AMOLED mode</span>
+              <span class="toggle-caption">Use true black for panels</span>
+            </div>
+            <label class="switch small">
+              <input type="checkbox" checked />
+              <span class="track"></span>
+            </label>
+          </div>
+          <div class="toggle">
+            <div class="toggle-text">
+              <span class="toggle-label">Contrast optimizer</span>
+              <span class="toggle-caption">Improve readability</span>
+            </div>
+            <label class="switch small">
+              <input type="checkbox" />
+              <span class="track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="sliders">
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Brightness</span>
+              <span class="slider-value">64%</span>
+            </div>
+            <input type="range" min="0" max="100" value="64" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Contrast</span>
+              <span class="slider-value">70%</span>
+            </div>
+            <input type="range" min="0" max="100" value="70" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Sepia</span>
+              <span class="slider-value">10%</span>
+            </div>
+            <input type="range" min="0" max="100" value="10" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Grayscale</span>
+              <span class="slider-value">5%</span>
+            </div>
+            <input type="range" min="0" max="100" value="5" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Blue shift</span>
+              <span class="slider-value">35%</span>
+            </div>
+            <input type="range" min="0" max="100" value="35" />
+          </div>
+        </div>
+
+        <div class="popup-footer">
+          <a href="#" class="more-link">More options</a>
+        </div>
+      </article>
+
+    </section>
+  </main>
+
+  <script>
+    // Slider value + background gradient
+    document.querySelectorAll('.slider-row input[type="range"]').forEach(function (slider) {
+      var updateSlider = function () {
+        var value = parseFloat(slider.value || 0);
+        var min = parseFloat(slider.min || 0);
+        var max = parseFloat(slider.max || 100);
+        var percent = ((value - min) / (max - min)) * 100;
+
+        var card = slider.closest('.mockup');
+        var styles = window.getComputedStyle(card);
+        var accent = styles.getPropertyValue('--accent') || '#6366f1';
+        var track = styles.getPropertyValue('--slider-track') || '#111827';
+
+        slider.style.background =
+          'linear-gradient(to right,' +
+          accent +
+          ' 0%,' +
+          accent +
+          ' ' +
+          percent +
+          '%,' +
+          track +
+          ' ' +
+          percent +
+          '%,' +
+          track +
+          ' 100%)';
+
+        var valueLabel = slider.closest('.slider-row').querySelector('.slider-value');
+        if (valueLabel) {
+          valueLabel.textContent = Math.round(value) + '%';
+        }
+      };
+
+      slider.addEventListener('input', updateSlider);
+      updateSlider();
+    });
+
+    // Mode selector buttons
+    document.querySelectorAll('.mode-buttons').forEach(function (group) {
+      group.addEventListener('click', function (event) {
+        var btn = event.target.closest('.mode-btn');
+        if (!btn) return;
+        group.querySelectorAll('.mode-btn').forEach(function (b) {
+          b.classList.toggle('active', b === btn);
+        });
+      });
+    });
+
+    // Main ON/OFF switches dim the whole panel
+    document.querySelectorAll('.mockup').forEach(function (card) {
+      var mainSwitch = card.querySelector('.main-switch input[type="checkbox"]');
+      if (!mainSwitch) return;
+
+      var updateState = function () {
+        card.classList.toggle('is-off', !mainSwitch.checked);
+      };
+
+      mainSwitch.addEventListener('change', updateState);
+      updateState();
+    });
+  </script>
+</body>
+</html>
+
