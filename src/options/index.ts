@@ -1,6 +1,6 @@
 // src/options/index.ts
 import type { Settings } from "../types/settings";
-import { getSettings, setSettings, originFromUrl } from "../utils/storage";
+import { getSettings, setSettings } from "../utils/storage";
 import { compileRegexList } from "../utils/regex";
 
 async function loadAndReflect() {
@@ -210,39 +210,6 @@ function bind() {
       badge.className = "badge error";
       badge.textContent = `Error: ${(err as Error).message || "Invalid regex pattern"}`;
     }
-  };
-
-  (document.getElementById("refreshSites") as HTMLButtonElement).onclick = async () => {
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.url) {
-      alert("No active tab found");
-      return;
-    }
-    
-    // Explicitly prevent moz-extension:// and other internal URLs
-    if (tab.url.startsWith("moz-extension://") || tab.url.startsWith("about:") || tab.url.startsWith("chrome://")) {
-      alert("Cannot add override for internal extension/browser pages. Please navigate to a website (http:// or https://) first.");
-      return;
-    }
-    
-    // Only allow http:// and https:// URLs
-    if (!tab.url.startsWith("http://") && !tab.url.startsWith("https://")) {
-      alert(`Cannot add override for ${tab.url.split(":")[0]}: URLs. Only http:// and https:// sites are supported.`);
-      return;
-    }
-    
-    const s = await getSettings();
-    const origin = originFromUrl(tab.url);
-    
-    // Check if already exists
-    if (s.perSite[origin]) {
-      alert(`Override for ${origin} already exists. Modify it below.`);
-      return;
-    }
-    
-    s.perSite[origin] ||= {};
-    await setSettings(s);
-    renderSiteList(await getSettings());
   };
 
   // Reset all settings to defaults
