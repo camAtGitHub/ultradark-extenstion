@@ -313,6 +313,12 @@ input[type="range"]:focus {
   padding-top: 4px;
 }
 
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .action-btn {
   border: none;
   padding: 6px 12px;
@@ -323,6 +329,7 @@ input[type="range"]:focus {
   cursor: pointer;
   transition: background 0.16s ease-out, transform 0.12s ease-out;
   border: 1px solid rgba(34, 211, 238, 0.3);
+  white-space: nowrap;
 }
 
 .action-btn:hover {
@@ -335,6 +342,17 @@ input[type="range"]:focus {
   outline-offset: 2px;
 }
 
+.action-btn.secondary-btn {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+.action-btn.secondary-btn:hover {
+  background: rgba(100, 116, 139, 0.25);
+  color: #cbd5e1;
+}
+
 .more-link {
   font-size: 11px;
   color: var(--accent);
@@ -342,6 +360,7 @@ input[type="range"]:focus {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .more-link::after {

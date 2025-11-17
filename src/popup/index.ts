@@ -140,6 +140,49 @@ async function init() {
     browser.runtime.openOptionsPage();
   });
 
+  // Reset Site Settings button handler
+  $("#resetSiteSettings").addEventListener("click", async () => {
+    if (!activeTabUrl) {
+      alert("No active tab found. Please try reopening the popup.");
+      return;
+    }
+
+    // Only allow http:// and https:// URLs
+    if (!activeTabUrl.startsWith("http://") && !activeTabUrl.startsWith("https://")) {
+      alert("This feature only works on regular websites (http:// or https://).");
+      return;
+    }
+
+    const origin = originFromUrl(activeTabUrl);
+    
+    // Check if this site has per-site overrides
+    if (!s.perSite[origin]) {
+      alert(`No custom settings found for ${origin}. The site is already using global defaults.`);
+      return;
+    }
+
+    const confirmed = confirm(
+      `Reset settings for ${origin} to global defaults?\n\n` +
+      "This will remove any custom brightness, contrast, sepia, grayscale, and blue shift settings for this site only."
+    );
+    
+    if (!confirmed) return;
+
+    // Remove the per-site override
+    delete s.perSite[origin];
+    await setSettings(s);
+    
+    // Reload settings to reflect changes in UI
+    const updatedSettings = await getSettings();
+    reflect(updatedSettings);
+    
+    // Notify the active tab to refresh with new settings
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
+    
+    alert(`Settings for ${origin} have been reset to global defaults.`);
+  });
+
   // Add Active Site button handler
   $("#addActiveSite").addEventListener("click", async () => {
     if (!activeTabUrl) {
