@@ -50,7 +50,7 @@ To allow users to reset the dark mode settings (brightness, contrast, sepia, etc
 * The UI sliders visually update to their new default positions immediately after the button is clicked.
 * Unit tests are created to confirm that only the specific site's storage entry is modified, leaving global defaults and other site settings untouched.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 # Task 4 - Add Debounce to Popup UI Sliders
