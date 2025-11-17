@@ -7,6 +7,8 @@
  * 2. Check average background luminance
  */
 
+import { debugSync } from "./logger";
+
 /**
  * Convert RGB color string to luminance value (0..1)
  * Uses relative luminance formula from WCAG
@@ -79,14 +81,18 @@ export function getAverageBackgroundLuminance(): number {
   const bodyBg = getComputedStyle(body).backgroundColor;
   const bodyColor = parseColor(bodyBg);
   if (bodyColor) {
-    samples.push(rgbToLuminance(bodyColor.r, bodyColor.g, bodyColor.b));
+    const luminance = rgbToLuminance(bodyColor.r, bodyColor.g, bodyColor.b);
+    samples.push(luminance);
+    debugSync('[Dark Detection] Body background:', bodyBg, '-> RGB:', bodyColor, '-> Luminance:', luminance);
   }
 
   // Sample html background
   const htmlBg = getComputedStyle(html).backgroundColor;
   const htmlColor = parseColor(htmlBg);
   if (htmlColor) {
-    samples.push(rgbToLuminance(htmlColor.r, htmlColor.g, htmlColor.b));
+    const luminance = rgbToLuminance(htmlColor.r, htmlColor.g, htmlColor.b);
+    samples.push(luminance);
+    debugSync('[Dark Detection] HTML background:', htmlBg, '-> RGB:', htmlColor, '-> Luminance:', luminance);
   }
 
   // Sample some major container elements
@@ -97,16 +103,21 @@ export function getAverageBackgroundLuminance(): number {
       const bg = getComputedStyle(el).backgroundColor;
       const color = parseColor(bg);
       if (color) {
-        samples.push(rgbToLuminance(color.r, color.g, color.b));
+        const luminance = rgbToLuminance(color.r, color.g, color.b);
+        samples.push(luminance);
+        debugSync(`[Dark Detection] Element '${selector}' background:`, bg, '-> RGB:', color, '-> Luminance:', luminance);
       }
     }
   }
 
   // If we have samples, return average
   if (samples.length > 0) {
-    return samples.reduce((a, b) => a + b, 0) / samples.length;
+    const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
+    debugSync('[Dark Detection] Average luminance across', samples.length, 'samples:', avg);
+    return avg;
   }
 
+  debugSync('[Dark Detection] No samples found, defaulting to light (luminance: 1)');
   return 1; // Default to light
 }
 
@@ -122,9 +133,11 @@ export function siteDeclaresColorScheme(): boolean {
   // If the media query matches, check if CSS actually changes
   // We do this by comparing a known element's background in both modes
   if (darkMq.matches) {
+    debugSync('[Dark Detection] Site responds to prefers-color-scheme: dark');
     return true;
   }
 
+  debugSync('[Dark Detection] Site does not respond to prefers-color-scheme: dark');
   return false;
 }
 
@@ -140,7 +153,13 @@ export function hasExplicitDarkThemeMarkers(): boolean {
   // Check for common dark theme class names on html or body
   const darkClassPatterns = /dark|night|black|theme-dark/i;
   
-  if (darkClassPatterns.test(html.className) || darkClassPatterns.test(body.className)) {
+  if (darkClassPatterns.test(html.className)) {
+    debugSync('[Dark Detection] Found dark theme class on <html>:', html.className);
+    return true;
+  }
+  
+  if (darkClassPatterns.test(body.className)) {
+    debugSync('[Dark Detection] Found dark theme class on <body>:', body.className);
     return true;
   }
 
@@ -149,10 +168,12 @@ export function hasExplicitDarkThemeMarkers(): boolean {
   const bodyTheme = body.getAttribute("data-theme") || body.getAttribute("theme");
   
   if (htmlTheme && /dark|night|black/i.test(htmlTheme)) {
+    debugSync('[Dark Detection] Found dark theme attribute on <html>:', htmlTheme);
     return true;
   }
   
   if (bodyTheme && /dark|night|black/i.test(bodyTheme)) {
+    debugSync('[Dark Detection] Found dark theme attribute on <body>:', bodyTheme);
     return true;
   }
 
@@ -161,13 +182,16 @@ export function hasExplicitDarkThemeMarkers(): boolean {
   const bodyColorScheme = getComputedStyle(body).colorScheme;
   
   if (htmlColorScheme && /dark/i.test(htmlColorScheme)) {
+    debugSync('[Dark Detection] Found dark color-scheme on <html>:', htmlColorScheme);
     return true;
   }
   
   if (bodyColorScheme && /dark/i.test(bodyColorScheme)) {
+    debugSync('[Dark Detection] Found dark color-scheme on <body>:', bodyColorScheme);
     return true;
   }
 
+  debugSync('[Dark Detection] No explicit dark theme markers found');
   return false;
 }
 
@@ -179,23 +203,31 @@ export function isAlreadyDarkTheme(): boolean {
   // Threshold: luminance below 0.3 is considered dark
   const DARK_THRESHOLD = 0.3;
 
+  debugSync('[Dark Detection] Starting dark theme detection for:', window.location.href);
+
   // Check for explicit markers first (fastest and most reliable)
   if (hasExplicitDarkThemeMarkers()) {
+    debugSync('[Dark Detection] Result: DARK (explicit markers found)');
     return true;
   }
 
   const avgLuminance = getAverageBackgroundLuminance();
   const declaresColorScheme = siteDeclaresColorScheme();
 
+  debugSync('[Dark Detection] Average luminance:', avgLuminance, '(threshold:', DARK_THRESHOLD + ')');
+
   // If average luminance is dark, consider it a dark site
   if (avgLuminance < DARK_THRESHOLD) {
+    debugSync('[Dark Detection] Result: DARK (luminance below threshold)');
     return true;
   }
 
   // If site declares color scheme support and prefers-color-scheme is dark
   if (declaresColorScheme) {
+    debugSync('[Dark Detection] Result: DARK (declares color scheme)');
     return true;
   }
 
+  debugSync('[Dark Detection] Result: LIGHT (no dark indicators found)');
   return false;
 }
