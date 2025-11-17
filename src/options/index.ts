@@ -3,8 +3,6 @@ import type { Settings } from "../types/settings";
 import { getSettings, setSettings, originFromUrl } from "../utils/storage";
 import { compileRegexList } from "../utils/regex";
 
-const $ = (s: string) => document.querySelector(s) as HTMLElement;
-
 async function loadAndReflect() {
   const s = await getSettings();
 

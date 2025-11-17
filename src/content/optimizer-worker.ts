@@ -2,16 +2,25 @@
 // Offloads contrast analysis & simple WCAG-driven adjustment
 import type { OptimizerSample, OptimizerResult } from "../types/settings";
 
+interface CanvasContext {
+  fillStyle: string;
+}
+
+interface GlobalWithCanvas {
+  __udr_canvas__?: CanvasContext;
+}
+
 function parseColor(c: string): [number, number, number] | null {
   // Handles rgb(a) or hex
-  const ctx = (globalThis as any).__udr_canvas__ || (() => {
+  const ctx = (globalThis as GlobalWithCanvas).__udr_canvas__ || (() => {
     const cnv = new OffscreenCanvas(1, 1);
-    (globalThis as any).__udr_canvas__ = cnv.getContext("2d");
-    return (globalThis as any).__udr_canvas__;
+    const context = cnv.getContext("2d") as CanvasContext;
+    (globalThis as GlobalWithCanvas).__udr_canvas__ = context;
+    return (globalThis as GlobalWithCanvas).__udr_canvas__;
   })();
   if (!ctx) return null;
-  (ctx as any).fillStyle = c;
-  const v = (ctx as any).fillStyle as string;
+  ctx.fillStyle = c;
+  const v = ctx.fillStyle;
   // v will be normalized like "rgba(r,g,b,a)"
   const m = v.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
   if (m) return [Number(m[1]), Number(m[2]), Number(m[3])];
@@ -60,5 +69,5 @@ onmessage = (ev: MessageEvent) => {
   }
 
   const res: OptimizerResult = { suggestedContrast: suggested ?? 110 };
-  (postMessage as any)(res);
+  postMessage(res);
 };

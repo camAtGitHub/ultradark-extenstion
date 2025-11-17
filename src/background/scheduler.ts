@@ -1,4 +1,3 @@
-import type { Settings } from "../types/settings";
 import { getSettings, setSettings } from "../utils/storage";
 
 /** Returns true if now is within [start, end) for local time; handles overnight windows. */
