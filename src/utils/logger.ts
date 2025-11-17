@@ -14,7 +14,7 @@ async function isDebugEnabled(): Promise<boolean> {
   try {
     const result = await browser.storage.local.get('isDebugMode');
     return result.isDebugMode === true;
-  } catch (err) {
+  } catch {
     // If storage fails, default to false
     return false;
   }

@@ -6,11 +6,10 @@ import { DATA_ATTR_APPLIED } from "../utils/defaults";
 import { getSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
-import { debugSync, initDebugCache, updateDebugCache, info } from "../utils/logger";
+import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
 import { applyArchitectMethod } from "./algorithms/architect";
 import { applySurgeonMethod } from "./algorithms/surgeon";
 
-let activeSettings: Settings | null = null;
 let worker: Worker | null = null;
 let applied = false;
 
@@ -48,7 +47,7 @@ function applyCss(s: Settings) {
   }
 
   document.documentElement.setAttribute("udr-applied", "true");
-  (document.documentElement as any)[DATA_ATTR_APPLIED] = "1";
+  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "1";
   applied = true;
 }
 
@@ -57,7 +56,7 @@ function removeCss() {
   if (tag?.parentNode) tag.parentNode.removeChild(tag);
   document.documentElement.removeAttribute("udr-applied");
   document.documentElement.removeAttribute("data-udr-mode");
-  (document.documentElement as any)[DATA_ATTR_APPLIED] = "";
+  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "";
   
   // Reset inline styles applied by surgeon method
   if (document.body.style.backgroundColor) {
@@ -112,7 +111,6 @@ function startOptimizerIfEnabled(s: Settings) {
 async function tick() {
   const s = await getSettings();
   const { use, excluded } = await effectiveSettingsFor(location.href, s);
-  activeSettings = use;
 
   const origin = new URL(location.href).origin;
 
