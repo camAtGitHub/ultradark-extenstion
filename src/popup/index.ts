@@ -19,6 +19,26 @@ async function captureActiveTabUrl(): Promise<void> {
   }
 }
 
+/**
+ * Debounce function to limit how often a function can be called
+ * @param func - The function to debounce
+ * @param wait - Time to wait in milliseconds (default 250ms)
+ * @returns Debounced function
+ */
+function debounce<T extends (...args: unknown[]) => void>(
+  func: T,
+  wait = 250
+): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+}
+
 
 async function init() {
   const s = await getSettings();
@@ -108,15 +128,22 @@ async function init() {
   });
 
   function bindRange(el: HTMLInputElement, key: keyof Settings, label: HTMLElement, min: number, max: number) {
-    el.oninput = async () => {
-      const value = Number(el.value);
+    // Create a debounced version of the settings update function
+    const debouncedUpdate = debounce(async (value: number) => {
       // @ts-expect-error - Settings type allows numeric values for slider keys
       s[key] = value;
-      label.textContent = `${value}%`;
-      updateSliderBackground(el, value, min, max);
       await setSettings(s);
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
+    }, 250); // 250ms debounce delay
+
+    el.oninput = () => {
+      const value = Number(el.value);
+      // Update UI immediately for responsive feedback
+      label.textContent = `${value}%`;
+      updateSliderBackground(el, value, min, max);
+      // But debounce the settings save and theme update
+      debouncedUpdate(value);
     };
   }
 
