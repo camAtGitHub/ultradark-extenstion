@@ -8,6 +8,7 @@
  */
 
 import type { Settings } from "../../types/settings";
+import { debugSync } from "../../utils/logger";
 
 /**
  * Color conversion utilities
@@ -100,6 +101,9 @@ function parseRgb(colorStr: string): RGB | null {
 function invertColor(rgb: RGB, brightnessAdjust: number, contrastAdjust: number): string {
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
   
+  const originalL = hsl.l;
+  const originalS = hsl.s;
+  
   // Invert luminance
   hsl.l = 100 - hsl.l;
   
@@ -112,7 +116,16 @@ function invertColor(rgb: RGB, brightnessAdjust: number, contrastAdjust: number)
   hsl.s = Math.max(0, Math.min(100, hsl.s * contrastFactor));
   
   const newRgb = hslToRgb(hsl.h, hsl.s, hsl.l);
-  return `rgb(${newRgb.r}, ${newRgb.g}, ${newRgb.b})`;
+  const result = `rgb(${newRgb.r}, ${newRgb.g}, ${newRgb.b})`;
+  
+  debugSync('[Surgeon] Color inversion:',
+    'RGB(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ') ->',
+    'HSL(h:' + Math.round(hsl.h) + ',s:' + Math.round(originalS) + '%,l:' + Math.round(originalL) + '%) ->',
+    'Inverted HSL(s:' + Math.round(hsl.s) + '%,l:' + Math.round(hsl.l) + '%) ->',
+    result
+  );
+  
+  return result;
 }
 
 /**
@@ -161,19 +174,30 @@ export function applySurgeonMethod(settings: Settings): void {
   const brightness = settings.brightness;
   const contrast = settings.contrast;
   
+  debugSync('[Surgeon] Starting DOM traversal with settings:', {
+    brightness: brightness + '%',
+    contrast: contrast + '%',
+    amoled: settings.amoled
+  });
+  
   // Traverse all elements
   const elements = document.querySelectorAll('*');
+  let modifiedCount = 0;
+  
+  debugSync('[Surgeon] Processing', elements.length, 'elements');
   
   elements.forEach((element) => {
     if (!(element instanceof HTMLElement)) return;
     
     const computed = getComputedStyle(element);
+    let modified = false;
     
     // Process background color
     const bgColor = computed.backgroundColor;
     if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
       const inverted = getInvertedColor(bgColor, brightness, contrast);
       element.style.backgroundColor = inverted;
+      modified = true;
     }
     
     // Process text color
@@ -181,6 +205,7 @@ export function applySurgeonMethod(settings: Settings): void {
     if (textColor) {
       const inverted = getInvertedColor(textColor, brightness, contrast);
       element.style.color = inverted;
+      modified = true;
     }
     
     // Process border colors
@@ -188,19 +213,27 @@ export function applySurgeonMethod(settings: Settings): void {
     if (borderColor && borderColor !== 'rgba(0, 0, 0, 0)') {
       const inverted = getInvertedColor(borderColor, brightness, contrast);
       element.style.borderColor = inverted;
+      modified = true;
     }
     
     // Handle images
     if (element instanceof HTMLImageElement) {
       if (isLikelyIcon(element)) {
         element.style.filter = 'invert(1)';
+        debugSync('[Surgeon] Applied filter to icon/logo:', element.alt || element.src);
+        modified = true;
       }
     }
+    
+    if (modified) modifiedCount++;
   });
   
   // Set body and html backgrounds
-  document.body.style.backgroundColor = settings.amoled ? '#000000' : '#1a1a1a';
+  const bodyBg = settings.amoled ? '#000000' : '#1a1a1a';
+  document.body.style.backgroundColor = bodyBg;
   document.body.style.color = '#e0e0e0';
-  document.documentElement.style.backgroundColor = settings.amoled ? '#000000' : '#1a1a1a';
+  document.documentElement.style.backgroundColor = bodyBg;
   document.documentElement.setAttribute("data-udr-mode", "surgeon");
+  
+  debugSync('[Surgeon] Modified', modifiedCount, 'elements. Set body background to', bodyBg);
 }

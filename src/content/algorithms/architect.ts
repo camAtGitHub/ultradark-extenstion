@@ -9,6 +9,7 @@
  */
 
 import type { Settings } from "../../types/settings";
+import { debugSync } from "../../utils/logger";
 
 export interface ArchitectConfig {
   brightness: number;
@@ -110,6 +111,15 @@ pre, code {
 export function applyArchitectMethod(settings: Settings): void {
   const hueDeg = Math.round((settings.blueShift / 100) * 40);
   
+  debugSync('[Architect] Applying dark theme with settings:', {
+    brightness: settings.brightness + '%',
+    contrast: settings.contrast + '%',
+    sepia: settings.sepia + '%',
+    grayscale: settings.grayscale + '%',
+    blueShift: settings.blueShift + '% (hue rotate: ' + hueDeg + 'deg)',
+    amoled: settings.amoled
+  });
+  
   const css = generateArchitectCSS({
     brightness: settings.brightness,
     contrast: settings.contrast,
@@ -124,8 +134,12 @@ export function applyArchitectMethod(settings: Settings): void {
     styleTag = document.createElement("style");
     styleTag.id = "udr-style";
     document.head.appendChild(styleTag);
+    debugSync('[Architect] Created new <style> tag with id="udr-style"');
+  } else {
+    debugSync('[Architect] Updating existing <style> tag');
   }
   
   styleTag.textContent = css;
   document.documentElement.setAttribute("data-udr-mode", "architect");
+  debugSync('[Architect] CSS applied successfully');
 }
