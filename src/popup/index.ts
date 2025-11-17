@@ -1,9 +1,24 @@
 // src/popup/index.ts
 import type { Settings } from "../types/settings";
-import { getSettings, setSettings } from "../utils/storage";
+import { getSettings, setSettings, originFromUrl } from "../utils/storage";
 
 const $ = (sel: string) => document.querySelector(sel) as HTMLElement;
 const $$ = (sel: string) => document.querySelectorAll(sel);
+
+// Capture active tab URL when popup opens
+let activeTabUrl: string | null = null;
+
+async function captureActiveTabUrl(): Promise<void> {
+  try {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    if (tab?.url) {
+      activeTabUrl = tab.url;
+    }
+  } catch {
+    activeTabUrl = null;
+  }
+}
+
 
 async function init() {
   const s = await getSettings();
@@ -124,6 +139,42 @@ async function init() {
     e.preventDefault();
     browser.runtime.openOptionsPage();
   });
+
+  // Add Active Site button handler
+  $("#addActiveSite").addEventListener("click", async () => {
+    if (!activeTabUrl) {
+      alert("No active tab found. Please try reopening the popup.");
+      return;
+    }
+
+    // Explicitly prevent moz-extension:// and other internal URLs
+    if (activeTabUrl.startsWith("moz-extension://") || activeTabUrl.startsWith("about:") || activeTabUrl.startsWith("chrome://")) {
+      alert("Cannot add override for internal extension/browser pages. Please navigate to a website (http:// or https://) first.");
+      return;
+    }
+
+    // Only allow http:// and https:// URLs
+    if (!activeTabUrl.startsWith("http://") && !activeTabUrl.startsWith("https://")) {
+      alert(`Cannot add override for ${activeTabUrl.split(":")[0]}: URLs. Only http:// and https:// sites are supported.`);
+      return;
+    }
+
+    const origin = originFromUrl(activeTabUrl);
+    
+    // Check if already exists
+    if (s.perSite[origin]) {
+      alert(`Override for ${origin} already exists. Open "More options" to modify it.`);
+      return;
+    }
+
+    s.perSite[origin] = {};
+    await setSettings(s);
+    alert(`Added ${origin} to per-site overrides. Open "More options" to configure it.`);
+  });
 }
 
-init();
+// Initialize popup by capturing active tab URL first, then setting up UI
+(async () => {
+  await captureActiveTabUrl();
+  await init();
+})();

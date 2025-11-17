@@ -32,7 +32,7 @@ The "Add Current Site" button in the popup UI is incorrectly saving the internal
 * The functionality works correctly even if the user interacts with the popup UI without immediately clicking the button.
 * Unit tests are created to verify that the correct URL is captured and used when the button is clicked.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 # Task 3 - Add Per-Site 'Reset to Defaults' Button in Popup
