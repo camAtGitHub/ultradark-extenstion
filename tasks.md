@@ -1,113 +1,88 @@
-# Task 1 - Add Toggleable Debug Logging
+# Task 1 - Implement Toggleable Debug Logging
 
 **Priority:** MEDIUM
 
 **Goal / Why:**
-To embed a robust, toggleable logging system throughout the extension's codebase. This will streamline future debugging, help diagnose user-reported issues without impacting general performance, and provide clear insight into the extension's runtime behavior.
+To improve future debugging efficiency by providing detailed, contextual log statements for core extension functionality. This will help developers quickly identify issues related to theme application, site classification, and dynamic value calculations without impacting production performance.
 
 **Expected Outcome / Acceptance Criteria:**
 
-*   A centralized logging utility is created and used for all debug messages.
-*   Logging can be enabled or disabled via a developer-facing switch in the extension's options UI.
-*   This setting is persisted in `storage.local` (e.g., `isDebugMode: true/false`).
-*   When disabled, no debug messages should appear in the console.
-*   Key events are logged, including: content script injection, algorithm selection and application, messages passed between scripts, and error states.
-*   Log messages are prefixed for easy filtering (e.g., `[UltraDark Reader]`).
+* A global `devMode` or `debug` flag is implemented, which can be toggled (e.g., in `storage.local`) to enable or disable console logging.
+* All `console.log` statements related to this task are conditional on the debug flag being enabled.
+* All log outputs are prepended with the string `[UltraDark]` for easy filtering in the browser console.
+* Logs are added to the theme classification logic, detailing which elements were analyzed and what values led to the light vs. dark determination.
+* Logs are added to the dynamic styling engine, outputting old vs. new CSS values (e.g., RGB, brightness, contrast) being applied to elements.
+* When the debug flag is disabled, no logs from this system appear in the console.
 
-**Status:** DONE
+**Status:** TODO
 
-***
-
-# Task 2 - Resolve Popup UI and 'Refresh Site' Logic Issues
+---
+# Task 2 - Fix 'Add Current Site' URL capture and Update Button
 
 **Priority:** HIGH
 
 **Goal / Why:**
-The current popup UI has critical logic flaws that create a confusing and broken user experience. This task aims to fix the 'Refresh Current Site' button's incorrect targeting and improve the UI's clarity, making it intuitive and functional.
+The "Add Current Site" button in the popup UI is incorrectly saving the internal `moz-extension://` URL instead of the active web page's URL. This fix ensures that site-specific settings are correctly applied to the intended website.
 
 **Expected Outcome / Acceptance Criteria:**
 
-*   The 'Refresh Current Site' button, when clicked from the options page, must correctly identify the active user-facing website, not the internal `moz-extension://` page.
-*   Applying per-site settings via this button must add the correct domain (e.g., `example.com`) to the overrides list.
-*   The system must explicitly prevent `moz-extension://` URLs from being added to the site list.
-*   The main on/off slider in the initial popup view must be accompanied by a clear, descriptive label (e.g., "Global Dark Mode").
+* When the extension popup is opened, the URL of the currently active tab is immediately captured and stored in a variable.
+* The button text in the popup UI is changed from "Add Current Site" to "Add Active Site".
+* Clicking the "Add Active Site" button correctly uses the stored active tab URL to create a new per-site rule.
+* The functionality works correctly even if the user interacts with the popup UI without immediately clicking the button.
+* Unit tests are created to verify that the correct URL is captured and used when the button is clicked.
 
-**Status:** DONE
+**Status:** TODO
 
-***
-
-# Task 3 - Improve Detection of Native Dark Themes
-
-**Priority:** HIGH
-
-**Goal / Why:**
-To prevent the extension from applying its theme on top of websites that already provide a functional native dark mode. This avoids CSS conflicts, visual degradation, and respects the user's choice when a site-specific dark theme is enabled.
-
-**Expected Outcome / Acceptance Criteria:**
-
-*   The content script must run a check to detect pre-existing dark themes before applying its own styles.
-*   Detection logic should check for common patterns like a `dark` class or `data-theme="dark"` attribute on the `<html>` or `<body>` elements AND if they are active.
-*   If a native dark theme is detected, the extension's styling is automatically disabled for that page load.
-*   Users must be able to manually override this detection and force-enable the theme via the per-site settings.
-*   When debug logging is enabled, a message is printed to the console indicating that a native theme was detected and styling was skipped.
-
-**Status:** DONE
-
-***
-
-# Task 4 - Implement 'Reset to Defaults' for Settings
+---
+# Task 3 - Add Per-Site 'Reset to Defaults' Button in Popup
 
 **Priority:** MEDIUM
 
 **Goal / Why:**
-To provide users with a straightforward way to revert all custom configurations to the extension's original state. This improves usability by offering a simple recovery method for users who may have misconfigured their settings.
+To allow users to reset the dark mode settings (brightness, contrast, sepia, etc.) for a single, specific website back to the global default values without having to reset all their custom settings for every site.
 
 **Expected Outcome / Acceptance Criteria:**
 
-*   A "Reset All Settings to Default" button is added to the extension's options page.
-*   Clicking the button must trigger a confirmation dialog (e.g., "Are you sure?") to prevent accidental data loss.
-*   Upon confirmation, all user-configured settings stored in `storage.local` (per-site rules, algorithm choice, etc.) are cleared and restored to their initial default values.
-*   The options page UI immediately reflects the reset default state.
-*   Any open tabs are re-themed to reflect the default settings upon reload.
+* A new button, labeled "Reset Site to Defaults" or similar, is added to the popup UI.
+* Clicking this button resets all slider values (brightness, contrast, sepia, greyscale, blueshift) for the current active site to the extension's global default values.
+* This action only affects the settings for the currently active tab's domain; settings for other custom sites remain unchanged.
+* The UI sliders visually update to their new default positions immediately after the button is clicked.
+* Unit tests are created to confirm that only the specific site's storage entry is modified, leaving global defaults and other site settings untouched.
 
-**Status:** DONE
+**Status:** TODO
 
-***
+---
+# Task 4 - Add Debounce to Popup UI Sliders
 
-
-# Task 5 - Rewrite and Implement Dual Dark Mode Algorithms
-
-**Priority:** CRITICAL
+**Priority:** MEDIUM
 
 **Goal / Why:**
-This is a core feature rewrite to replace the current styling logic with two new, superior dark mode algorithms. This will provide users with more choice, better results across a wider variety of websites, and forms the foundation of the extension's value.
+To prevent performance issues and excessive style recalculations caused by rapid, continuous updates while a user is dragging a UI slider. A debounce will ensure the theme is only applied after the user has paused their adjustment, improving responsiveness.
 
 **Expected Outcome / Acceptance Criteria:**
 
-*   Follow the designed specifications for "Algorithm A" and "Algorithm B" as outlined in the design document `consultant_recommendations/algo-rewrite.md` (needs better names than A and B). 
-*   The two new, distinct dark mode algorithms are fully implemented and can be applied by the content script.
-*   The options page includes a setting for the user to choose between "Algorithm A" and "Algorithm B" as the global default.
-*   The selected algorithm is correctly applied on page load and during dynamic DOM updates.
-*   The performance of both algorithms is optimized to avoid introducing input lag or slow page rendering.
-*   The codebase for the algorithms is modular, well-documented, and separated from the main content script logic for maintainability.
+* All sliders in the popup UI (brightness, contrast, sepia, etc.) have a debounce mechanism applied to their input/change event listeners.
+* The debounce delay is set to a reasonable value (e.g., 200-300ms) to feel responsive without causing performance strain.
+* When a slider is moved, the content script and page styles are not updated on every single pixel of movement. Instead, the update is triggered only after the user stops moving the slider for the specified delay period.
+* Unit tests are created to simulate rapid slider events and verify that the underlying update function is called only once after the events cease, not for every event.
 
-**Status:** DONE
+**Status:** TODO
 
-***
 
-# Task 6 - Eliminate 'Flash of Unstyled Content' (FOUC) on Load
+# Task 5 - Review and Fix Linting Errors and Warnings
 
-**Priority:** HIGH
+**Priority:** MEDIUM
 
 **Goal / Why:**
-The brief "flash" of a white page before the dark theme loads creates a jarring and unprofessional user experience. This task aims to eliminate that flash, ensuring a smooth, seamless transition into dark mode from the very start of page navigation.
+To improve code quality, ensure stylistic consistency across the codebase, and catch potential bugs early by resolving all issues identified by the project's static analysis (linting) tools. A clean linting report makes the code more maintainable and easier to onboard new developers.
 
 **Expected Outcome / Acceptance Criteria:**
 
-*   The manifest (`manifest.json`) is configured to inject the primary content script at `document_start`.
-*   A minimal, high-priority CSS block is injected instantly to apply a dark background color to the `<html>` and `<body>` elements, preventing the white flash.
-*   The full, more complex styling from the main algorithm is applied subsequently without causing a visual flicker.
-*   The solution is tested on a slow network connection (throttled) to confirm its effectiveness.
-*   Manual QA on a clean profile shows no white flash on at least 5 different complex websites (e.g., Wikipedia, news sites, etc.).
+* The project's linting command (e.g., `npm run lint`) is executed across the entire source code.
+* The command completes with **zero errors**.
+* All auto-fixable issues (e.g., formatting, spacing) are resolved, preferably using the linter's `--fix` capability.
+* All reported warnings are manually reviewed and either fixed or, in justified cases, explicitly ignored with an inline comment explaining the exception.
+* The codebase adheres to the established coding standards defined in the linter configuration (e.g., `.eslintrc.js`).
 
-**Status:** DONE
+**Status:** TODO
