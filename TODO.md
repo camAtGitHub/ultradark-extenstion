@@ -1,9 +1,17 @@
-* Add plenty of toggleable debug statement to assist with future debugging.
+* Add plenty of toggleable dev mode / debug statements to assist with future debugging.
+ - THis should include: 
+     - Prepend '[UltraDark]' to all debug log statements.
+     - Any thing that would be useful to debug dark theme issues.
+         - Current values, new values calculated etc.
+         - What is being modified on the page, CSS / DOM elements / RGB values - both current and new OR new and old values (after) calculation.
+     - Why and how the current page was classified as already have a dark or light theme.
+         - The values and elements used in the classification algorithm.
 
-* With regards to the pop-up UI in particular the old version  on the 'options and regex page' a number of issues existed as per below. Ensure that all the below issues are resolved in the new design:
-        1. The refresh current site button - it Only ever exists on a page beginning with "moz-extension" - clicking 'refresh current site' both adds the "moz-extension://{uuid}" to the per site override as sites that can be adjusted which it can't!  It should somehow add the site (browser tab) that was active when the first popup button (for the extension) was added.
-        2. The inital popup should should have some wordage / label indictating what the master on|off slider is.
-* Add a reset to default values on the popup UI.
-* Fix dark mode detection on websites with dark themes already and then dont apply our dark mode (possible solved with new algo rewrite) - utilise debug logs to help identify issues.
-* Implement newly revised dark mode algorithms (two seperate algorithms to choose from). (Rewrite and reimplement the dark mode algorithms x2)
-* Fix light themed flashing white before the dark mode is applied on page load.
+* When clicking the extension icon in the toolbar - Save the current active tab URL to a variable, so that when the 'Add Current Site' button is clicked it adds the correct site rather than the moz-extension url. Update the 'Add Current Site' button to 'Add Active Site' to reflect this change, ensure it uses the same variable.
+ - Create unit tests for this functionality.
+
+* When clicking the extension icon in the toolbar - add a button to set the dark mode values (brightness, contrast, sepia, greyscale, blueshift) to default values for the page rather than resetting the global defaults for all pages.
+ - Create unit tests for this functionality
+
+* Add a debounce to the sliders in the popup to prevent excessive updates to the page when adjusting them.
+ - Create unit tests for this functionality.
