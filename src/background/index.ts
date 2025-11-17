@@ -69,4 +69,10 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       browser.tabs.sendMessage(sender.tab.id, { type: "udr:settings-updated" }).catch(() => {});
     }
   }
+  if (msg?.type === "udr:debug-mode-changed") {
+    // Update debug cache in background script when debug mode changes
+    const { updateDebugCache } = await import("../utils/logger");
+    updateDebugCache(msg.enabled);
+    debugSync('Debug mode changed to:', msg.enabled);
+  }
 });

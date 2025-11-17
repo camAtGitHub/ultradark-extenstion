@@ -5,7 +5,7 @@
  * Provides toggleable debug logging with consistent prefix
  */
 
-const LOG_PREFIX = '[UltraDark Reader]';
+const LOG_PREFIX = '[UltraDark]';
 
 /**
  * Check if debug mode is enabled

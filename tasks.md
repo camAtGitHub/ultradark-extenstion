@@ -16,7 +16,7 @@ To provide developers with detailed console logs to diagnose issues related to t
 * The site classification logic (detecting if a page is already dark) must be logged, including the specific values and elements used to make the determination.
 * When Developer Mode is disabled, no debug logs should be produced.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
