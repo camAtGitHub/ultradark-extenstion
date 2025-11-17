@@ -138,6 +138,13 @@ function bind() {
   const debugMode = document.getElementById("debugMode") as HTMLInputElement;
   debugMode.onchange = async () => {
     await browser.storage.local.set({ isDebugMode: debugMode.checked });
+    
+    // Notify background script that debug mode changed
+    browser.runtime.sendMessage({ 
+      type: "udr:debug-mode-changed", 
+      enabled: debugMode.checked 
+    }).catch(() => {}); // Ignore errors
+    
     // Notify all tabs that debug mode changed
     const tabs = await browser.tabs.query({});
     for (const tab of tabs) {
