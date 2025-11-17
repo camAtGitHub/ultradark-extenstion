@@ -70,7 +70,7 @@ To create a central reference document that explains how the extension uses `bro
 * For each key, the document details its purpose, the data structure it holds (e.g., Object, Array, String), and an example value.
 * The documentation clearly explains what each setting affects, from global configurations to per-site overrides.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
