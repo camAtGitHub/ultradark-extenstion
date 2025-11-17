@@ -67,7 +67,7 @@ To prevent performance issues and excessive style recalculations caused by rapid
 * When a slider is moved, the content script and page styles are not updated on every single pixel of movement. Instead, the update is triggered only after the user stops moving the slider for the specified delay period.
 * Unit tests are created to simulate rapid slider events and verify that the underlying update function is called only once after the events cease, not for every event.
 
-**Status:** TODO
+**Status:** DONE
 
 
 # Task 5 - Review and Fix Linting Errors and Warnings
