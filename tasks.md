@@ -105,4 +105,4 @@ The 'Add Current Site' button under the per-site overrides section is non-functi
 * All associated JavaScript event listeners and handler functions for this button are removed from the codebase.
 * The UI layout remains clean and well-structured after the button's removal.
 
-**Status:** TODO
+**Status:** DONE
