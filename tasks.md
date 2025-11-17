@@ -34,7 +34,7 @@ To make the button's function in the popup UI more intuitive. Users expect it to
 * This action only affects the current view and does not modify the site's saved settings in storage.
 * The corresponding unit tests are created and passed, verifying that the sliders reset correctly without altering persistent storage.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 

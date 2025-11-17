@@ -167,47 +167,47 @@ async function init() {
     browser.runtime.openOptionsPage();
   });
 
-  // Reset Site Settings button handler
+  // Reset Sliders button handler
   $("#resetSiteSettings").addEventListener("click", async () => {
-    if (!activeTabUrl) {
-      alert("No active tab found. Please try reopening the popup.");
-      return;
-    }
+    // Reset sliders to default values in the UI only (no storage changes)
+    const defaultValues = {
+      brightness: 90,
+      contrast: 110,
+      sepia: 0,
+      grayscale: 0,
+      blueShift: 0
+    };
 
-    // Only allow http:// and https:// URLs
-    if (!activeTabUrl.startsWith("http://") && !activeTabUrl.startsWith("https://")) {
-      alert("This feature only works on regular websites (http:// or https://).");
-      return;
-    }
+    // Update UI sliders and values
+    brightness.value = String(defaultValues.brightness);
+    contrast.value = String(defaultValues.contrast);
+    sepia.value = String(defaultValues.sepia);
+    grayscale.value = String(defaultValues.grayscale);
+    blueShift.value = String(defaultValues.blueShift);
+    
+    briV.textContent = `${defaultValues.brightness}%`;
+    conV.textContent = `${defaultValues.contrast}%`;
+    sepV.textContent = `${defaultValues.sepia}%`;
+    gryV.textContent = `${defaultValues.grayscale}%`;
+    bluV.textContent = `${defaultValues.blueShift}%`;
 
-    const origin = originFromUrl(activeTabUrl);
-    
-    // Check if this site has per-site overrides
-    if (!s.perSite[origin]) {
-      alert(`No custom settings found for ${origin}. The site is already using global defaults.`);
-      return;
-    }
+    // Update slider backgrounds
+    updateSliderBackground(brightness, defaultValues.brightness, 50, 120);
+    updateSliderBackground(contrast, defaultValues.contrast, 50, 200);
+    updateSliderBackground(sepia, defaultValues.sepia, 0, 100);
+    updateSliderBackground(grayscale, defaultValues.grayscale, 0, 100);
+    updateSliderBackground(blueShift, defaultValues.blueShift, 0, 100);
 
-    const confirmed = confirm(
-      `Reset settings for ${origin} to global defaults?\n\n` +
-      "This will remove any custom brightness, contrast, sepia, grayscale, and blue shift settings for this site only."
-    );
-    
-    if (!confirmed) return;
+    // Update local settings object and apply to active tab
+    s.brightness = defaultValues.brightness;
+    s.contrast = defaultValues.contrast;
+    s.sepia = defaultValues.sepia;
+    s.grayscale = defaultValues.grayscale;
+    s.blueShift = defaultValues.blueShift;
 
-    // Remove the per-site override
-    delete s.perSite[origin];
-    await setSettings(s);
-    
-    // Reload settings to reflect changes in UI
-    const updatedSettings = await getSettings();
-    reflect(updatedSettings);
-    
-    // Notify the active tab to refresh with new settings
+    // Send message to active tab to apply new settings immediately
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
-    
-    alert(`Settings for ${origin} have been reset to global defaults.`);
   });
 
   // Add Active Site button handler
