@@ -52,19 +52,52 @@ function applyCss(s: Settings) {
 }
 
 function removeCss() {
+  debugSync('Removing dark theme CSS and inline styles');
+  
   const tag = document.getElementById("udr-style");
   if (tag?.parentNode) tag.parentNode.removeChild(tag);
   document.documentElement.removeAttribute("udr-applied");
+  
+  // Check which mode was applied to know what to clean up
+  const mode = document.documentElement.getAttribute("data-udr-mode");
   document.documentElement.removeAttribute("data-udr-mode");
   (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "";
   
-  // Reset inline styles applied by surgeon method
+  // If surgeon method was used, we need to clean up inline styles on all elements
+  if (mode === "surgeon") {
+    debugSync('[Surgeon Cleanup] Removing inline styles from DOM elements');
+    
+    // Remove inline styles from all elements that were modified
+    const elements = document.querySelectorAll('*');
+    let cleanedCount = 0;
+    
+    elements.forEach((element) => {
+      if (!(element instanceof HTMLElement)) return;
+      
+      // Only remove properties if they were set by the extension (have inline styles)
+      if (element.style.length > 0) {
+        element.style.removeProperty('background-color');
+        element.style.removeProperty('color');
+        element.style.removeProperty('border-color');
+        element.style.removeProperty('filter');
+        cleanedCount++;
+      }
+    });
+    
+    debugSync('[Surgeon Cleanup] Cleaned', cleanedCount, 'elements');
+  }
+  
+  // Reset document element and body styles
+  if (document.documentElement.style.backgroundColor) {
+    document.documentElement.style.removeProperty('background-color');
+  }
   if (document.body.style.backgroundColor) {
     document.body.style.removeProperty('background-color');
     document.body.style.removeProperty('color');
   }
   
   applied = false;
+  debugSync('Dark theme removed successfully');
 }
 
 function startObserverForSpa() {

@@ -88,7 +88,7 @@ Users report that injected styles and modifications are not properly removed whe
 * This fix must work reliably on complex Single-Page Applications (SPAs) as well as traditional static sites.
 * The page must be restored to normal without requiring a user to restart their browser.
 
-**Status:** TODO
+**Status:** DONE
 
 ---
 
