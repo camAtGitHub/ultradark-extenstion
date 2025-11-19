@@ -120,7 +120,7 @@ To expose the power of the new engines to the user, the extension's popup UI mus
 * When visiting a site with a saved configuration, the correct algorithm is automatically loaded and applied.
 * A global default algorithm can be set in the main options page.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
@@ -141,7 +141,7 @@ To allow users to fine-tune theme parameters (e.g., brightness, contrast) withou
 * The full, computationally "expensive" algorithmic recalculation is executed only after the debounce timeout completes.
 * Preference changes are saved to storage only after 1000ms of user inactivity to reduce write operations.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
@@ -161,7 +161,7 @@ To provide developers with detailed console logs to diagnose issues related to t
 * Logs must show CSS/DOM modifications, including before-and-after values for colors and styles.
 * When Developer Mode is disabled, no debug logs from the extension are produced in the console.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
@@ -180,7 +180,7 @@ To ensure the long-term stability, correctness, and maintainability of the new t
 * The test suite is integrated into the development workflow and can be run via a package script (e.g., `npm test`).
 * All new, critical logic introduced in this sprint has corresponding test coverage.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
@@ -198,5 +198,5 @@ To improve overall code quality, consistency, and prevent potential bugs by ensu
 * All reported linting warnings are reviewed and resolved.
 * The linting command completes successfully with zero errors or warnings.
 
-**Status:** TODO
+**Status:** DONE
 
