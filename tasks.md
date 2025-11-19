@@ -78,7 +78,7 @@ To provide a more nuanced and readable dark theme than simple inversion, this al
 * A `MutationObserver` is attached to the `<body>` to detect and process dynamically added nodes (e.g., from infinite scrolling).
 * Transparent backgrounds are handled by traversing up the DOM tree to find the nearest opaque parent for color context.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
