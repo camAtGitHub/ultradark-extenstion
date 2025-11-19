@@ -4,7 +4,7 @@
 
 The extension utilizes the WebExtension API standard. It operates via a decoupled architecture to ensure main-thread responsiveness.
 
-*   **Manifest V3 (Firefox Compatible):** Ensures strictly typed permissions and service worker persistence.
+*   **Manifest V2 (Firefox Compatible):** Ensures strictly typed permissions and service worker persistence.
 *   **Background Service Worker:** Handles state management, settings storage (local/sync), and tab event listeners.
 *   **Content Script (Injector):** The execution environment for the rendering algorithms. It allows direct DOM access and CSSOM manipulation.
 *   **Popup UI / Settings Panel:** User interface for mode selection and modifier adjustments.

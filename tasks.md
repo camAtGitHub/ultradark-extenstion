@@ -29,6 +29,7 @@ To prevent applying a dark theme to websites that are already dark ("double-dark
 
 **Expected Outcome / Acceptance Criteria:**
 
+* Review file: consultant_recommendations/dark_theme_engines_design.md for specific design details THAT ARE TO BE FOLLOWED!
 * The module first checks for native dark mode signals: `window.matchMedia('(prefers-color-scheme: dark)').matches` and the `color-scheme` meta tag/CSS property.
 * If metadata is inconclusive, the module samples the `background-color` of the `<body>` and 5 random, deeply-nested `<div>` elements.
 * It calculates the average Relative Luminance for the sampled backgrounds; if the average is less than 0.2, the page is classified as "inherently dark".
@@ -48,6 +49,8 @@ Implement the first of the new engines, a high-performance solution based on CSS
 
 **Expected Outcome / Acceptance Criteria:**
 
+* Review file: consultant_recommendations/dark_theme_engines_design.md for specific design details THAT ARE TO BE FOLLOWED!
+  Below is a summary of the implementation requirements. USE THE DESIGN FILE AS THE PRIMARY REFERENCE!
 * A CSS rule `filter: invert(100%) hue-rotate(180deg);` is injected and applied to the `<html>` element when this algorithm is active.
 * A secondary CSS rule is injected to target `img, video, canvas, [style*="background-image"]`.
 * This secondary rule re-applies the same filter (`invert(100%) hue-rotate(180deg)`) to cancel the effect on media elements, rendering them normally.
@@ -66,6 +69,8 @@ To provide a more nuanced and readable dark theme than simple inversion, this al
 
 **Expected Outcome / Acceptance Criteria:**
 
+* Review file: consultant_recommendations/dark_theme_engines_design.md for specific design details THAT ARE TO BE FOLLOWED!
+  Below is a summary of the implementation requirements. USE THE DESIGN FILE AS THE PRIMARY REFERENCE!
 * The engine uses `document.createTreeWalker` to iterate over all relevant DOM nodes.
 * Processing is batched using `requestAnimationFrame` to avoid blocking the main thread.
 * For each element, `color` and `background-color` are converted from RGB to HSL.
@@ -86,6 +91,8 @@ This is the most advanced engine, designed for complex web applications. It uses
 
 **Expected Outcome / Acceptance Criteria:**
 
+* Review file: consultant_recommendations/dark_theme_engines_design.md for specific design details THAT ARE TO BE FOLLOWED!
+  Below is a summary of the implementation requirements. USE THE DESIGN FILE AS THE PRIMARY REFERENCE!
 * The engine scans `document.styleSheets` to find and modify CSS Custom Properties (`--variable-name`) directly for maximum performance.
 * Elements are classified semantically (e.g., via ARIA roles) to apply context-aware styling (e.g., body vs. modals, links vs. plain text).
 * Colors are converted to the LCH color space to ensure all color modifications meet a minimum WCAG AA (4.5:1) perceptual contrast ratio.
@@ -105,6 +112,8 @@ To expose the power of the new engines to the user, the extension's popup UI mus
 
 **Expected Outcome / Acceptance Criteria:**
 
+* Review file: consultant_recommendations/dark_theme_engines_design.md for specific design details.
+  Below is a summary of the implementation requirements. USE THE DESIGN FILE AS THE PRIMARY REFERENCE!
 * The popup UI contains a new control (e.g., a dropdown or radio button group) listing the new theme engines: "Photon Inverter," "DOM Walker," and "Chroma-Semantic Engine."
 * The user's selection is applied to the current page in real-time.
 * When a user saves a "per-site" configuration, the currently selected algorithm's identifier is included in the saved data.
@@ -124,6 +133,8 @@ To allow users to fine-tune theme parameters (e.g., brightness, contrast) withou
 
 **Expected Outcome / Acceptance Criteria:**
 
+* Review file: consultant_recommendations/dark_theme_engines_design.md for specific design details.
+  Below is a summary of the implementation requirements. USE THE DESIGN FILE AS THE PRIMARY REFERENCE!
 * UI controls for brightness, contrast, sepia, etc., trigger updates on an `input` event.
 * A debounce function with a timeout of ~150ms is used to wrap the theme recalculation logic.
 * While a user is actively adjusting a slider, a computationally "cheap" preview (e.g., a temporary CSS filter) provides instant visual feedback.
