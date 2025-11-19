@@ -3,7 +3,7 @@ import type { Settings } from "../types/settings";
 
 export const DEFAULTS: Settings = {
   enabled: true,
-  mode: "architect",
+  mode: "photon-inverter",
   amoled: false,
   brightness: 90,
   contrast: 110,

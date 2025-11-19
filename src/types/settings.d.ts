@@ -1,5 +1,5 @@
 // src/types/settings.d.ts
-export type Mode = "architect" | "surgeon";
+export type Mode = "photon-inverter" | "dom-walker" | "chroma-semantic";
 export interface Schedule {
   enabled: boolean;
   start: string; // "22:00"

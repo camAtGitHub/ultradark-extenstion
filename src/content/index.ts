@@ -7,8 +7,9 @@ import { getSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
-import { applyArchitectMethod } from "./algorithms/architect";
-import { applySurgeonMethod } from "./algorithms/surgeon";
+import { applyPhotonInverter } from "./algorithms/photon-inverter";
+import { applyDomWalker } from "./algorithms/dom-walker";
+import { applyChromaSemantic } from "./algorithms/chroma-semantic";
 
 let worker: Worker | null = null;
 let applied = false;
@@ -36,14 +37,16 @@ async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use:
 function applyCss(s: Settings) {
   debugSync('Applying CSS with mode:', s.mode);
   
-  if (s.mode === "architect") {
-    applyArchitectMethod(s);
-  } else if (s.mode === "surgeon") {
-    applySurgeonMethod(s);
+  if (s.mode === "photon-inverter") {
+    applyPhotonInverter(s);
+  } else if (s.mode === "dom-walker") {
+    applyDomWalker(s);
+  } else if (s.mode === "chroma-semantic") {
+    applyChromaSemantic(s);
   } else {
-    // Fallback to architect for unknown modes
-    debugSync('Unknown mode, falling back to architect');
-    applyArchitectMethod(s);
+    // Fallback to photon-inverter for unknown modes
+    debugSync('Unknown mode, falling back to photon-inverter');
+    applyPhotonInverter(s);
   }
 
   document.documentElement.setAttribute("udr-applied", "true");
@@ -52,42 +55,17 @@ function applyCss(s: Settings) {
 }
 
 function removeCss() {
-  debugSync('Removing dark theme CSS and inline styles');
+  debugSync('Removing dark theme CSS');
   
   const tag = document.getElementById("udr-style");
   if (tag?.parentNode) tag.parentNode.removeChild(tag);
   document.documentElement.removeAttribute("udr-applied");
   
-  // Check which mode was applied to know what to clean up
-  const mode = document.documentElement.getAttribute("data-udr-mode");
+  // Clean up mode attribute
   document.documentElement.removeAttribute("data-udr-mode");
   (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "";
   
-  // If surgeon method was used, we need to clean up inline styles on all elements
-  if (mode === "surgeon") {
-    debugSync('[Surgeon Cleanup] Removing inline styles from DOM elements');
-    
-    // Remove inline styles from all elements that were modified
-    const elements = document.querySelectorAll('*');
-    let cleanedCount = 0;
-    
-    elements.forEach((element) => {
-      if (!(element instanceof HTMLElement)) return;
-      
-      // Only remove properties if they were set by the extension (have inline styles)
-      if (element.style.length > 0) {
-        element.style.removeProperty('background-color');
-        element.style.removeProperty('color');
-        element.style.removeProperty('border-color');
-        element.style.removeProperty('filter');
-        cleanedCount++;
-      }
-    });
-    
-    debugSync('[Surgeon Cleanup] Cleaned', cleanedCount, 'elements');
-  }
-  
-  // Reset document element and body styles
+  // Reset document element and body styles if they exist
   if (document.documentElement.style.backgroundColor) {
     document.documentElement.style.removeProperty('background-color');
   }
@@ -166,7 +144,7 @@ async function tick() {
 
   debugSync('Applying dark theme with mode:', use.mode);
   applyCss(use);
-  if (use.mode === "architect" && use.optimizerEnabled) {
+  if (use.optimizerEnabled) {
     startOptimizerIfEnabled(use);
   }
 }

@@ -16,7 +16,7 @@ To prepare the codebase for the new, consultant-designed theme algorithms, the t
 * A clean interface or entry point is defined where the new theme engines will be integrated.
 * The per-site configuration storage logic is updated to remove any references to the old engine identifiers.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
