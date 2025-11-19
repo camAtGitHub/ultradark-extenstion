@@ -56,7 +56,7 @@ Implement the first of the new engines, a high-performance solution based on CSS
 * This secondary rule re-applies the same filter (`invert(100%) hue-rotate(180deg)`) to cancel the effect on media elements, rendering them normally.
 * The engine accepts user-modifiable values for brightness and contrast, appending them to the filter rule (e.g., `brightness(0.9) contrast(1.1)`).
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
