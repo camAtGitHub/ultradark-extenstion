@@ -135,7 +135,7 @@ describe("Reset Site to Defaults", () => {
     expect(DEFAULTS.grayscale).toBe(0);
     expect(DEFAULTS.blueShift).toBe(0);
     expect(DEFAULTS.amoled).toBe(false);
-    expect(DEFAULTS.mode).toBe("architect");
+    expect(DEFAULTS.mode).toBe("photon-inverter");
     expect(DEFAULTS.enabled).toBe(true);
     expect(DEFAULTS.optimizerEnabled).toBe(true);
     expect(DEFAULTS.detectDarkSites).toBe(true);
