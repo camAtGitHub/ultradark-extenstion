@@ -210,6 +210,12 @@ Add/verify these scripts in `package.json`:
 
 ---
 
+# Coding standards & conventions
+
+- Ensure that full debug statements are added to the code. They should be toggle-able via the master 'development mode' flag in the extension settings. The purpose is for troubleshooting of debugging dark-theme issues, dark-theme detection logic Exac- Write unit testsfor all major functions and components, ensuring high code coverage.
+- Copy existing coding styles from the project. Use consistent indentation, naming conventions, and file organization.
+
+---
 # Testing & linting
 
 * **Unit / function tests:** If present, run with `npm test` (we recommend `vitest` for TypeScript). Add tests under `__tests__` or alongside modules with `.spec.ts`.

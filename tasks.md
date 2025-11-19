@@ -1,44 +1,179 @@
+Of course. As a Senior Software Project Analyst, I have analyzed the sprint requirements and broken them down into a series of structured, actionable tasks. Here is the complete breakdown for the engineering team.
 
-# Task 1 - Implement Developer Mode Debug Logging
+***
+
+# Task 1 - Core Refactor: Remove Legacy Theme Engines
+
+**Priority:** CRITICAL
+
+**Goal / Why:**
+To prepare the codebase for the new, consultant-designed theme algorithms, the three existing legacy engines must be completely removed. This technical debt removal is a prerequisite for all other work in this sprint and prevents conflicts or dead code from remaining in the extension.
+
+**Expected Outcome / Acceptance Criteria:**
+
+* All source files, function calls, and UI elements related to the old three algorithms are deleted from the repository.
+* The application compiles and runs without errors after removal, with the theme application logic effectively stubbed out or disabled.
+* A clean interface or entry point is defined where the new theme engines will be integrated.
+* The per-site configuration storage logic is updated to remove any references to the old engine identifiers.
+
+**Status:** TODO
+
+***
+
+# Task 2 - Implement New Theme Detection Module (Pre-flight Check)
+
+**Priority:** HIGH
+
+**Goal / Why:**
+To prevent applying a dark theme to websites that are already dark ("double-darking"), a new, more robust pre-flight check is required. This module will analyze a page's metadata and computed styles to make an intelligent decision on whether to apply the theme.
+
+**Expected Outcome / Acceptance Criteria:**
+
+* The module first checks for native dark mode signals: `window.matchMedia('(prefers-color-scheme: dark)').matches` and the `color-scheme` meta tag/CSS property.
+* If metadata is inconclusive, the module samples the `background-color` of the `<body>` and 5 random, deeply-nested `<div>` elements.
+* It calculates the average Relative Luminance for the sampled backgrounds; if the average is less than 0.2, the page is classified as "inherently dark".
+* If the page is detected as dark, the theme injection is skipped (`SKIP_INJECTION`).
+* A `force_enable` flag in the user settings can override this detection logic.
+
+**Status:** TODO
+
+***
+
+# Task 3 - Implement Algorithm 1: "Photon Inverter"
+
+**Priority:** HIGH
+
+**Goal / Why:**
+Implement the first of the new engines, a high-performance solution based on CSS filters. This engine serves as the baseline for low-power devices and structurally simple pages, providing a quick and efficient dark mode.
+
+**Expected Outcome / Acceptance Criteria:**
+
+* A CSS rule `filter: invert(100%) hue-rotate(180deg);` is injected and applied to the `<html>` element when this algorithm is active.
+* A secondary CSS rule is injected to target `img, video, canvas, [style*="background-image"]`.
+* This secondary rule re-applies the same filter (`invert(100%) hue-rotate(180deg)`) to cancel the effect on media elements, rendering them normally.
+* The engine accepts user-modifiable values for brightness and contrast, appending them to the filter rule (e.g., `brightness(0.9) contrast(1.1)`).
+
+**Status:** TODO
+
+***
+
+# Task 4 - Implement Algorithm 2: "DOM Walker"
 
 **Priority:** MEDIUM
+
+**Goal / Why:**
+To provide a more nuanced and readable dark theme than simple inversion, this algorithm will traverse the DOM, analyze computed styles, and replace colors based on their lightness, preserving brand identity and improving text clarity.
+
+**Expected Outcome / Acceptance Criteria:**
+
+* The engine uses `document.createTreeWalker` to iterate over all relevant DOM nodes.
+* Processing is batched using `requestAnimationFrame` to avoid blocking the main thread.
+* For each element, `color` and `background-color` are converted from RGB to HSL.
+* Lightness (L) is inverted for both backgrounds (`L > 50%`) and foregrounds (`L < 50%`), while Hue and Saturation are preserved.
+* A `MutationObserver` is attached to the `<body>` to detect and process dynamically added nodes (e.g., from infinite scrolling).
+* Transparent backgrounds are handled by traversing up the DOM tree to find the nearest opaque parent for color context.
+
+**Status:** TODO
+
+***
+
+# Task 5 - Implement Algorithm 3: "Chroma-Semantic Engine"
+
+**Priority:** MEDIUM
+
+**Goal / Why:**
+This is the most advanced engine, designed for complex web applications. It uses semantic analysis and a perceptually uniform color space (LCH) to create a high-fidelity, accessible, and performant dark theme that respects visual hierarchy.
+
+**Expected Outcome / Acceptance Criteria:**
+
+* The engine scans `document.styleSheets` to find and modify CSS Custom Properties (`--variable-name`) directly for maximum performance.
+* Elements are classified semantically (e.g., via ARIA roles) to apply context-aware styling (e.g., body vs. modals, links vs. plain text).
+* Colors are converted to the LCH color space to ensure all color modifications meet a minimum WCAG AA (4.5:1) perceptual contrast ratio.
+* For raw RGB manipulation, bitwise operations are used for performance gains over string parsing.
+* A performance monitor is included: if engine execution exceeds 200ms, it automatically falls back to Algorithm 1 ("Photon Inverter") and notifies the user.
+
+**Status:** TODO
+
+***
+
+# Task 6 - Update UI for Algorithm Selection & Per-Site Configuration
+
+**Priority:** HIGH
+
+**Goal / Why:**
+To expose the power of the new engines to the user, the extension's popup UI must be updated. Users need to be able to select their preferred algorithm and save that choice on a per-site basis.
+
+**Expected Outcome / Acceptance Criteria:**
+
+* The popup UI contains a new control (e.g., a dropdown or radio button group) listing the new theme engines: "Photon Inverter," "DOM Walker," and "Chroma-Semantic Engine."
+* The user's selection is applied to the current page in real-time.
+* When a user saves a "per-site" configuration, the currently selected algorithm's identifier is included in the saved data.
+* When visiting a site with a saved configuration, the correct algorithm is automatically loaded and applied.
+* A global default algorithm can be set in the main options page.
+
+**Status:** TODO
+
+***
+
+# Task 7 - Implement Debounced User Control Modifiers
+
+**Priority:** MEDIUM
+
+**Goal / Why:**
+To allow users to fine-tune theme parameters (e.g., brightness, contrast) without causing performance degradation, all UI slider/input controls must use a debounce mechanism. This ensures heavy calculations only run after the user has finished making their adjustment.
+
+**Expected Outcome / Acceptance Criteria:**
+
+* UI controls for brightness, contrast, sepia, etc., trigger updates on an `input` event.
+* A debounce function with a timeout of ~150ms is used to wrap the theme recalculation logic.
+* While a user is actively adjusting a slider, a computationally "cheap" preview (e.g., a temporary CSS filter) provides instant visual feedback.
+* The full, computationally "expensive" algorithmic recalculation is executed only after the debounce timeout completes.
+* Preference changes are saved to storage only after 1000ms of user inactivity to reduce write operations.
+
+**Status:** TODO
+
+***
+
+# Task 8 - Implement "Developer Mode" for Debug Logging
+
+**Priority:** HIGH
 
 **Goal / Why:**
 To provide developers with detailed console logs to diagnose issues related to theme application, value calculations, and site classification. This is essential for efficient future debugging and maintenance.
 
 **Expected Outcome / Acceptance Criteria:**
 
-* A global "Developer Mode" toggle is available within the extension's settings.
-* When Developer Mode is enabled, detailed debug logs are output to the Browser Console.
-* All log statements generated by the extension must be prepended with `[UltraDark]` for easy filtering.
-* When enabled debug logs MUST be output everytime as there are bugs with it only working intermittently.
-* Logs must detail CSS/DOM modifications, showing before-and-after values for things like RGB colors or element styles.
-* The site classification logic (detecting if a page is already dark) must be logged, including the specific values and elements used to make the determination.
-* When Developer Mode is disabled, no debug logs should be produced.
+* A global "Developer Mode" toggle is available within the extension's main settings page.
+* When Developer Mode is enabled, detailed debug logs are reliably output to the Browser Console for every relevant action.
+* All log statements generated by the extension are prepended with `[UltraDark]` for easy filtering.
+* Logs must detail the "pre-flight" site classification decision, including the values used to make the determination.
+* Logs must show CSS/DOM modifications, including before-and-after values for colors and styles.
+* When Developer Mode is disabled, no debug logs from the extension are produced in the console.
 
-**Status:** DONE
+**Status:** TODO
 
----
+***
 
-# Task 2 - Update 'Reset Site Defaults' to 'Reset Sliders'
+# Task 9 - Create Unit Test Suite for New Engines & Logic
 
-**Priority:** LOW
+**Priority:** HIGH
 
 **Goal / Why:**
-To make the button's function in the popup UI more intuitive. Users expect it to reset the visible sliders (brightness, contrast, etc.) for the current session, not necessarily wipe saved settings. This change prevents user confusion.
+To ensure the long-term stability, correctness, and maintainability of the new theme engines and detection logic, a comprehensive suite of unit tests must be created. This safeguards against future regressions.
 
 **Expected Outcome / Acceptance Criteria:**
 
-* In the popup UI, the button text is changed from 'Reset Site Defaults' to 'Reset Sliders'.
-* Clicking the 'Reset Sliders' button immediately sets the brightness, contrast, sepia, greyscale, and blueshift sliders to their default values on the active page.
-* This action only affects the current view and does not modify the site's saved settings in storage.
-* The corresponding unit tests are created and passed, verifying that the sliders reset correctly without altering persistent storage.
+* Unit tests are created for the Theme Detection Module, covering various scenarios (metadata, light/dark computed styles).
+* Each theme algorithm has its own set of unit tests to validate its color conversion logic against known inputs and expected outputs.
+* Helper functions (e.g., RGB-to-LCH conversion, bitwise operations) are covered by dedicated unit tests.
+* The test suite is integrated into the development workflow and can be run via a package script (e.g., `npm test`).
+* All new, critical logic introduced in this sprint has corresponding test coverage.
 
-**Status:** DONE
+**Status:** TODO
 
----
+***
 
-# Task 3 - Review and Fix Linting Errors and Warnings
+# Task 10 - Review and Fix Linting Errors and Warnings
 
 **Priority:** LOW
 
@@ -52,57 +187,5 @@ To improve overall code quality, consistency, and prevent potential bugs by ensu
 * All reported linting warnings are reviewed and resolved.
 * The linting command completes successfully with zero errors or warnings.
 
-**Status:** DONE
+**Status:** TODO
 
----
-
-# Task 4 - Create Documentation for Local Storage Schema
-
-**Priority:** MEDIUM
-
-**Goal / Why:**
-To create a central reference document that explains how the extension uses `browser.storage.local`. This will significantly speed up future development and make debugging storage-related issues much easier for any developer working on the project.
-
-**Expected Outcome / Acceptance Criteria:**
-
-* A new Markdown document (e.g., `STORAGE_SCHEMA.md`) is created in the repository's root or `/docs` directory.
-* The document lists every key used by the extension in `browser.storage.local`.
-* For each key, the document details its purpose, the data structure it holds (e.g., Object, Array, String), and an example value.
-* The documentation clearly explains what each setting affects, from global configurations to per-site overrides.
-
-**Status:** DONE
-
----
-
-# Task 5 - BUG: Visual artifacts remain after disabling the extension
-
-**Priority:** CRITICAL
-
-**Goal / Why:**
-Users report that injected styles and modifications are not properly removed when the extension is disabled for a site, leaving pages in a broken state. This is a major bug that severely degrades user trust and experience.
-
-**Expected Outcome / Acceptance Criteria:**
-
-* When the extension is toggled "off" for a site via the popup, all injected CSS, style tags, and DOM elements are immediately and completely removed.
-* The web page must be restored to its original state without any lingering visual artifacts or broken styles.
-* This fix must work reliably on complex Single-Page Applications (SPAs) as well as traditional static sites.
-* The page must be restored to normal without requiring a user to restart their browser.
-
-**Status:** DONE
-
----
-
-# Task 6 - Remove non-functional 'Add Current Site' button
-
-**Priority:** LOW
-
-**Goal / Why:**
-The 'Add Current Site' button under the per-site overrides section is non-functional. Removing it will clean up the UI and prevent user confusion caused by clicking a button that does nothing.
-
-**Expected Outcome / Acceptance Criteria:**
-
-* The button labeled 'Add Current Site' is completely removed from the popup's HTML structure.
-* All associated JavaScript event listeners and handler functions for this button are removed from the codebase.
-* The UI layout remains clean and well-structured after the button's removal.
-
-**Status:** DONE
