@@ -67,7 +67,7 @@ function parseColor(colorStr: string): { r: number; g: number; b: number } | nul
 
 /**
  * Calculate average background luminance of the page
- * Samples multiple elements to get a representative value
+ * Samples body and 5 random deeply-nested divs as per consultant spec
  */
 export function getAverageBackgroundLuminance(): number {
   const body = document.body;
@@ -80,33 +80,51 @@ export function getAverageBackgroundLuminance(): number {
   // Sample body background
   const bodyBg = getComputedStyle(body).backgroundColor;
   const bodyColor = parseColor(bodyBg);
-  if (bodyColor) {
+  if (bodyColor && bodyBg !== 'rgba(0, 0, 0, 0)' && bodyBg !== 'transparent') {
     const luminance = rgbToLuminance(bodyColor.r, bodyColor.g, bodyColor.b);
     samples.push(luminance);
     debugSync('[Dark Detection] Body background:', bodyBg, '-> RGB:', bodyColor, '-> Luminance:', luminance);
   }
 
-  // Sample html background
-  const htmlBg = getComputedStyle(html).backgroundColor;
-  const htmlColor = parseColor(htmlBg);
-  if (htmlColor) {
-    const luminance = rgbToLuminance(htmlColor.r, htmlColor.g, htmlColor.b);
-    samples.push(luminance);
-    debugSync('[Dark Detection] HTML background:', htmlBg, '-> RGB:', htmlColor, '-> Luminance:', luminance);
+  // Sample 5 random deeply-nested div elements (consultant spec requirement)
+  const allDivs = Array.from(document.querySelectorAll('div'));
+  
+  // Filter to get deeply nested divs (depth > 3)
+  const deeplyNestedDivs = allDivs.filter(div => {
+    let depth = 0;
+    let parent = div.parentElement;
+    while (parent && depth < 10) { // Limit depth check to avoid infinite loops
+      depth++;
+      parent = parent.parentElement;
+    }
+    return depth > 3;
+  });
+
+  debugSync('[Dark Detection] Found', deeplyNestedDivs.length, 'deeply nested divs (depth > 3)');
+
+  // Randomly select up to 5 deeply-nested divs
+  const samplesToTake = Math.min(5, deeplyNestedDivs.length);
+  const randomIndices = new Set<number>();
+  
+  while (randomIndices.size < samplesToTake && randomIndices.size < deeplyNestedDivs.length) {
+    randomIndices.add(Math.floor(Math.random() * deeplyNestedDivs.length));
   }
 
-  // Sample some major container elements
-  const selectors = ["main", "article", "section", ".content", "#content", ".main", "#main"];
-  for (const selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el) {
-      const bg = getComputedStyle(el).backgroundColor;
-      const color = parseColor(bg);
-      if (color) {
-        const luminance = rgbToLuminance(color.r, color.g, color.b);
-        samples.push(luminance);
-        debugSync(`[Dark Detection] Element '${selector}' background:`, bg, '-> RGB:', color, '-> Luminance:', luminance);
-      }
+  for (const index of randomIndices) {
+    const el = deeplyNestedDivs[index];
+    const bg = getComputedStyle(el).backgroundColor;
+    
+    // Skip transparent backgrounds
+    if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
+      debugSync('[Dark Detection] Skipping transparent background on random div #' + index);
+      continue;
+    }
+    
+    const color = parseColor(bg);
+    if (color) {
+      const luminance = rgbToLuminance(color.r, color.g, color.b);
+      samples.push(luminance);
+      debugSync('[Dark Detection] Random div #' + index + ' background:', bg, '-> RGB:', color, '-> Luminance:', luminance);
     }
   }
 
@@ -143,12 +161,23 @@ export function siteDeclaresColorScheme(): boolean {
 
 /**
  * Check for common dark theme indicators in HTML/CSS classes and attributes
+ * Including meta tags and color-scheme properties as per consultant spec
  */
 export function hasExplicitDarkThemeMarkers(): boolean {
   const html = document.documentElement;
   const body = document.body;
 
   if (!html || !body) return false;
+
+  // Check for color-scheme meta tag (consultant spec requirement)
+  const colorSchemeMeta = document.querySelector('meta[name="color-scheme"]');
+  if (colorSchemeMeta) {
+    const content = colorSchemeMeta.getAttribute('content') || '';
+    if (/dark/i.test(content)) {
+      debugSync('[Dark Detection] Found dark color-scheme meta tag:', content);
+      return true;
+    }
+  }
 
   // Check for common dark theme class names on html or body
   const darkClassPatterns = /dark|night|black|theme-dark/i;
@@ -177,12 +206,12 @@ export function hasExplicitDarkThemeMarkers(): boolean {
     return true;
   }
 
-  // Check for color-scheme CSS property
-  const htmlColorScheme = getComputedStyle(html).colorScheme;
+  // Check for color-scheme CSS property on :root and body (consultant spec requirement)
+  const rootColorScheme = getComputedStyle(html).colorScheme;
   const bodyColorScheme = getComputedStyle(body).colorScheme;
   
-  if (htmlColorScheme && /dark/i.test(htmlColorScheme)) {
-    debugSync('[Dark Detection] Found dark color-scheme on <html>:', htmlColorScheme);
+  if (rootColorScheme && /dark/i.test(rootColorScheme)) {
+    debugSync('[Dark Detection] Found dark color-scheme on :root (html):', rootColorScheme);
     return true;
   }
   
@@ -200,8 +229,8 @@ export function hasExplicitDarkThemeMarkers(): boolean {
  * Returns true if the site appears to be dark
  */
 export function isAlreadyDarkTheme(): boolean {
-  // Threshold: luminance below 0.3 is considered dark
-  const DARK_THRESHOLD = 0.3;
+  // Threshold: luminance below 0.2 is considered dark (consultant spec)
+  const DARK_THRESHOLD = 0.2;
 
   debugSync('[Dark Detection] Starting dark theme detection for:', window.location.href);
 

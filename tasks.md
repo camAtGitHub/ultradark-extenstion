@@ -36,7 +36,7 @@ To prevent applying a dark theme to websites that are already dark ("double-dark
 * If the page is detected as dark, the theme injection is skipped (`SKIP_INJECTION`).
 * A `force_enable` flag in the user settings can override this detection logic.
 
-**Status:** TODO
+**Status:** DONE
 
 ***
 
