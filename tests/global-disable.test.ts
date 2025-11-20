@@ -1,5 +1,5 @@
 // tests/global-disable.test.ts
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { JSDOM } from "jsdom";
 
 /**
