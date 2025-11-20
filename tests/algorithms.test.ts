@@ -91,9 +91,9 @@ describe('Algorithm Tests', () => {
       expect(MIN_CONTRAST).toBe(4.5);
     });
 
-    it('should fall back to Photon Inverter if execution exceeds 200ms', () => {
-      const PERFORMANCE_THRESHOLD = 200;
-      expect(PERFORMANCE_THRESHOLD).toBe(200);
+    it('should fall back to Photon Inverter if execution exceeds 3000ms', () => {
+      const PERFORMANCE_THRESHOLD = 3000;
+      expect(PERFORMANCE_THRESHOLD).toBe(3000);
     });
 
     it('should classify elements by semantic role', () => {

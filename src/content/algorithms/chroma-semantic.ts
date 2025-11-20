@@ -294,7 +294,7 @@ function parseColor(colorStr: string): { r: number; g: number; b: number } | nul
  */
 export function applyChromaSemantic(settings: Settings): void {
   const startTime = performance.now();
-  const PERFORMANCE_THRESHOLD = 200; // 200ms limit before fallback
+  const PERFORMANCE_THRESHOLD = 3000; // 3000ms limit before fallback
 
   debugSync('[Chroma-Semantic] Starting advanced semantic analysis');
 
