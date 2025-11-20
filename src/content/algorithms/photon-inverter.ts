@@ -3,82 +3,91 @@
 /**
  * Algorithm 1: "Photon Inverter" (High Performance / CSS Filters)
  * 
- * Strategy: Global CSS Filter Injection
+ * Strategy: Simple CSS inversion with image/video re-inversion
  * Complexity: O(1) (Browser Render Engine handles complexity)
  * Use Case: Low-power devices, huge legacy static HTML pages, rapid prototyping
+ * 
+ * Based on the dark-theme-snippet bookmarklet approach
  */
 
 import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 
+const DARK_THEME_SNIPPET_ID = "dark-theme-snippet";
+
 /**
- * Generate CSS for the Photon Inverter algorithm
- * Uses CSS filters: invert(100%) + hue-rotate(180deg)
+ * Generate CSS for the new Photon Inverter algorithm
+ * Uses simple invert(100%) on :root with image/video re-inversion
  */
-export function generatePhotonInverterCSS(settings: Settings): string {
-  const brightness = settings.brightness / 100; // Convert percentage to decimal
-  const contrast = settings.contrast / 100;
-  const sepia = settings.sepia / 100;
-  const grayscale = settings.grayscale / 100;
-  const hueRotateDeg = Math.round((settings.blueShift / 100) * 40); // Scale blue shift to hue rotation
-
+export function generatePhotonInverterCSS(_settings: Settings): string {
+  // Simple CSS inversion approach from the bookmarklet
+  // Note: settings like brightness/contrast are not used in this simplified version
+  // to match the bookmarklet behavior
   return `
-/* UltraDark Reader - Photon Inverter Algorithm */
-
-html {
-  filter: 
-    invert(100%) 
-    hue-rotate(180deg)
-    brightness(${brightness})
-    contrast(${contrast})
-    sepia(${sepia})
-    grayscale(${grayscale})
-    hue-rotate(${hueRotateDeg}deg);
+:root {
+  background-color: #fefefe;
+  filter: invert(100%);
 }
 
-/* Re-invert images and media to restore natural colors (The "Face Saver") */
-img, picture, video, canvas, svg,
-[style*="background-image"] {
-  filter: 
-    invert(100%) 
-    hue-rotate(180deg);
+* {
+  background-color: inherit;
 }
 
-/* Handle iframes */
-iframe {
-  filter: 
-    invert(100%) 
-    hue-rotate(180deg);
+img:not([src*=".svg"]), video {
+  filter: invert(100%);
 }
   `.trim();
 }
 
 /**
  * Apply the Photon Inverter algorithm to the page
+ * Uses the dark-theme-snippet approach
  */
 export function applyPhotonInverter(settings: Settings): void {
-  debugSync('[Photon Inverter] Applying dark theme with settings:', {
-    brightness: settings.brightness + '%',
-    contrast: settings.contrast + '%',
-    sepia: settings.sepia + '%',
-    grayscale: settings.grayscale + '%',
-    blueShift: settings.blueShift + '%',
-    amoled: settings.amoled
-  });
+  debugSync('[Photon Inverter] Applying dark theme with new CSS inversion logic');
   
   const css = generatePhotonInverterCSS(settings);
 
-  let styleTag = document.getElementById("udr-style") as HTMLStyleElement;
+  let styleTag = document.getElementById(DARK_THEME_SNIPPET_ID) as HTMLStyleElement;
   if (!styleTag) {
     styleTag = document.createElement("style");
-    styleTag.id = "udr-style";
-    document.head.appendChild(styleTag);
-    debugSync('[Photon Inverter] Created new <style> tag with id="udr-style"');
+    styleTag.type = "text/css";
+    styleTag.id = DARK_THEME_SNIPPET_ID;
+    
+    const head = document.head || document.querySelector('head');
+    if (head) {
+      head.appendChild(styleTag);
+      debugSync('[Photon Inverter] Created new <style> tag with id="dark-theme-snippet"');
+    } else {
+      debugSync('[Photon Inverter] ⚠️ No <head> element found, cannot inject styles');
+      return;
+    }
   } else {
     debugSync('[Photon Inverter] Updating existing <style> tag');
   }
   
-  styleTag.textContent = css;
+  // Set CSS content
+  if (styleTag.styleSheet) {
+    // IE support (legacy)
+    (styleTag.styleSheet as { cssText: string }).cssText = css;
+  } else {
+    styleTag.textContent = css;
+  }
+  
   document.documentElement.setAttribute("data-udr-mode", "photon-inverter");
   debugSync('[Photon Inverter] CSS applied successfully');
+}
+
+/**
+ * Remove the Photon Inverter styles
+ * Called when toggling off or switching modes
+ */
+export function removePhotonInverter(): void {
+  debugSync('[Photon Inverter] Removing dark theme snippet');
+  
+  const styleTag = document.getElementById(DARK_THEME_SNIPPET_ID);
+  if (styleTag?.parentNode) {
+    styleTag.parentNode.removeChild(styleTag);
+    debugSync('[Photon Inverter] Removed <style id="dark-theme-snippet">');
+  }
 }

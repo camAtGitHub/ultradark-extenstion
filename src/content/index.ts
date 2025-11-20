@@ -7,7 +7,7 @@ import { getSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
-import { applyPhotonInverter } from "./algorithms/photon-inverter";
+import { applyPhotonInverter, removePhotonInverter } from "./algorithms/photon-inverter";
 import { applyDomWalker } from "./algorithms/dom-walker";
 import { applyChromaSemantic } from "./algorithms/chroma-semantic";
 
@@ -57,8 +57,13 @@ function applyCss(s: Settings) {
 function removeCss() {
   debugSync('Removing dark theme CSS');
   
+  // Remove old style tag (backwards compatibility)
   const tag = document.getElementById("udr-style");
   if (tag?.parentNode) tag.parentNode.removeChild(tag);
+  
+  // Remove new photon inverter snippet
+  removePhotonInverter();
+  
   document.documentElement.removeAttribute("udr-applied");
   
   // Clean up mode attribute
@@ -69,9 +74,24 @@ function removeCss() {
   if (document.documentElement.style.backgroundColor) {
     document.documentElement.style.removeProperty('background-color');
   }
-  if (document.body.style.backgroundColor) {
-    document.body.style.removeProperty('background-color');
-    document.body.style.removeProperty('color');
+  if (document.body && document.body.style) {
+    if (document.body.style.backgroundColor) {
+      document.body.style.removeProperty('background-color');
+    }
+    if (document.body.style.color) {
+      document.body.style.removeProperty('color');
+    }
+  }
+  
+  // Remove pre-inject.css effects by resetting html and body styles
+  // The pre-inject.css applies !important styles, so we need to override them
+  if (document.documentElement) {
+    document.documentElement.style.setProperty('background-color', '', 'important');
+    document.documentElement.style.setProperty('color', '', 'important');
+  }
+  if (document.body) {
+    document.body.style.setProperty('background-color', '', 'important');
+    document.body.style.setProperty('color', '', 'important');
   }
   
   applied = false;
