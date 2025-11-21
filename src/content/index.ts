@@ -13,6 +13,8 @@ import { applyChromaSemantic } from "./algorithms/chroma-semantic";
 
 let worker: Worker | null = null;
 let applied = false;
+let preInjected = false;
+let preInjectTag: HTMLStyleElement | null = null;
 
 (async () => {
   await initDebugCache();
@@ -32,6 +34,37 @@ async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use:
   if (typeof per.enabled === "boolean") merged.enabled = per.enabled;
 
   return { use: merged, excluded };
+}
+
+const PRE_INJECT_CSS = `
+html,
+body {
+  background-color: #1a1a1a !important;
+  color: #e0e0e0 !important;
+}`;
+
+function ensurePreInjectCss() {
+  if (!preInjectTag) {
+    preInjectTag = document.createElement('style');
+    preInjectTag.id = 'udr-preinject';
+    preInjectTag.textContent = PRE_INJECT_CSS;
+  }
+
+  if (!preInjectTag.isConnected) {
+    // Prefer head but fall back to documentElement to run as early as possible
+    const parent = document.head || document.documentElement;
+    parent.prepend(preInjectTag);
+  }
+
+  preInjected = true;
+}
+
+function removePreInjectCss() {
+  if (preInjectTag?.parentNode) {
+    preInjectTag.parentNode.removeChild(preInjectTag);
+  }
+
+  preInjected = false;
 }
 
 function applyCss(s: Settings) {
@@ -63,13 +96,13 @@ function removeCss() {
   
   // Remove new photon inverter snippet
   removePhotonInverter();
-  
+
   document.documentElement.removeAttribute("udr-applied");
-  
+
   // Clean up mode attribute
   document.documentElement.removeAttribute("data-udr-mode");
   (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "";
-  
+
   // Reset document element and body styles if they exist
   if (document.documentElement.style.backgroundColor) {
     document.documentElement.style.removeProperty('background-color');
@@ -82,7 +115,9 @@ function removeCss() {
       document.body.style.removeProperty('color');
     }
   }
-  
+
+  removePreInjectCss();
+
   // Remove pre-inject.css effects by resetting html and body styles
   // The pre-inject.css applies !important styles, so we need to override them
   if (document.documentElement) {
@@ -149,6 +184,7 @@ async function tick() {
   if (!use.enabled || excluded) {
     debugSync('Skipping - extension disabled or URL excluded:', location.href);
     if (applied) removeCss();
+    else if (preInjected) removePreInjectCss();
     return;
   }
 
@@ -159,10 +195,12 @@ async function tick() {
   if (shouldDetectDark && isAlreadyDarkTheme()) {
     debugSync('Site already uses dark theme, skipping');
     if (applied) removeCss();
+    else if (preInjected) removePreInjectCss();
     return;
   }
 
   debugSync('Applying dark theme with mode:', use.mode);
+  ensurePreInjectCss();
   applyCss(use);
   if (use.optimizerEnabled) {
     startOptimizerIfEnabled(use);

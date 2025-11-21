@@ -26,7 +26,6 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "css": ["src/content/pre-inject.css"],
       "js": ["src/content/index.js"],
       "run_at": "document_start"
     }
