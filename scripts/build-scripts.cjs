@@ -65,14 +65,6 @@ async function buildAll() {
     });
     console.log('✔ content script built with esbuild -> dist/src/content/index.js');
 
-    // Copy pre-inject.css to dist
-    const preInjectCssSource = 'src/content/pre-inject.css';
-    const preInjectCssDest = 'dist/src/content/pre-inject.css';
-    if (existsSync(preInjectCssSource)) {
-      copyFileSync(preInjectCssSource, preInjectCssDest);
-      console.log('✔ pre-inject.css copied -> dist/src/content/pre-inject.css');
-    }
-
     // Clean up temp file
     const fs = require('fs');
     if (fs.existsSync(tempContentPath)) {
