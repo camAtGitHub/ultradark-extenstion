@@ -19,11 +19,13 @@ export function buildCss(vars: {
   grayscale: number;  // %
   hueRotateDeg: number;
   amoled: boolean;
-  mode: "dynamic" | "static";
+  invert: boolean;
 }) {
-  const { brightness, contrast, sepia, grayscale, hueRotateDeg, amoled } = vars;
+  const { brightness, contrast, sepia, grayscale, hueRotateDeg, amoled, invert } = vars;
 
-  const filter = `invert(1) hue-rotate(180deg) brightness(${brightness}%) contrast(${contrast}%) sepia(${sepia}%) grayscale(${grayscale}%) hue-rotate(${hueRotateDeg}deg)`;
+  const adjustment = `brightness(${brightness}%) contrast(${contrast}%) sepia(${sepia}%) grayscale(${grayscale}%) hue-rotate(${hueRotateDeg}deg)`;
+  const filter = invert ? `invert(1) hue-rotate(180deg) ${adjustment}` : adjustment;
+  const mediaFilter = invert ? "invert(1) hue-rotate(180deg)" : "none";
 
   // AMOLED: force #000 backgrounds
   const amoledCss = amoled
@@ -34,21 +36,28 @@ html, body, body *:not(img):not(video):not(canvas):not(svg):not([data-udr-skip])
 }`
     : "";
 
-  return `
-/* UltraDark Reader injected CSS */
-:root { --udr-filter: ${filter}; }
-html[udr-applied="true"] {
-  filter: var(--udr-filter) !important;
-  background-color: #111 !important;
-}
+  const mediaReinvert = invert
+    ? `
 html[udr-applied="true"] img,
 html[udr-applied="true"] video,
 html[udr-applied="true"] canvas,
 html[udr-applied="true"] svg,
 html[udr-applied="true"] picture,
 html[udr-applied="true"] [role="img"] {
-  filter: invert(1) hue-rotate(180deg) !important; /* re-invert media */
+  filter: ${mediaFilter} !important; /* re-invert media */
+}`
+    : "";
+
+  const background = invert ? "background-color: #111 !important;" : "";
+
+  return `
+/* UltraDark Reader injected CSS */
+:root { --udr-filter: ${filter}; }
+html[udr-applied="true"] {
+  filter: var(--udr-filter) !important;
+  ${background}
 }
+${mediaReinvert}
 ${amoledCss}
 
 /* Prevent double-inverting extension UIs and iframes */
