@@ -1,6 +1,7 @@
 // src/popup/index.ts
 import type { Settings } from "../types/settings";
 import { getSettings, setSettings, originFromUrl } from "../utils/storage";
+import { updateAlgorithmControlState } from "./algorithm-controls";
 
 const $ = (sel: string) => document.querySelector(sel) as HTMLElement;
 const $$ = (sel: string) => document.querySelectorAll(sel);
@@ -66,6 +67,8 @@ async function init() {
     amoled.checked = st.amoled;
     optimizer.checked = st.optimizerEnabled;
     detectDark.checked = st.detectDarkSites;
+
+    updateAlgorithmControlState(st.mode);
 
     // Update mode buttons
     modeButtons.forEach((btn) => {

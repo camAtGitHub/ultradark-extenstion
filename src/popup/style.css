@@ -247,6 +247,10 @@ body {
   gap: 3px;
 }
 
+.slider-row.disabled {
+  opacity: 0.45;
+}
+
 .slider-label {
   display: flex;
   align-items: baseline;

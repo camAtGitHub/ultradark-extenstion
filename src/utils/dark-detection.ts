@@ -2,8 +2,8 @@
 
 /**
  * Detect if a site is already using a dark theme
- * Uses multiple heuristics:
- * 1. Check if site responds to prefers-color-scheme: dark
+ * Uses multiple heuristics based solely on the rendered page:
+ * 1. Check explicit dark theme markers in the DOM
  * 2. Check average background luminance
  */
 
@@ -140,26 +140,6 @@ export function getAverageBackgroundLuminance(): number {
 }
 
 /**
- * Check if the site declares support for dark mode via media query
- */
-export function siteDeclaresColorScheme(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-
-  // Check if the site is responding to prefers-color-scheme
-  const darkMq = window.matchMedia("(prefers-color-scheme: dark)");
-  
-  // If the media query matches, check if CSS actually changes
-  // We do this by comparing a known element's background in both modes
-  if (darkMq.matches) {
-    debugSync('[Dark Detection] Site responds to prefers-color-scheme: dark');
-    return true;
-  }
-
-  debugSync('[Dark Detection] Site does not respond to prefers-color-scheme: dark');
-  return false;
-}
-
-/**
  * Check for common dark theme indicators in HTML/CSS classes and attributes
  * Including meta tags and color-scheme properties as per consultant spec
  */
@@ -241,19 +221,12 @@ export function isAlreadyDarkTheme(): boolean {
   }
 
   const avgLuminance = getAverageBackgroundLuminance();
-  const declaresColorScheme = siteDeclaresColorScheme();
 
   debugSync('[Dark Detection] Average luminance:', avgLuminance, '(threshold:', DARK_THRESHOLD + ')');
 
   // If average luminance is dark, consider it a dark site
   if (avgLuminance < DARK_THRESHOLD) {
     debugSync('[Dark Detection] Result: DARK (luminance below threshold)');
-    return true;
-  }
-
-  // If site declares color scheme support and prefers-color-scheme is dark
-  if (declaresColorScheme) {
-    debugSync('[Dark Detection] Result: DARK (declares color scheme)');
     return true;
   }
 
