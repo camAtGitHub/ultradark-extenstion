@@ -5,9 +5,10 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 - **Popup UI**: `src/popup/` controls the popup sliders and toggles. The popup sends `udr:settings-updated` messages to the active tab.
 - **Content scripts**: `src/content/` contains algorithms and the main entry (`index.ts`) that reads settings and applies the selected algorithm.
 - **Algorithms**: 
-  - Photon inverter (`src/content/algorithms/photon-inverter.ts`) - Uses CSS filters (brightness, contrast, sepia, grayscale, blueShift). **Only algorithm that uses the popup sliders.**
-  - DOM walker (`src/content/algorithms/dom-walker.ts`) - DOM traversal with color inversion. No slider controls.
-  - Chroma semantic (`src/content/algorithms/chroma-semantic.ts`) - Semantic color palettes based on DOM depth. No slider controls.
+  - Photon inverter (`src/content/algorithms/photon-inverter.ts`) - Uses CSS filters via `generatePhotonInverterCSS()`
+  - DOM walker (`src/content/algorithms/dom-walker.ts`) - DOM traversal with color inversion
+  - Chroma semantic (`src/content/algorithms/chroma-semantic.ts`) - Semantic color palettes based on DOM depth
+  - **IMPORTANT**: All three algorithms use the slider settings (brightness, contrast, sepia, grayscale, blueShift) through `applyFilterCss()` in `src/content/index.ts`, which is called for ALL modes before the algorithm-specific function
 - **Shared CSS builder**: `src/content/style-template.ts` builds the injected CSS using brightness/contrast/etc.
 - **Dark Detection**: `src/utils/dark-detection.ts` contains functions for detecting if a site is already dark-themed:
   - `isAlreadyDarkTheme()` - Main detection function that combines multiple heuristics
@@ -48,4 +49,4 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 - Tests and lint already set up in `package.json`.
 - Settings changes propagate through `udr:settings-updated` messages handled in `src/content/index.ts`.
 - Build order is important: `vite build` first, then `build:scripts` to avoid wiping the dist folder.
-- Only Photon Inverter algorithm uses the CSS filter sliders - other algorithms have their own color logic.
+- **All three algorithms use the slider settings**: `src/content/index.ts` calls `applyFilterCss(s)` for ALL modes, which applies brightness/contrast/sepia/grayscale/blueShift via CSS filters.

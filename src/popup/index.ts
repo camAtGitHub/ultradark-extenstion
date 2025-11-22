@@ -94,28 +94,6 @@ async function init() {
     updateSliderBackground(sepia, st.sepia, 0, 100);
     updateSliderBackground(grayscale, st.grayscale, 0, 100);
     updateSliderBackground(blueShift, st.blueShift, 0, 100);
-
-    // Update slider enabled/disabled state based on algorithm
-    updateSlidersForMode(st.mode);
-  }
-
-  function updateSlidersForMode(mode: Settings["mode"]) {
-    // Only Photon Inverter uses the sliders
-    // DOM Walker and Chroma-Semantic use their own color algorithms
-    const shouldEnable = mode === "photon-inverter";
-    
-    brightness.disabled = !shouldEnable;
-    contrast.disabled = !shouldEnable;
-    sepia.disabled = !shouldEnable;
-    grayscale.disabled = !shouldEnable;
-    blueShift.disabled = !shouldEnable;
-
-    // Update parent slider-row classes for CSS styling
-    brightness.closest('.slider-row')?.classList.toggle('disabled', !shouldEnable);
-    contrast.closest('.slider-row')?.classList.toggle('disabled', !shouldEnable);
-    sepia.closest('.slider-row')?.classList.toggle('disabled', !shouldEnable);
-    grayscale.closest('.slider-row')?.classList.toggle('disabled', !shouldEnable);
-    blueShift.closest('.slider-row')?.classList.toggle('disabled', !shouldEnable);
   }
 
   function updateSliderBackground(slider: HTMLInputElement, value: number, min: number, max: number) {

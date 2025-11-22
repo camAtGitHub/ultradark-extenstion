@@ -253,11 +253,6 @@ body {
   justify-content: space-between;
   font-size: 11px;
   color: #9ca3af;
-  transition: opacity 0.2s ease-out;
-}
-
-.slider-row.disabled .slider-label {
-  opacity: 0.5;
 }
 
 .slider-value {
@@ -273,19 +268,6 @@ input[type="range"] {
   background: var(--slider-track);
   outline: none;
   cursor: pointer;
-}
-
-input[type="range"]:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-input[type="range"]:disabled::-webkit-slider-thumb {
-  cursor: not-allowed;
-}
-
-input[type="range"]:disabled::-moz-range-thumb {
-  cursor: not-allowed;
 }
 
 input[type="range"]::-webkit-slider-thumb {
