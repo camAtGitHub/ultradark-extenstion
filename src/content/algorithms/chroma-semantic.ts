@@ -12,6 +12,9 @@ import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 
+const processedElements = new Set<HTMLElement>();
+let mutationObserver: MutationObserver | null = null;
+
 /**
  * Dark Gray Palette for semantic backgrounds based on depth
  * Shallow depth (body) = Darkest, Deep depth (cards/modals) = Lighter
@@ -214,8 +217,8 @@ function processCSSVariables(): number {
 /**
  * Apply semantic styling to an element
  */
-function applySemanticStyle(element: HTMLElement, role: string, depth: number, processedSet: Set<Element>): void {
-  if (processedSet.has(element)) return;
+function applySemanticStyle(element: HTMLElement, role: string, depth: number): void {
+  if (processedElements.has(element)) return;
 
   const computed = getComputedStyle(element);
   
@@ -258,7 +261,7 @@ function applySemanticStyle(element: HTMLElement, role: string, depth: number, p
     }
   }
 
-  processedSet.add(element);
+  processedElements.add(element);
 }
 
 /**
@@ -288,6 +291,20 @@ function parseColor(colorStr: string): { r: number; g: number; b: number } | nul
   return null;
 }
 
+export function resetChromaSemantic(): void {
+  processedElements.forEach((el) => {
+    el.style.backgroundColor = "";
+    el.style.color = "";
+    el.style.borderColor = "";
+  });
+  processedElements.clear();
+
+  if (mutationObserver) {
+    mutationObserver.disconnect();
+    mutationObserver = null;
+  }
+}
+
 /**
  * Apply the Chroma-Semantic Engine algorithm to the page
  * WITH PERFORMANCE MONITORING AND FALLBACK
@@ -297,6 +314,8 @@ export function applyChromaSemantic(settings: Settings): void {
   const PERFORMANCE_THRESHOLD = 3000; // 3000ms limit before fallback
 
   debugSync('[Chroma-Semantic] Starting advanced semantic analysis');
+
+  resetChromaSemantic();
 
   // Check performance early
   const checkPerformance = () => {
@@ -321,7 +340,6 @@ export function applyChromaSemantic(settings: Settings): void {
   const elements = Array.from(document.querySelectorAll('*'));
   debugSync('[Chroma-Semantic] Processing', elements.length, 'elements');
 
-  const processedSet = new Set<Element>();
   const BATCH_SIZE = 300; // Smaller batches for more complex processing
 
   let currentIndex = 0;
@@ -338,7 +356,7 @@ export function applyChromaSemantic(settings: Settings): void {
       const depth = getDOMDepth(element);
       const role = getSemanticRole(element);
 
-      applySemanticStyle(element, role, depth, processedSet);
+      applySemanticStyle(element, role, depth);
     }
 
     currentIndex += BATCH_SIZE;
@@ -347,10 +365,14 @@ export function applyChromaSemantic(settings: Settings): void {
       requestAnimationFrame(processNextBatch);
     } else {
       const totalTime = performance.now() - startTime;
-      debugSync('[Chroma-Semantic] ✅ Complete in', totalTime.toFixed(2), 'ms. Processed', processedSet.size, 'elements');
+      debugSync('[Chroma-Semantic] ✅ Complete in', totalTime.toFixed(2), 'ms. Processed', processedElements.size, 'elements');
       
       // Set up MutationObserver for dynamic content
-      const observer = new MutationObserver((mutations) => {
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+      }
+
+      mutationObserver = new MutationObserver((mutations) => {
         const newElements: HTMLElement[] = [];
         
         mutations.forEach((mutation) => {
@@ -368,11 +390,11 @@ export function applyChromaSemantic(settings: Settings): void {
         newElements.forEach((el) => {
           const depth = getDOMDepth(el);
           const role = getSemanticRole(el);
-          applySemanticStyle(el, role, depth, processedSet);
+          applySemanticStyle(el, role, depth);
         });
       });
 
-      observer.observe(document.body, {
+      mutationObserver.observe(document.body, {
         childList: true,
         subtree: true,
         attributes: true,

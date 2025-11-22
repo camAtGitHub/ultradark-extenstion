@@ -8,13 +8,15 @@ import { urlExcluded } from "../utils/regex";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
 import { applyPhotonInverter, removePhotonInverter } from "./algorithms/photon-inverter";
-import { applyDomWalker } from "./algorithms/dom-walker";
-import { applyChromaSemantic } from "./algorithms/chroma-semantic";
+import { applyDomWalker, resetDomWalker } from "./algorithms/dom-walker";
+import { applyChromaSemantic, resetChromaSemantic } from "./algorithms/chroma-semantic";
+import { buildCss, ensureStyleTag } from "./style-template";
 
 let worker: Worker | null = null;
 let applied = false;
 let preInjected = false;
 let preInjectTag: HTMLStyleElement | null = null;
+let currentMode: Settings["mode"] | null = null;
 
 (async () => {
   await initDebugCache();
@@ -67,9 +69,43 @@ function removePreInjectCss() {
   preInjected = false;
 }
 
+function hueRotateFromBlueShift(blueShift: number): number {
+  return Math.round((blueShift / 100) * 180);
+}
+
+function applyFilterCss(settings: Settings) {
+  const tag = ensureStyleTag();
+  const css = buildCss({
+    brightness: settings.brightness,
+    contrast: settings.contrast,
+    sepia: settings.sepia,
+    grayscale: settings.grayscale,
+    hueRotateDeg: hueRotateFromBlueShift(settings.blueShift),
+    amoled: settings.amoled,
+    invert: settings.mode === "photon-inverter"
+  });
+
+  tag.textContent = css;
+}
+
+function resetModeArtifacts() {
+  if (currentMode === "photon-inverter") {
+    removePhotonInverter();
+  } else if (currentMode === "dom-walker") {
+    resetDomWalker();
+  } else if (currentMode === "chroma-semantic") {
+    resetChromaSemantic();
+  }
+
+  currentMode = null;
+}
+
 function applyCss(s: Settings) {
   debugSync('Applying CSS with mode:', s.mode);
-  
+
+  resetModeArtifacts();
+  applyFilterCss(s);
+
   if (s.mode === "photon-inverter") {
     applyPhotonInverter(s);
   } else if (s.mode === "dom-walker") {
@@ -82,6 +118,8 @@ function applyCss(s: Settings) {
     applyPhotonInverter(s);
   }
 
+  document.documentElement.setAttribute("data-udr-mode", s.mode);
+  currentMode = s.mode;
   document.documentElement.setAttribute("udr-applied", "true");
   (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "1";
   applied = true;
@@ -89,7 +127,9 @@ function applyCss(s: Settings) {
 
 function removeCss() {
   debugSync('Removing dark theme CSS');
-  
+
+  resetModeArtifacts();
+
   // Remove old style tag (backwards compatibility)
   const tag = document.getElementById("udr-style");
   if (tag?.parentNode) tag.parentNode.removeChild(tag);

@@ -11,6 +11,9 @@
 import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 
+const processedElements = new Set<HTMLElement>();
+let mutationObserver: MutationObserver | null = null;
+
 /**
  * Color conversion utilities
  */
@@ -149,16 +152,16 @@ function findOpaqueParentBg(element: Element): string | null {
 /**
  * Process a batch of elements
  */
-function processBatch(elements: Element[], startIndex: number, batchSize: number, processedSet: Set<Element>): number {
+function processBatch(elements: Element[], startIndex: number, batchSize: number): number {
   const endIndex = Math.min(startIndex + batchSize, elements.length);
   let processed = 0;
-  
+
   for (let i = startIndex; i < endIndex; i++) {
     const element = elements[i];
-    
+
     // Skip if already processed
-    if (processedSet.has(element)) continue;
     if (!(element instanceof HTMLElement)) continue;
+    if (processedElements.has(element)) continue;
     
     const computed = getComputedStyle(element);
     
@@ -202,11 +205,25 @@ function processBatch(elements: Element[], startIndex: number, batchSize: number
       }
     }
     
-    processedSet.add(element);
+    processedElements.add(element);
     processed++;
   }
-  
+
   return processed;
+}
+
+export function resetDomWalker(): void {
+  processedElements.forEach((el) => {
+    el.style.backgroundColor = "";
+    el.style.color = "";
+    el.style.borderColor = "";
+  });
+  processedElements.clear();
+
+  if (mutationObserver) {
+    mutationObserver.disconnect();
+    mutationObserver = null;
+  }
 }
 
 /**
@@ -214,7 +231,9 @@ function processBatch(elements: Element[], startIndex: number, batchSize: number
  */
 export function applyDomWalker(_settings: Settings): void {
   debugSync('[DOM Walker] Starting DOM traversal');
-  
+
+  resetDomWalker();
+
   // Use TreeWalker for efficient DOM traversal
   const walker = document.createTreeWalker(
     document.body,
@@ -235,16 +254,15 @@ export function applyDomWalker(_settings: Settings): void {
   
   debugSync('[DOM Walker] Found', elements.length, 'elements to process');
   
-  const processedSet = new Set<Element>();
   const BATCH_SIZE = 500; // Process 500 nodes at a time
   let currentIndex = 0;
   
   // Process in batches using requestAnimationFrame
   function processNextBatch() {
-    const processed = processBatch(elements, currentIndex, BATCH_SIZE, processedSet);
+    const processed = processBatch(elements, currentIndex, BATCH_SIZE);
     currentIndex += BATCH_SIZE;
-    
-    debugSync('[DOM Walker] Processed batch:', processed, 'elements. Total processed:', processedSet.size, '/', elements.length);
+
+    debugSync('[DOM Walker] Processed batch:', processed, 'elements. Total processed:', processedElements.size, '/', elements.length);
     
     if (currentIndex < elements.length) {
       requestAnimationFrame(processNextBatch);
@@ -252,7 +270,11 @@ export function applyDomWalker(_settings: Settings): void {
       debugSync('[DOM Walker] DOM traversal complete');
       
       // Set up MutationObserver for dynamic content
-      const observer = new MutationObserver((mutations) => {
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+      }
+
+      mutationObserver = new MutationObserver((mutations) => {
         const newElements: Element[] = [];
         
         mutations.forEach((mutation) => {
@@ -268,15 +290,15 @@ export function applyDomWalker(_settings: Settings): void {
         
         if (newElements.length > 0) {
           debugSync('[DOM Walker] MutationObserver detected', newElements.length, 'new elements');
-          processBatch(newElements, 0, newElements.length, processedSet);
+          processBatch(newElements, 0, newElements.length);
         }
       });
-      
-      observer.observe(document.body, {
+
+      mutationObserver.observe(document.body, {
         childList: true,
         subtree: true
       });
-      
+
       debugSync('[DOM Walker] MutationObserver attached to body');
     }
   }
