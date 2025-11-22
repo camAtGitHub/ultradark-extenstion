@@ -253,9 +253,10 @@ body {
   justify-content: space-between;
   font-size: 11px;
   color: #9ca3af;
+  transition: opacity 0.2s ease-out;
 }
 
-.slider-row:has(input[type="range"]:disabled) .slider-label {
+.slider-row.disabled .slider-label {
   opacity: 0.5;
 }
 
