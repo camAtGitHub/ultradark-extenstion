@@ -375,7 +375,7 @@ export function applyChromaSemantic(settings: Settings): void {
     }
 
     if (stack.length > 0) {
-      requestAnim ationFrame(processNextBatch);
+      requestAnimationFrame(processNextBatch);
     } else {
       const totalTime = performance.now() - startTime;
       debugSync('[Chroma-Semantic] ✅ Complete in', totalTime.toFixed(2), 'ms.');
