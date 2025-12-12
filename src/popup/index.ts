@@ -169,7 +169,7 @@ async function init() {
 
   // Reset Sliders button handler
   $("#resetSiteSettings").addEventListener("click", async () => {
-    // Reset sliders to default values in the UI only (no storage changes)
+    // Reset sliders to default values
     const defaultValues = {
       brightness: 90,
       contrast: 110,
@@ -198,12 +198,16 @@ async function init() {
     updateSliderBackground(grayscale, defaultValues.grayscale, 0, 100);
     updateSliderBackground(blueShift, defaultValues.blueShift, 0, 100);
 
-    // Update local settings object and apply to active tab
+    // Update local settings object
     s.brightness = defaultValues.brightness;
     s.contrast = defaultValues.contrast;
     s.sepia = defaultValues.sepia;
     s.grayscale = defaultValues.grayscale;
     s.blueShift = defaultValues.blueShift;
+
+    // IMPORTANT: Save to storage BEFORE notifying content script
+    // This ensures content script loads the updated values from storage
+    await setSettings(s);
 
     // Send message to active tab to apply new settings immediately
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });

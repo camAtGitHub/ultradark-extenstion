@@ -229,13 +229,13 @@ async function tick() {
   }
 
   // Check if site is already dark (unless forceDarkMode is set for this site)
+  // Only run detection if we haven't already applied our theme
+  // This prevents false positives from detecting our own styles
   const per = use.perSite[origin] || {};
   const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
   
-  if (shouldDetectDark && isAlreadyDarkTheme()) {
+  if (shouldDetectDark && !applied && !preInjected && isAlreadyDarkTheme()) {
     debugSync('Site already uses dark theme, skipping');
-    if (applied) removeCss();
-    else if (preInjected) removePreInjectCss();
     return;
   }
 

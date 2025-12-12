@@ -207,10 +207,42 @@ export function hasExplicitDarkThemeMarkers(): boolean {
 }
 
 /**
+ * Check if UltraDark extension has already applied styles to the page
+ * This prevents false positives in dark detection when the extension
+ * has already modified the page appearance
+ */
+function isExtensionAlreadyApplied(): boolean {
+  // Check for UltraDark data attribute on documentElement
+  if (document.documentElement.getAttribute('udr-applied') === 'true' ||
+      document.documentElement.getAttribute('data-udr-applied') === '1') {
+    debugSync('[Dark Detection] Extension styles already applied, skipping detection');
+    return true;
+  }
+
+  // Check for UltraDark style tags
+  const udrStyleTag = document.getElementById('udr-style');
+  const udrPreinjectTag = document.getElementById('udr-preinject');
+  if (udrStyleTag || udrPreinjectTag) {
+    debugSync('[Dark Detection] UltraDark style tags found, skipping detection');
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Detect if the current page is already using a dark theme
  * Returns true if the site appears to be dark
  */
 export function isAlreadyDarkTheme(): boolean {
+  // First, check if our extension has already applied styles
+  // If so, we should NOT run detection as it would sample our own styles
+  if (isExtensionAlreadyApplied()) {
+    debugSync('[Dark Detection] Result: SKIP (extension already applied)');
+    // Return false to allow reapplication with updated settings
+    return false;
+  }
+
   // Threshold: luminance below 0.2 is considered dark (consultant spec)
   const DARK_THRESHOLD = 0.2;
 
