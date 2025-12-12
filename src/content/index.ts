@@ -187,32 +187,78 @@ function startObserverForSpa() {
 }
 
 function startOptimizerIfEnabled(s: Settings) {
-  if (!s.optimizerEnabled) return;
+  if (!s.optimizerEnabled) {
+    debugSync('[Optimizer] Optimizer disabled in settings');
+    return;
+  }
+  
+  debugSync('[Optimizer] Starting contrast optimizer');
+  
   if (!worker) {
+    debugSync('[Optimizer] Creating new Web Worker');
     worker = new Worker(WorkerUrl);
+    
     worker.onmessage = (ev) => {
-      const { suggestedContrast } = ev.data as { suggestedContrast?: number };
+      const data = ev.data as { type?: string; suggestedContrast?: number; message?: unknown[] };
+      
+      // Handle debug messages from worker
+      if (data.type === 'debug' && data.message) {
+        console.log('[UltraDark]', ...data.message);
+        return;
+      }
+      
+      const { suggestedContrast } = data;
       if (typeof suggestedContrast === "number") {
+        debugSync('[Optimizer] Received suggestion from worker:', suggestedContrast + '%');
         const tag = document.getElementById("udr-style");
         if (tag) {
           // Rebuild CSS with adjusted contrast (bounded 50..200)
-          const next = { ...s, contrast: Math.min(200, Math.max(50, suggestedContrast)) };
+          const bounded = Math.min(200, Math.max(50, suggestedContrast));
+          debugSync('[Optimizer] Applying bounded contrast:', bounded + '% (original:', s.contrast + '%, suggested:', suggestedContrast + '%)');
+          const next = { ...s, contrast: bounded };
           applyCss(next);
+          debugSync('[Optimizer] Contrast adjustment applied successfully');
+        } else {
+          debugSync('[Optimizer] Warning: Style tag not found, cannot apply contrast adjustment');
         }
       }
     };
+    
+    worker.onerror = (err) => {
+      console.error('[UltraDark] [Optimizer] Worker error:', err);
+    };
+    
+    // Send debug mode to worker
+    (async () => {
+      const result = await browser.storage.local.get('isDebugMode');
+      const isDebug = result.isDebugMode === true;
+      worker?.postMessage({ type: 'setDebugMode', debug: isDebug });
+      debugSync('[Optimizer] Debug mode sent to worker:', isDebug);
+    })();
   }
 
   // Sample a limited set of text nodes
+  debugSync('[Optimizer] Starting element sampling');
   const samples: { fg: string; bg: string }[] = [];
   const MAX = 120;
   const sel = "p,span,li,dd,dt,small,code,pre,a,td,th,h1,h2,h3,h4,h5,h6";
-  document.querySelectorAll(sel).forEach((el) => {
+  const elements = document.querySelectorAll(sel);
+  debugSync('[Optimizer] Found', elements.length, 'potential elements to sample (max', MAX + ')');
+  
+  elements.forEach((el, index) => {
     if (samples.length >= MAX) return;
     const cs = getComputedStyle(el as Element);
-    samples.push({ fg: cs.color, bg: cs.backgroundColor || getComputedStyle((el as Element).parentElement || document.body).backgroundColor });
+    const fg = cs.color;
+    const bg = cs.backgroundColor || getComputedStyle((el as Element).parentElement || document.body).backgroundColor;
+    samples.push({ fg, bg });
+    
+    // Log first few samples for inspection
+    if (index < 3) {
+      debugSync('[Optimizer] Sample', index + 1, ':', el.tagName, '- FG:', fg, 'BG:', bg);
+    }
   });
 
+  debugSync('[Optimizer] Collected', samples.length, 'samples, sending to worker for analysis');
   worker.postMessage({ type: "analyze", samples });
 }
 
@@ -255,7 +301,10 @@ async function tick() {
   ensurePreInjectCss();
   applyCss(use);
   if (use.optimizerEnabled) {
+    debugSync('[Optimizer] Optimizer is enabled, will start analysis');
     startOptimizerIfEnabled(use);
+  } else {
+    debugSync('[Optimizer] Optimizer is disabled, skipping');
   }
 }
 
@@ -266,6 +315,11 @@ browser.runtime.onMessage.addListener((msg) => {
   } else if (msg?.type === "udr:debug-mode-changed") {
     // Update debug cache when debug mode changes
     updateDebugCache(msg.enabled);
+    // Also update the worker's debug mode if it exists
+    if (worker) {
+      worker.postMessage({ type: 'setDebugMode', debug: msg.enabled });
+      debugSync('[Optimizer] Debug mode changed, notified worker:', msg.enabled);
+    }
   }
 });
 
