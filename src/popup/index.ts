@@ -154,11 +154,13 @@ async function init() {
     const contrastSliderRow = contrast.closest('.slider-row') as HTMLElement;
     if (optimizerEnabled) {
       contrast.disabled = true;
-      contrast.title = "Contrast slider is disabled while optimizer is enabled. The optimizer automatically adjusts contrast based on page analysis.";
+      contrast.title = "Disabled: Optimizer controls contrast automatically";
+      contrast.setAttribute('aria-label', 'Contrast slider (disabled - optimizer active)');
       contrastSliderRow?.classList.add('disabled');
     } else {
       contrast.disabled = false;
       contrast.title = "";
+      contrast.removeAttribute('aria-label');
       contrastSliderRow?.classList.remove('disabled');
     }
   }
