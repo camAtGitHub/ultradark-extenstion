@@ -205,6 +205,8 @@ async function init() {
     s.grayscale = defaultValues.grayscale;
     s.blueShift = defaultValues.blueShift;
 
+    await setSettings(s);
+
     // Send message to active tab to apply new settings immediately
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});

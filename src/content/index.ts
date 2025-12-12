@@ -214,6 +214,19 @@ function startOptimizerIfEnabled(s: Settings) {
   worker.postMessage({ type: "analyze", samples });
 }
 
+function extensionAlreadyInjected(): boolean {
+  const hasAppliedAttr = document.documentElement.getAttribute("udr-applied") === "true";
+  const hasModeAttr = document.documentElement.hasAttribute("data-udr-mode");
+  const styleExists = Boolean(document.getElementById("udr-style"));
+
+  if (hasAppliedAttr || hasModeAttr || styleExists || applied) {
+    debugSync('Extension CSS already present, skipping dark detection to avoid self-influence');
+    return true;
+  }
+
+  return false;
+}
+
 async function tick() {
   const s = await getSettings();
   const { use, excluded } = await effectiveSettingsFor(location.href, s);
@@ -231,8 +244,10 @@ async function tick() {
   // Check if site is already dark (unless forceDarkMode is set for this site)
   const per = use.perSite[origin] || {};
   const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
-  
-  if (shouldDetectDark && isAlreadyDarkTheme()) {
+
+  const shouldSkipDetection = extensionAlreadyInjected();
+
+  if (shouldDetectDark && !shouldSkipDetection && isAlreadyDarkTheme()) {
     debugSync('Site already uses dark theme, skipping');
     if (applied) removeCss();
     else if (preInjected) removePreInjectCss();
