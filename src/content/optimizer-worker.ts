@@ -37,14 +37,40 @@ function parseColor(c: string): [number, number, number] | null {
     return null;
   }
   ctx.fillStyle = c;
-  const v = ctx.fillStyle;
-  // v will be normalized like "rgba(r,g,b,a)"
-  const m = v.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
-  if (m) {
-    const parsed: [number, number, number] = [Number(m[1]), Number(m[2]), Number(m[3])];
-    debugLog('[Optimizer] Parsed color:', c, '→', parsed);
+  const v = ctx.fillStyle.trim(); // trim any whitespace
+  debugLog('[Optimizer] Canvas normalized color to:', v);
+  
+  // Try rgba() format first
+  const rgbaMatch = v.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (rgbaMatch) {
+    const parsed: [number, number, number] = [Number(rgbaMatch[1]), Number(rgbaMatch[2]), Number(rgbaMatch[3])];
+    debugLog('[Optimizer] Parsed color from rgba():', c, '→', parsed);
     return parsed;
   }
+  
+  // Try hex format (#rgb or #rrggbb)
+  const hexMatch = v.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    let r: number, g: number, b: number;
+    
+    if (hex.length === 3) {
+      // Short hex format: #rgb -> #rrggbb
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else {
+      // Full hex format: #rrggbb
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+    
+    const parsed: [number, number, number] = [r, g, b];
+    debugLog('[Optimizer] Parsed color from hex:', c, '→', parsed);
+    return parsed;
+  }
+  
   debugLog('[Optimizer] Failed to parse color:', c, '(normalized to:', v, ')');
   return null;
 }
