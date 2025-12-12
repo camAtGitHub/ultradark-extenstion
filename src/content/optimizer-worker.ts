@@ -49,16 +49,18 @@ function parseColor(c: string): [number, number, number] | null {
   }
   
   // Try hex format (#rgb or #rrggbb)
-  const hexMatch = v.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  // Matches hex colors: #abc or #aabbcc
+  const HEX_COLOR_REGEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+  const hexMatch = v.match(HEX_COLOR_REGEX);
   if (hexMatch) {
     const hex = hexMatch[1];
     let r: number, g: number, b: number;
     
     if (hex.length === 3) {
-      // Short hex format: #rgb -> #rrggbb
-      r = parseInt(hex[0] + hex[0], 16);
-      g = parseInt(hex[1] + hex[1], 16);
-      b = parseInt(hex[2] + hex[2], 16);
+      // Short hex format: #rgb -> expand each digit: #abc -> #aabbcc
+      r = parseInt(hex.charAt(0).repeat(2), 16);
+      g = parseInt(hex.charAt(1).repeat(2), 16);
+      b = parseInt(hex.charAt(2).repeat(2), 16);
     } else {
       // Full hex format: #rrggbb
       r = parseInt(hex.substring(0, 2), 16);
