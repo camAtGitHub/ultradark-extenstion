@@ -94,6 +94,9 @@ async function init() {
     updateSliderBackground(sepia, st.sepia, 0, 100);
     updateSliderBackground(grayscale, st.grayscale, 0, 100);
     updateSliderBackground(blueShift, st.blueShift, 0, 100);
+    
+    // Disable contrast slider when optimizer is enabled
+    updateContrastSliderState(st.optimizerEnabled);
   }
 
   function updateSliderBackground(slider: HTMLInputElement, value: number, min: number, max: number) {
@@ -147,10 +150,27 @@ async function init() {
     };
   }
 
+  function updateContrastSliderState(optimizerEnabled: boolean) {
+    const contrastSliderRow = contrast.closest('.slider-row') as HTMLElement;
+    if (optimizerEnabled) {
+      contrast.disabled = true;
+      contrast.title = "Contrast slider is disabled while optimizer is enabled. The optimizer automatically adjusts contrast based on page analysis.";
+      contrastSliderRow?.classList.add('disabled');
+    } else {
+      contrast.disabled = false;
+      contrast.title = "";
+      contrastSliderRow?.classList.remove('disabled');
+    }
+  }
+
   amoled.onchange = optimizer.onchange = detectDark.onchange = async () => {
     s.amoled = amoled.checked;
     s.optimizerEnabled = optimizer.checked;
     s.detectDarkSites = detectDark.checked;
+    
+    // Update contrast slider state when optimizer toggle changes
+    updateContrastSliderState(s.optimizerEnabled);
+    
     await setSettings(s);
     const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});

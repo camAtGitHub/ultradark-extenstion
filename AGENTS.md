@@ -10,6 +10,15 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
   - Chroma semantic (`src/content/algorithms/chroma-semantic.ts`) - Semantic color palettes based on DOM depth
   - **IMPORTANT**: All three algorithms use the slider settings (brightness, contrast, sepia, grayscale, blueShift) through `applyFilterCss()` in `src/content/index.ts`, which is called for ALL modes before the algorithm-specific function
 - **Shared CSS builder**: `src/content/style-template.ts` builds the injected CSS using brightness/contrast/etc.
+- **Contrast Optimizer**: `src/content/optimizer-worker.ts` is a Web Worker that analyzes page contrast and automatically adjusts contrast settings:
+  - Samples up to 120 text elements from the page
+  - Calculates WCAG-compliant contrast ratios using relative luminance
+  - Suggests contrast adjustments when median contrast is < 4.5 (too low) or > 9 (too harsh)
+  - **IMPORTANT**: When optimizer is enabled, it overrides manual contrast slider values
+  - The optimizer persists its changes to storage, updating both UI sliders and applied styles
+  - Uses OffscreenCanvas which normalizes colors to hex format (both `#rgb` and `#rrggbb`)
+  - Debug logs can be enabled via the "Enable debug logging" option to see full analysis details
+  - **UX Consideration**: Contrast slider is disabled (greyed out) when optimizer is enabled to prevent user confusion
 - **Dark Detection**: `src/utils/dark-detection.ts` contains functions for detecting if a site is already dark-themed:
   - `isAlreadyDarkTheme()` - Main detection function that combines multiple heuristics
   - `hasExplicitDarkThemeMarkers()` - Checks for dark theme classes, attributes, and meta tags
@@ -50,3 +59,10 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 - Settings changes propagate through `udr:settings-updated` messages handled in `src/content/index.ts`.
 - Build order is important: `vite build` first, then `build:scripts` to avoid wiping the dist folder.
 - **All three algorithms use the slider settings**: `src/content/index.ts` calls `applyFilterCss(s)` for ALL modes, which applies brightness/contrast/sepia/grayscale/blueShift via CSS filters.
+- **Optimizer Worker Considerations**:
+  - The optimizer runs asynchronously in a Web Worker for performance
+  - Race condition fixed: debug mode must be set before sending samples to worker
+  - Worker uses postMessage for debug logging back to content script
+  - Color parsing handles both rgba() and hex formats due to OffscreenCanvas normalization
+  - Optimizer changes are persisted to storage (respects per-site vs global settings)
+  - When optimizer is active, the contrast slider in popup is disabled to prevent conflicts
