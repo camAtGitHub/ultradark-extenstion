@@ -240,6 +240,10 @@ export function applyDomWalker(_settings: Settings): void {
     NodeFilter.SHOW_ELEMENT,
     null
   );
+
+  debugSync('[DOM Walker] Starting Lazy Traversal');
+
+  const BATCH_SIZE = 500;
   
   const elements: Element[] = [];
   let node: Node | null = walker.currentNode;
@@ -308,4 +312,3 @@ export function applyDomWalker(_settings: Settings): void {
   
   document.documentElement.setAttribute("data-udr-mode", "dom-walker");
 }
-
