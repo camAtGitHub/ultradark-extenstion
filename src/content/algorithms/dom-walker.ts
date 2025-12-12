@@ -117,6 +117,21 @@ function isTransparent(colorStr: string): boolean {
 }
 
 /**
+ * Check if element should be skipped from styling
+ * Canvas, video, img, svg elements render programmatically and should not have inline styles applied
+ */
+function shouldSkipElement(element: HTMLElement): boolean {
+  const tagName = element.tagName.toLowerCase();
+  return (
+    tagName === 'canvas' ||
+    tagName === 'video' ||
+    tagName === 'img' ||
+    tagName === 'svg' ||
+    element.hasAttribute('data-udr-skip')
+  );
+}
+
+/**
  * Invert lightness of a color while preserving hue and saturation
  * Backgrounds: If L > 50%, invert
  * Foregrounds: If L < 50%, invert
@@ -163,6 +178,9 @@ function processBatch(elements: Element[], startIndex: number, batchSize: number
     // Skip if already processed
     if (!(element instanceof HTMLElement)) continue;
     if (processedElements.has(element)) continue;
+    
+    // Skip media elements (canvas, video, img, svg)
+    if (shouldSkipElement(element)) continue;
     
     const computed = getComputedStyle(element);
     
@@ -242,6 +260,20 @@ export function applyDomWalker(settings: Settings): void {
 
   resetDomWalker();
 
+  // Count and log media elements that will be skipped
+  const canvasElements = document.querySelectorAll('canvas');
+  const videoElements = document.querySelectorAll('video');
+  const imgElements = document.querySelectorAll('img');
+  const svgElements = document.querySelectorAll('svg');
+  if (canvasElements.length > 0 || videoElements.length > 0 || imgElements.length > 0 || svgElements.length > 0) {
+    debugSync('[DOM Walker] Skipping media elements:', {
+      canvas: canvasElements.length,
+      video: videoElements.length,
+      img: imgElements.length,
+      svg: svgElements.length
+    });
+  }
+
   // Use TreeWalker for efficient DOM traversal
   const walker = document.createTreeWalker(
     document.body,
@@ -259,7 +291,7 @@ export function applyDomWalker(settings: Settings): void {
     let node = walker.currentNode; // Start from where we left off
 
     while (node && processedCount < BATCH_SIZE) {
-      if (node instanceof HTMLElement && !processedElements.has(node)) {
+      if (node instanceof HTMLElement && !processedElements.has(node) && !shouldSkipElement(node)) {
         
         const computed = getComputedStyle(node);
         

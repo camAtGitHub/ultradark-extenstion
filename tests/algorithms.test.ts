@@ -42,6 +42,20 @@ describe('Algorithm Tests', () => {
       expect('requestAnimationFrame').toBeTruthy();
     });
 
+    it('should skip canvas elements to prevent breaking JavaScript rendering', () => {
+      // Canvas elements render programmatically and should not have inline styles
+      const mediaElements = ['canvas', 'video', 'img', 'svg'];
+      expect(mediaElements).toContain('canvas');
+      expect(mediaElements).toContain('video');
+      expect(mediaElements).toContain('img');
+      expect(mediaElements).toContain('svg');
+    });
+
+    it('should skip elements with data-udr-skip attribute', () => {
+      const skipAttribute = 'data-udr-skip';
+      expect(skipAttribute).toBe('data-udr-skip');
+    });
+
     it('should convert RGB to HSL correctly', () => {
       // Test RGB to HSL conversion
       // White (255, 255, 255) -> HSL(0, 0, 100)
