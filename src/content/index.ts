@@ -263,6 +263,10 @@ async function tick() {
     return;
   }
 
+  await waitForDocumentReady();
+
+  debugSync('Document ready, proceeding with detection and application flow');
+
   // Check if site is already dark (unless forceDarkMode is set for this site)
   const per = use.perSite[origin] || {};
   const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
@@ -275,8 +279,6 @@ async function tick() {
     else if (preInjected) removePreInjectCss();
     return;
   }
-
-  await waitForDocumentReady();
 
   debugSync('Applying dark theme with mode:', use.mode);
   ensurePreInjectCss();
