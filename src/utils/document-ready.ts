@@ -11,20 +11,36 @@ export async function waitForDocumentReady(): Promise<void> {
   }
 
   // Otherwise, wait for DOMContentLoaded or body to appear
-  return new Promise<void>((resolve) => {
+  return new Promise<void>((resolve, reject) => {
     // Check for body periodically in case we're very early
     if (!document.body) {
+      const POLL_INTERVAL = 50; // 50ms to reduce CPU usage
+      const TIMEOUT = 5000; // 5 second timeout to prevent infinite polling
+      const startTime = Date.now();
+      
       const checkBody = setInterval(() => {
-        if (document.body) {
-          clearInterval(checkBody);
-          // Still wait for interactive state
-          if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
-          } else {
-            resolve();
+        try {
+          // Check for timeout
+          if (Date.now() - startTime > TIMEOUT) {
+            clearInterval(checkBody);
+            reject(new Error('Timeout waiting for document.body to be available'));
+            return;
           }
+          
+          if (document.body) {
+            clearInterval(checkBody);
+            // Still wait for interactive state
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
+            } else {
+              resolve();
+            }
+          }
+        } catch (error) {
+          clearInterval(checkBody);
+          reject(error);
         }
-      }, 10); // Check every 10ms
+      }, POLL_INTERVAL);
     } else {
       // Body exists, just wait for DOMContentLoaded
       document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });

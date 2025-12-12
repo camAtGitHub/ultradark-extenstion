@@ -244,8 +244,13 @@ async function tick() {
   // Wait for document body to be ready before applying themes
   // This is critical for DOM-walker and Chroma-semantic algorithms
   debugSync('[Document State] Waiting for document body to be ready...');
-  await waitForDocumentReady();
-  debugSync('[Document State] Document body ready, proceeding with theme application');
+  try {
+    await waitForDocumentReady();
+    debugSync('[Document State] Document body ready, proceeding with theme application');
+  } catch (error) {
+    debugSync('[Document State] ⚠️ Timeout waiting for body, proceeding anyway:', error);
+    // Proceed anyway - algorithms have their own fallback mechanisms
+  }
 
   debugSync('Applying dark theme with mode:', use.mode);
   ensurePreInjectCss();
