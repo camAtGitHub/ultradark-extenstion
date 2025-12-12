@@ -306,7 +306,6 @@ export function resetChromaSemantic(): void {
  * Apply the Chroma-Semantic Engine algorithm to the page
  * WITH PERFORMANCE MONITORING AND FALLBACK
  */
-
 export function applyChromaSemantic(settings: Settings): void {
   const startTime = performance.now();
   const PERFORMANCE_THRESHOLD = 3000; // 3000ms limit before fallback
@@ -329,122 +328,97 @@ export function applyChromaSemantic(settings: Settings): void {
       debugSync('[Chroma-Semantic] ⚠️ Performance threshold exceeded:', elapsed.toFixed(2), 'ms. Falling back to Photon Inverter');
       // Fallback to Photon Inverter
       applyPhotonInverter(settings);
-      return;
+      // TODO: Show user notification "Complex page detected: Switched to High-Performance Mode"
+      return true;
     }
+    return false;
+  };
 
-    resetChromaSemantic();
+  // Step 1: Process CSS Variables
+  const variablesModified = processCSSVariables();
+  debugSync('[Chroma-Semantic] Found', variablesModified, 'CSS custom properties');
 
-    // Check performance early
-    const checkPerformance = () => {
-      const elapsed = performance.now() - startTime;
-      if (elapsed > PERFORMANCE_THRESHOLD) {
-        debugSync('[Chroma-Semantic] ⚠️ Performance threshold exceeded:', elapsed.toFixed(2), 'ms. Falling back to Photon Inverter');
-        // Fallback to Photon Inverter
-        applyPhotonInverter(settings);
-        // TODO: Show user notification "Complex page detected: Switched to High-Performance Mode"
-        return true;
-      }
-      return false;
-    };
+  if (checkPerformance()) return;
 
-    // Step 1: Process CSS Variables
-    const variablesModified = processCSSVariables();
-    debugSync('[Chroma-Semantic] Found', variablesModified, 'CSS custom properties');
+  // Step 2: Stack-Based DFS (Depth First Search)
+  // Allows O(1) depth calculation and pause/resume capabilities
+  interface StackItem {
+    node: HTMLElement;
+    depth: number;
+  }
 
+  // Initialize stack with body
+  const stack: StackItem[] = [{ node: document.body, depth: 0 }];
+  const BATCH_SIZE = 300;
+
+  function processNextBatch() {
     if (checkPerformance()) return;
 
-    // Step 2: Stack-Based DFS (Depth First Search)
-    // Allows O(1) depth calculation and pause/resume capabilities
-    interface StackItem {
-      node: HTMLElement;
-      depth: number;
-    }
+    let processedCount = 0;
 
-    // Initialize stack with body
-    const stack: StackItem[] = [{ node: document.body, depth: 0 }];
-    const BATCH_SIZE = 300;
+    // Process stack until batch limit or empty
+    while (stack.length > 0 && processedCount < BATCH_SIZE) {
+      const item = stack.pop(); // Get latest item
+      if (!item) continue;
 
-    function processNextBatch() {
-      if (checkPerformance()) return;
+      const { node, depth } = item;
 
-      let processedCount = 0;
+      // 1. Process the node with the FREE depth calculation
+      const role = getSemanticRole(node);
+      applySemanticStyle(node, role, depth);
+      processedCount++;
 
-      // Process stack until batch limit or empty
-      while (stack.length > 0 && processedCount < BATCH_SIZE) {
-        const item = stack.pop(); // Get latest item
-        if (!item) continue;
-
-        try {
-          const { node, depth } = item;
-
-          // Apply semantic styling
-          const role = getSemanticRole(node);
-          applySemanticStyle(node, role, depth);
-          processedCount++;
-
-          // 2. Add children to stack (reverse order to maintain visual flow)
-          // We increment depth simply by adding +1. No expensive "up-tree" lookups.
-          const children = Array.from(node.children);
-          for (let i = children.length - 1; i >= 0; i--) {
-            if (children[i] instanceof HTMLElement) {
-              stack.push({
-                node: children[i] as HTMLElement,
-                depth: depth + 1
-              });
-            }
-          }
-        } catch (err) {
-          debugSync('[Chroma-Semantic] Error during batch processing, falling back to Photon Inverter:', err);
-          applyPhotonInverter(settings);
-          return;
+      // 2. Add children to stack (reverse order to maintain visual flow)
+      // We increment depth simply by adding +1. No expensive "up-tree" lookups.
+      const children = Array.from(node.children);
+      for (let i = children.length - 1; i >= 0; i--) {
+        if (children[i] instanceof HTMLElement) {
+          stack.push({ 
+            node: children[i] as HTMLElement, 
+            depth: depth + 1 
+          });
         }
       }
+    }
 
-      if (stack.length > 0) {
-        requestAnimationFrame(processNextBatch);
-      } else {
-        const totalTime = performance.now() - startTime;
-        debugSync('[Chroma-Semantic] ✅ Complete in', totalTime.toFixed(2), 'ms.');
+    if (stack.length > 0) {
+      requestAnimationFrame(processNextBatch);
+    } else {
+      const totalTime = performance.now() - startTime;
+      debugSync('[Chroma-Semantic] ✅ Complete in', totalTime.toFixed(2), 'ms.');
+      
+      // Set up MutationObserver for dynamic content
+      if (mutationObserver) {
+        mutationObserver.disconnect();
+      }
 
-        // Set up MutationObserver for dynamic content
-        if (mutationObserver) {
-          mutationObserver.disconnect();
-        }
-
-        mutationObserver = new MutationObserver((mutations) => {
-          const newElements: HTMLElement[] = [];
-
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node instanceof HTMLElement) {
-                newElements.push(node);
-                const descendants = node.querySelectorAll('*');
-                descendants.forEach((desc) => {
-                  if (desc instanceof HTMLElement) newElements.push(desc);
-                });
-              }
-            });
-          });
-
-          newElements.forEach((el) => {
-            // For mutation observer, we need to calculate depth
-            let depth = 0;
-            let parent = el.parentElement;
-            while (parent) {
-              depth++;
-              parent = parent.parentElement;
+      mutationObserver = new MutationObserver((mutations) => {
+        const newElements: HTMLElement[] = [];
+        
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node instanceof HTMLElement) {
+              newElements.push(node);
+              const descendants = node.querySelectorAll('*');
+              descendants.forEach((desc) => {
+                if (desc instanceof HTMLElement) newElements.push(desc);
+              });
             }
-            const role = getSemanticRole(el);
-            applySemanticStyle(el, role, depth);
           });
         });
 
-        mutationObserver.observe(document.body, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['style', 'class']
+        newElements.forEach((el) => {
+          // For mutation observer, we need to calculate depth
+          let depth = 0;
+          let parent = el.parentElement;
+          while (parent) {
+            depth++;
+            parent = parent.parentElement;
+          }
+          const role = getSemanticRole(el);
+          applySemanticStyle(el, role, depth);
         });
+      });
 
       // Safety check before attaching observer
       if (document.body) {
@@ -460,14 +434,10 @@ export function applyChromaSemantic(settings: Settings): void {
         debugSync('[Chroma-Semantic] ⚠️ document.body disappeared, cannot attach MutationObserver');
       }
     }
-
-    // Start processing
-    requestAnimationFrame(processNextBatch);
-
-    document.documentElement.setAttribute("data-udr-mode", "chroma-semantic");
-  } catch (err) {
-    debugSync('[Chroma-Semantic] Unexpected error, falling back to Photon Inverter:', err);
-    applyPhotonInverter(settings);
   }
-}
 
+  // Start processing
+  requestAnimationFrame(processNextBatch);
+
+  document.documentElement.setAttribute("data-udr-mode", "chroma-semantic");
+}

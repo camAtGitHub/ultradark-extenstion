@@ -238,19 +238,6 @@ function startOptimizerIfEnabled(s: Settings) {
   worker.postMessage({ type: "analyze", samples });
 }
 
-function extensionAlreadyInjected(): boolean {
-  const hasAppliedAttr = document.documentElement.getAttribute("udr-applied") === "true";
-  const hasModeAttr = document.documentElement.hasAttribute("data-udr-mode");
-  const styleExists = Boolean(document.getElementById("udr-style"));
-
-  if (hasAppliedAttr || hasModeAttr || styleExists || applied) {
-    debugSync('Extension CSS already present, skipping dark detection to avoid self-influence');
-    return true;
-  }
-
-  return false;
-}
-
 async function tick() {
   const s = await getSettings();
   const { use, excluded } = await effectiveSettingsFor(location.href, s);
