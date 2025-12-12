@@ -143,8 +143,10 @@ onmessage = (ev: MessageEvent) => {
   }
 
   debugLog('[Optimizer] Final decision: Suggest contrast =', suggested + '%');
+  debugLog('[Optimizer] Sending result back to content script...');
   debugLog('[Optimizer] ═══════════════════════════════════════════════════════');
 
   const res: OptimizerResult = { suggestedContrast: suggested ?? BASE_CONTRAST_PERCENTAGE };
   postMessage(res);
+  debugLog('[Optimizer] Result message posted successfully');
 };
