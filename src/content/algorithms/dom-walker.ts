@@ -245,55 +245,30 @@ export function applyDomWalker(_settings: Settings): void {
 
   const BATCH_SIZE = 500;
   
-  // Lazy Streaming Implementation
-  function processNextBatch() {
-    let processedCount = 0;
-    let node = walker.currentNode; // Start from where we left off
-
-    while (node && processedCount < BATCH_SIZE) {
-      if (node instanceof HTMLElement && !processedElements.has(node)) {
-        
-        const computed = getComputedStyle(node);
-        
-        // 1. Process Background
-        const bgColor = computed.backgroundColor;
-        if (bgColor && !isTransparent(bgColor)) {
-          const rgb = parseRgb(bgColor);
-          if (rgb) node.style.backgroundColor = invertLightness(rgb, true);
-        } else if (isTransparent(bgColor)) {
-          const parentBg = findOpaqueParentBg(node);
-          if (parentBg) {
-             const rgb = parseRgb(parentBg);
-             if (rgb) node.style.backgroundColor = invertLightness(rgb, true);
-          }
-        }
-
-        // 2. Process Text
-        const textColor = computed.color;
-        if (textColor) {
-          const rgb = parseRgb(textColor);
-          if (rgb) node.style.color = invertLightness(rgb, false);
-        }
-
-        // 3. Process Borders
-        const borderColor = computed.borderColor;
-        if (borderColor && !isTransparent(borderColor)) {
-            const rgb = parseRgb(borderColor);
-            if (rgb) node.style.borderColor = invertLightness(rgb, false);
-        }
-        
-        processedElements.add(node);
-        processedCount++;
-      }
-      
-      // Advance the walker
-      node = walker.nextNode();
+  const elements: Element[] = [];
+  let node: Node | null = walker.currentNode;
+  
+  // Collect all elements
+  while (node) {
+    if (node instanceof Element) {
+      elements.push(node);
     }
+    node = walker.nextNode();
+  }
+  
+  debugSync('[DOM Walker] Found', elements.length, 'elements to process');
+  
+  const BATCH_SIZE = 500; // Process 500 nodes at a time
+  let currentIndex = 0;
+  
+  // Process in batches using requestAnimationFrame
+  function processNextBatch() {
+    const processed = processBatch(elements, currentIndex, BATCH_SIZE);
+    currentIndex += BATCH_SIZE;
 
-    debugSync('[DOM Walker] Streamed batch:', processedCount);
-
-    if (node) {
-      // If node exists, we aren't done. Request next frame.
+    debugSync('[DOM Walker] Processed batch:', processed, 'elements. Total processed:', processedElements.size, '/', elements.length);
+    
+    if (currentIndex < elements.length) {
       requestAnimationFrame(processNextBatch);
     } else {
       debugSync('[DOM Walker] DOM traversal complete');

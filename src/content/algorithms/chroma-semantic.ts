@@ -333,12 +333,11 @@ export function applyChromaSemantic(settings: Settings): void {
 
   if (checkPerformance()) return;
 
-  // Step 2: Stack-Based DFS (Depth First Search)
-  // Allows O(1) depth calculation and pause/resume capabilities
-  interface StackItem {
-    node: HTMLElement;
-    depth: number;
-  }
+  // Step 2: Collect all elements
+  const elements = Array.from(document.querySelectorAll('*'));
+  debugSync('[Chroma-Semantic] Processing', elements.length, 'elements');
+
+  const BATCH_SIZE = 300; // Smaller batches for more complex processing
 
   // Initialize stack with body
   const stack: StackItem[] = [{ node: document.body, depth: 0 }];
@@ -356,10 +355,8 @@ export function applyChromaSemantic(settings: Settings): void {
 
       const { node, depth } = item;
 
-      // 1. Process the node with the FREE depth calculation
-      const role = getSemanticRole(node);
-      applySemanticStyle(node, role, depth);
-      processedCount++;
+      applySemanticStyle(element, role, depth);
+    }
 
       // 2. Add children to stack (reverse order to maintain visual flow)
       // We increment depth simply by adding +1. No expensive "up-tree" lookups.
