@@ -312,6 +312,12 @@ export function applyChromaSemantic(settings: Settings): void {
 
   debugSync('[Chroma-Semantic] Starting advanced semantic analysis');
 
+  if (!document.body) {
+    debugSync('[Chroma-Semantic] Body not available, delaying semantic application and falling back to Photon Inverter');
+    applyPhotonInverter(settings);
+    return;
+  }
+
   resetChromaSemantic();
 
   // Check performance early
