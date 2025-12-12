@@ -19,28 +19,6 @@ let preInjected = false;
 let preInjectTag: HTMLStyleElement | null = null;
 let currentMode: Settings["mode"] | null = null;
 
-async function waitForDocumentReady(): Promise<void> {
-  if ((document.readyState === "complete" || document.readyState === "interactive") && document.body) {
-    return;
-  }
-
-  debugSync('Waiting for document readiness before applying theme');
-
-  await new Promise<void>((resolve) => {
-    const tryResolve = () => {
-      if (document.body) {
-        debugSync('Document ready detected, proceeding with theme application');
-        resolve();
-        return;
-      }
-      requestAnimationFrame(tryResolve);
-    };
-
-    document.addEventListener("DOMContentLoaded", tryResolve, { once: true });
-    tryResolve();
-  });
-}
-
 (async () => {
   await initDebugCache();
   debugSync('content script started to load');
@@ -252,9 +230,15 @@ async function tick() {
     return;
   }
 
-  await waitForDocumentReady();
-
-  debugSync('Document ready, proceeding with detection and application flow');
+  // Wait for document body to be ready before detection and theme application
+  // This is critical for all algorithms, especially DOM-walker and Chroma-semantic
+  try {
+    await waitForDocumentReady();
+    debugSync('Document ready, proceeding with detection and application');
+  } catch (error) {
+    debugSync('⚠️ Timeout waiting for document ready, proceeding anyway:', error);
+    // Proceed anyway - algorithms have their own fallback mechanisms
+  }
 
   // Check if site is already dark (unless forceDarkMode is set for this site)
   // Only run detection if we haven't already applied our theme
@@ -265,17 +249,6 @@ async function tick() {
   if (shouldDetectDark && !applied && !preInjected && isAlreadyDarkTheme()) {
     debugSync('Site already uses dark theme, skipping');
     return;
-  }
-
-  // Wait for document body to be ready before applying themes
-  // This is critical for DOM-walker and Chroma-semantic algorithms
-  debugSync('[Document State] Waiting for document body to be ready...');
-  try {
-    await waitForDocumentReady();
-    debugSync('[Document State] Document body ready, proceeding with theme application');
-  } catch (error) {
-    debugSync('[Document State] ⚠️ Timeout waiting for body, proceeding anyway:', error);
-    // Proceed anyway - algorithms have their own fallback mechanisms
   }
 
   debugSync('Applying dark theme with mode:', use.mode);
