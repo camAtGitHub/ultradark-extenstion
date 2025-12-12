@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
  */
 
 describe("Reset Sliders - Storage Persistence", () => {
-  it("should update settings in correct order: memory -> storage -> notify", () => {
+  it("should update settings in correct order: memory -> storage -> notify", async () => {
     // This test validates the conceptual flow
     // Actual implementation requires browser API mocking which is done in E2E tests
     
@@ -29,7 +29,7 @@ describe("Reset Sliders - Storage Persistence", () => {
       executionOrder.push("notify-content");
     };
     
-    resetSliders();
+    await resetSliders();
     
     // Verify execution order
     expect(executionOrder).toEqual([
@@ -125,7 +125,7 @@ describe("Reset Sliders - Storage Persistence", () => {
     expect(currentSettings.blueShift).toBe(DEFAULTS.blueShift);
   });
 
-  it("should not require multiple presses to work", () => {
+  it("should not require multiple presses to work", async () => {
     // Previously, reset would fail on first press because:
     // 1. Settings updated in memory only
     // 2. Content script would load old values from storage
@@ -140,8 +140,13 @@ describe("Reset Sliders - Storage Persistence", () => {
     const mockReset = async () => {
       resetPressCount++;
       
-      // Simulate fixed behavior: save to storage
-      const storageUpdated = true;
+      // Simulate fixed behavior: storage operations happen
+      const mockSaveToStorage = async () => {
+        // Storage save operation
+        return true;
+      };
+      
+      const storageUpdated = await mockSaveToStorage();
       
       // Content script loads from storage (now has correct values)
       if (storageUpdated) {
@@ -150,7 +155,7 @@ describe("Reset Sliders - Storage Persistence", () => {
     };
     
     // Single press should be sufficient
-    mockReset();
+    await mockReset();
     
     expect(resetPressCount).toBe(1);
     expect(themeApplied).toBe(true);

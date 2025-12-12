@@ -32,12 +32,28 @@ describe("Dark Detection - Extension Style Detection", () => {
     global.window = window;
 
     // Mock getComputedStyle for JSDOM (needed by dark detection)
+    // Create a more complete mock that returns a proxy to handle any property access
     (global as { getComputedStyle?: typeof getComputedStyle }).getComputedStyle = (element: Element) => {
-      return {
+      const mockStyles = {
         colorScheme: '',
         backgroundColor: 'rgb(255, 255, 255)',
-        color: 'rgb(0, 0, 0)'
-      } as CSSStyleDeclaration;
+        color: 'rgb(0, 0, 0)',
+        getPropertyValue: (prop: string) => '',
+        setProperty: () => {},
+        removeProperty: () => '',
+        item: () => '',
+        length: 0
+      };
+      
+      // Return a proxy that returns empty strings for any property access
+      return new Proxy(mockStyles, {
+        get(target, prop) {
+          if (prop in target) {
+            return (target as Record<string, unknown>)[prop as string];
+          }
+          return '';
+        }
+      }) as CSSStyleDeclaration;
     };
   });
 
