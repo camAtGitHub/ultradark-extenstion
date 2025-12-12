@@ -378,3 +378,28 @@ input[type="range"]:focus {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Disabled slider state (when optimizer is enabled) */
+.slider-row.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.slider-row.disabled .slider-label {
+  color: #6b7280;
+}
+
+input[type="range"]:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb {
+  background: #6b7280;
+  cursor: not-allowed;
+}
+
+input[type="range"]:disabled::-moz-range-thumb {
+  background: #6b7280;
+  cursor: not-allowed;
+}
