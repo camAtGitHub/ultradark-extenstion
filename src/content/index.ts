@@ -186,7 +186,7 @@ function startObserverForSpa() {
   ob.observe(document.documentElement, { childList: true, subtree: true, attributes: false });
 }
 
-function startOptimizerIfEnabled(s: Settings) {
+async function startOptimizerIfEnabled(s: Settings) {
   if (!s.optimizerEnabled) {
     debugSync('[Optimizer] Optimizer disabled in settings');
     return;
@@ -214,12 +214,19 @@ function startOptimizerIfEnabled(s: Settings) {
         if (tag) {
           // Rebuild CSS with adjusted contrast (bounded 50..200)
           const bounded = Math.min(200, Math.max(50, suggestedContrast));
-          debugSync('[Optimizer] Applying bounded contrast:', bounded + '% (original:', s.contrast + '%, suggested:', suggestedContrast + '%)');
-          const next = { ...s, contrast: bounded };
-          applyCss(next);
-          debugSync('[Optimizer] Contrast adjustment applied successfully');
+          if (bounded !== suggestedContrast) {
+            debugSync('[Optimizer] Bounded contrast value:', bounded + '% (clamped from suggested:', suggestedContrast + '%)');
+          }
+          if (bounded === s.contrast) {
+            debugSync('[Optimizer] No contrast change needed (already at', bounded + '%)');
+          } else {
+            debugSync('[Optimizer] Changing contrast from', s.contrast + '% to', bounded + '%');
+            const next = { ...s, contrast: bounded };
+            applyCss(next);
+            debugSync('[Optimizer] ✓ Contrast adjustment applied successfully');
+          }
         } else {
-          debugSync('[Optimizer] Warning: Style tag not found, cannot apply contrast adjustment');
+          debugSync('[Optimizer] ⚠️ Warning: Style tag not found, cannot apply contrast adjustment');
         }
       }
     };
@@ -228,13 +235,11 @@ function startOptimizerIfEnabled(s: Settings) {
       console.error('[UltraDark] [Optimizer] Worker error:', err);
     };
     
-    // Send debug mode to worker
-    (async () => {
-      const result = await browser.storage.local.get('isDebugMode');
-      const isDebug = result.isDebugMode === true;
-      worker?.postMessage({ type: 'setDebugMode', debug: isDebug });
-      debugSync('[Optimizer] Debug mode sent to worker:', isDebug);
-    })();
+    // Send debug mode to worker synchronously before sending samples
+    const result = await browser.storage.local.get('isDebugMode');
+    const isDebug = result.isDebugMode === true;
+    worker.postMessage({ type: 'setDebugMode', debug: isDebug });
+    debugSync('[Optimizer] Debug mode sent to worker:', isDebug);
   }
 
   // Sample a limited set of text nodes
@@ -260,6 +265,7 @@ function startOptimizerIfEnabled(s: Settings) {
 
   debugSync('[Optimizer] Collected', samples.length, 'samples, sending to worker for analysis');
   worker.postMessage({ type: "analyze", samples });
+  debugSync('[Optimizer] Analysis request sent to worker, waiting for response...');
 }
 
 async function tick() {
@@ -302,7 +308,7 @@ async function tick() {
   applyCss(use);
   if (use.optimizerEnabled) {
     debugSync('[Optimizer] Optimizer is enabled, will start analysis');
-    startOptimizerIfEnabled(use);
+    await startOptimizerIfEnabled(use);
   } else {
     debugSync('[Optimizer] Optimizer is disabled, skipping');
   }
