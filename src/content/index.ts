@@ -3,7 +3,7 @@ import WorkerUrl from "./optimizer-worker?worker&url";
 
 import type { Settings } from "../types/settings";
 import { DATA_ATTR_APPLIED } from "../utils/defaults";
-import { getSettings } from "../utils/storage";
+import { getSettings, setSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
@@ -224,6 +224,33 @@ async function startOptimizerIfEnabled(s: Settings) {
             const next = { ...s, contrast: bounded };
             applyCss(next);
             debugSync('[Optimizer] ✓ Contrast adjustment applied successfully');
+            
+            // Update settings to persist the optimizer's change and update UI sliders
+            (async () => {
+              try {
+                const currentSettings = await getSettings();
+                const origin = new URL(location.href).origin;
+                const perSiteSettings = currentSettings.perSite[origin];
+                
+                // If there's a per-site override for contrast, update it there
+                // Otherwise update the global setting
+                if (perSiteSettings?.override?.contrast !== undefined) {
+                  debugSync('[Optimizer] Updating per-site contrast setting for', origin);
+                  currentSettings.perSite[origin].override = {
+                    ...perSiteSettings.override,
+                    contrast: bounded
+                  };
+                } else {
+                  debugSync('[Optimizer] Updating global contrast setting');
+                  currentSettings.contrast = bounded;
+                }
+                
+                await setSettings(currentSettings);
+                debugSync('[Optimizer] Settings updated, UI sliders will reflect new contrast value');
+              } catch (error) {
+                console.error('[UltraDark] [Optimizer] Failed to update settings:', error);
+              }
+            })();
           }
         } else {
           debugSync('[Optimizer] ⚠️ Warning: Style tag not found, cannot apply contrast adjustment');
