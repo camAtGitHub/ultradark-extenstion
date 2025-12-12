@@ -11,6 +11,7 @@ import { applyPhotonInverter, removePhotonInverter } from "./algorithms/photon-i
 import { applyDomWalker, resetDomWalker } from "./algorithms/dom-walker";
 import { applyChromaSemantic, resetChromaSemantic } from "./algorithms/chroma-semantic";
 import { buildCss, ensureStyleTag } from "./style-template";
+import { waitForDocumentReady, isDocumentBodyReady } from "../utils/document-ready";
 
 let worker: Worker | null = null;
 let applied = false;
@@ -102,6 +103,7 @@ function resetModeArtifacts() {
 
 function applyCss(s: Settings) {
   debugSync('Applying CSS with mode:', s.mode);
+  debugSync('[Document State] body exists:', isDocumentBodyReady(), 'readyState:', document.readyState);
 
   resetModeArtifacts();
   applyFilterCss(s);
@@ -238,6 +240,12 @@ async function tick() {
     debugSync('Site already uses dark theme, skipping');
     return;
   }
+
+  // Wait for document body to be ready before applying themes
+  // This is critical for DOM-walker and Chroma-semantic algorithms
+  debugSync('[Document State] Waiting for document body to be ready...');
+  await waitForDocumentReady();
+  debugSync('[Document State] Document body ready, proceeding with theme application');
 
   debugSync('Applying dark theme with mode:', use.mode);
   ensurePreInjectCss();

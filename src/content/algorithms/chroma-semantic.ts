@@ -312,6 +312,13 @@ export function applyChromaSemantic(settings: Settings): void {
 
   debugSync('[Chroma-Semantic] Starting advanced semantic analysis');
 
+  // Safety guard: Check if document.body exists
+  if (!document.body) {
+    debugSync('[Chroma-Semantic] ⚠️ document.body not available, falling back to Photon Inverter');
+    applyPhotonInverter(settings);
+    return;
+  }
+
   resetChromaSemantic();
 
   // Check performance early
@@ -413,14 +420,19 @@ export function applyChromaSemantic(settings: Settings): void {
         });
       });
 
-      mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['style', 'class']
-      });
+      // Safety check before attaching observer
+      if (document.body) {
+        mutationObserver.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['style', 'class']
+        });
 
-      debugSync('[Chroma-Semantic] MutationObserver attached');
+        debugSync('[Chroma-Semantic] MutationObserver attached');
+      } else {
+        debugSync('[Chroma-Semantic] ⚠️ document.body disappeared, cannot attach MutationObserver');
+      }
     }
   }
 

@@ -10,6 +10,7 @@
 
 import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
+import { applyPhotonInverter } from "./photon-inverter";
 
 const processedElements = new Set<HTMLElement>();
 let mutationObserver: MutationObserver | null = null;
@@ -229,8 +230,15 @@ export function resetDomWalker(): void {
 /**
  * Apply the DOM Walker algorithm to the page
  */
-export function applyDomWalker(_settings: Settings): void {
+export function applyDomWalker(settings: Settings): void {
   debugSync('[DOM Walker] Starting DOM traversal');
+
+  // Safety guard: Check if document.body exists
+  if (!document.body) {
+    debugSync('[DOM Walker] ⚠️ document.body not available, falling back to Photon Inverter');
+    applyPhotonInverter(settings);
+    return;
+  }
 
   resetDomWalker();
 
@@ -323,12 +331,17 @@ export function applyDomWalker(_settings: Settings): void {
         }
       });
 
-      mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
+      // Safety check before attaching observer
+      if (document.body) {
+        mutationObserver.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
 
-      debugSync('[DOM Walker] MutationObserver attached to body');
+        debugSync('[DOM Walker] MutationObserver attached to body');
+      } else {
+        debugSync('[DOM Walker] ⚠️ document.body disappeared, cannot attach MutationObserver');
+      }
     }
   }
   
