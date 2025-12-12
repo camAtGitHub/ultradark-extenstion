@@ -308,7 +308,11 @@ async function tick() {
   applyCss(use);
   if (use.optimizerEnabled) {
     debugSync('[Optimizer] Optimizer is enabled, will start analysis');
-    await startOptimizerIfEnabled(use);
+    try {
+      await startOptimizerIfEnabled(use);
+    } catch (error) {
+      console.error('[UltraDark] [Optimizer] Failed to start optimizer:', error);
+    }
   } else {
     debugSync('[Optimizer] Optimizer is disabled, skipping');
   }
