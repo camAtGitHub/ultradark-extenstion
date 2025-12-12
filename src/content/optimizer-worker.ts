@@ -13,6 +13,9 @@ interface GlobalWithCanvas {
 // Debug mode is passed from the content script via message
 let debugMode = false;
 
+// Base contrast percentage used as starting point for adjustments
+const BASE_CONTRAST_PERCENTAGE = 110;
+
 // Worker-safe debug logging - sends messages back to content script
 function debugLog(...args: unknown[]): void {
   if (debugMode) {
@@ -122,8 +125,8 @@ onmessage = (ev: MessageEvent) => {
   if (median < 4.5) {
     // naive mapping: for each 0.5 below 4.5, add +10% contrast (cap done in content)
     const deficit = 4.5 - median;
-    suggested = Math.round(110 + (deficit / 0.5) * 10); // base 110%
-    reason = `Median contrast ${median.toFixed(2)} is below WCAG AA threshold (4.5). Deficit: ${deficit.toFixed(2)}. Suggesting +${(suggested - 110)}% increase to base 110%.`;
+    suggested = Math.round(BASE_CONTRAST_PERCENTAGE + (deficit / 0.5) * 10);
+    reason = `Median contrast ${median.toFixed(2)} is below WCAG AA threshold (4.5). Deficit: ${deficit.toFixed(2)}. Suggesting +${(suggested - BASE_CONTRAST_PERCENTAGE)}% increase to base ${BASE_CONTRAST_PERCENTAGE}%.`;
     debugLog('[Optimizer] ⚠️ LOW CONTRAST DETECTED');
     debugLog('[Optimizer]   -', reason);
   } else if (median > 9) {
@@ -133,8 +136,8 @@ onmessage = (ev: MessageEvent) => {
     debugLog('[Optimizer] ⚠️ EXTREMELY HIGH CONTRAST DETECTED');
     debugLog('[Optimizer]   -', reason);
   } else {
-    suggested = 110;
-    reason = `Median contrast ${median.toFixed(2)} is within acceptable range (4.5-9). Using default 110%.`;
+    suggested = BASE_CONTRAST_PERCENTAGE;
+    reason = `Median contrast ${median.toFixed(2)} is within acceptable range (4.5-9). Using default ${BASE_CONTRAST_PERCENTAGE}%.`;
     debugLog('[Optimizer] ✓ CONTRAST IS ACCEPTABLE');
     debugLog('[Optimizer]   -', reason);
   }
@@ -142,6 +145,6 @@ onmessage = (ev: MessageEvent) => {
   debugLog('[Optimizer] Final decision: Suggest contrast =', suggested + '%');
   debugLog('[Optimizer] ═══════════════════════════════════════════════════════');
 
-  const res: OptimizerResult = { suggestedContrast: suggested ?? 110 };
+  const res: OptimizerResult = { suggestedContrast: suggested ?? BASE_CONTRAST_PERCENTAGE };
   postMessage(res);
 };
