@@ -19,6 +19,28 @@ let preInjected = false;
 let preInjectTag: HTMLStyleElement | null = null;
 let currentMode: Settings["mode"] | null = null;
 
+async function waitForDocumentReady(): Promise<void> {
+  if ((document.readyState === "complete" || document.readyState === "interactive") && document.body) {
+    return;
+  }
+
+  debugSync('Waiting for document readiness before applying theme');
+
+  await new Promise<void>((resolve) => {
+    const tryResolve = () => {
+      if (document.body) {
+        debugSync('Document ready detected, proceeding with theme application');
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tryResolve);
+    };
+
+    document.addEventListener("DOMContentLoaded", tryResolve, { once: true });
+    tryResolve();
+  });
+}
+
 (async () => {
   await initDebugCache();
   debugSync('content script started to load');
@@ -216,6 +238,19 @@ function startOptimizerIfEnabled(s: Settings) {
   worker.postMessage({ type: "analyze", samples });
 }
 
+function extensionAlreadyInjected(): boolean {
+  const hasAppliedAttr = document.documentElement.getAttribute("udr-applied") === "true";
+  const hasModeAttr = document.documentElement.hasAttribute("data-udr-mode");
+  const styleExists = Boolean(document.getElementById("udr-style"));
+
+  if (hasAppliedAttr || hasModeAttr || styleExists || applied) {
+    debugSync('Extension CSS already present, skipping dark detection to avoid self-influence');
+    return true;
+  }
+
+  return false;
+}
+
 async function tick() {
   const s = await getSettings();
   const { use, excluded } = await effectiveSettingsFor(location.href, s);
@@ -229,6 +264,10 @@ async function tick() {
     else if (preInjected) removePreInjectCss();
     return;
   }
+
+  await waitForDocumentReady();
+
+  debugSync('Document ready, proceeding with detection and application flow');
 
   // Check if site is already dark (unless forceDarkMode is set for this site)
   // Only run detection if we haven't already applied our theme
