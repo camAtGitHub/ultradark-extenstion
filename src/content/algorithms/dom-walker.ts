@@ -260,17 +260,6 @@ export function applyDomWalker(settings: Settings): void {
 
   resetDomWalker();
 
-  // Count and log media elements that will be skipped
-  const mediaElements = document.querySelectorAll('canvas, video, img, svg');
-  if (mediaElements.length > 0) {
-    const counts = { canvas: 0, video: 0, img: 0, svg: 0 };
-    mediaElements.forEach((el) => {
-      const tag = el.tagName.toLowerCase() as keyof typeof counts;
-      if (tag in counts) counts[tag]++;
-    });
-    debugSync('[DOM Walker] Skipping media elements:', counts);
-  }
-
   // Use TreeWalker for efficient DOM traversal
   const walker = document.createTreeWalker(
     document.body,
