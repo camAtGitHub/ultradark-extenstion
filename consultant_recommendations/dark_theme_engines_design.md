@@ -30,26 +30,27 @@ Before any dark mode algorithm is engaged, the detection module analyzes the pag
 
 ---
 
-## 3. ALGORITHM 1: THE "PHOTON INVERTER" (High Performance / CSS Filters)
-**Strategy:** Global CSS Filter Injection.
-**Complexity:** O(1) (Browser Render Engine handles complexity).
-**Use Case:** Low-power devices, huge legacy static HTML pages, rapid prototyping.
 
-### Implementation Spec
-1.  **CSS Injection:**
-    *   Inject a style rule on `html` or `:root`.
-    *   Rule: `filter: invert(100%) hue-rotate(180deg);`
-    *   *Why hue-rotate?* Inverting colors turns Blue to Orange. Rotating 180deg returns Orange back to Blue, preserving brand identity logic (e.g., links remain blue-ish).
-2.  **Media Reversion (The "Face Saver"):**
-    *   **Problem:** Images and videos become X-Rays.
-    *   **Solution:** Create a CSS rule targeting `img, video, canvas, [style*="background-image"]`.
-    *   **Action:** Apply `filter: invert(100%) hue-rotate(180deg)` *again* to these elements. Double inversion cancels out, rendering media normally.
-3.  **User Modifiers:**
-    *   **Brightness:** Adjust filter to `brightness(0.9)` to reduce glare.
-    *   **Contrast:** Append `contrast(1.1)`.
-4.  **Shortcomings:**
-    *   White backgrounds become pure black (#000000), causing "smearing" on OLED screens.
-    *   Shadows are inverted (light shadows become dark glows).
+
+# Task 3 - Refactor Photon Inverter (Algorithm 1) to Use Bookmarklet Logic
+##  ALGORITHM 1: THE "PHOTON INVERTER" (High Performance / CSS Filters)
+
+**Priority:** MEDIUM
+
+**Goal / Why:**
+To replace the existing Photon Inverter implementation (which relied on `hue-rotate` and separate `brightness`/`contrast` modifiers) with a more robust and simplified CSS filter approach derived from the provided bookmarklet code. This new implementation effectively resolves the "OLED smearing" issue by using an off-white background (`#fefefe`) and streamlines media reversal by specifically excluding SVG images.
+
+Bookmarklet code: `javascript:(d=>{var css=`:root{background-color:#fefefe;filter:invert(100%)}*{background-color:inherit}img:not([src*=".svg"]),video{filter:%20invert(100%)}`,style,id="dark-theme-snippet",ee=d.getElementById(id);if(null!=ee)ee.parentNode.removeChild(ee);else%20{style%20=%20d.createElement('style');style.type="text/css";style.id=id;if(style.styleSheet)style.styleSheet.cssText=css;else%20style.appendChild(d.createTextNode(css));(d.head||d.querySelector('head')).appendChild(style)}})(document)`
+
+**Expected Outcome / Acceptance Criteria:**
+
+*   Algorithm 1 (Photon Inverter) must inject its CSS inside a single `<style>` tag bearing the ID `dark-theme-snippet`.
+*   The injected CSS must apply the inversion and background settings to the document root: `:root{background-color:#fefefe;filter:invert(100%)}`.
+*   A rule must be applied to ensure all elements inherit the new background color: `*{background-color:inherit}`.
+*   Media reversal must target images and video, explicitly excluding SVGs: `img:not([src*=".svg"]),video{filter:invert(100%)}`.
+*   The previous implementation details, including the `hue-rotate(180deg)` rule and any separate settings for user-adjustable `brightness` or `contrast` CSS filters, must be removed from this algorithm's core code.
+*   The logic must include the ability to fully remove the style tag (`dark-theme-snippet`) when the algorithm is toggled off.
+
 
 ---
 

@@ -140,19 +140,6 @@ function lchToRGB(l: number, c: number, h: number): { r: number; g: number; b: n
 }
 
 /**
- * Get DOM depth of an element
- */
-function getDOMDepth(element: Element): number {
-  let depth = 0;
-  let parent = element.parentElement;
-  while (parent) {
-    depth++;
-    parent = parent.parentElement;
-  }
-  return depth;
-}
-
-/**
  * Get semantic role of element
  */
 function getSemanticRole(element: Element): string {
@@ -195,8 +182,18 @@ function processCSSVariables(): number {
                 // Try to parse as color
                 if (value.match(/#[0-9a-f]{3,6}/i) || value.match(/rgb/i)) {
                   debugSync('[Chroma-Semantic] Found CSS variable:', prop, '=', value);
-                  // Would modify here, but skipping for now to avoid breaking cascades
-                  modified++;
+                  
+                  // Activate the modifications
+                  // Map all root color variables to a safe dark theme base automatically
+                  // This uses the cascade to update thousands of nodes instantly
+                  const root = document.documentElement;
+                  if (prop.includes('background') || prop.includes('bg')) {
+                     root.style.setProperty(prop, '#121212'); // Force dark base
+                     modified++;
+                  } else if (prop.includes('text') || prop.includes('color') || prop.includes('fg')) {
+                     root.style.setProperty(prop, '#e0e0e0'); // Force light text
+                     modified++;
+                  }
                 }
               }
             }
@@ -336,32 +333,48 @@ export function applyChromaSemantic(settings: Settings): void {
 
   if (checkPerformance()) return;
 
-  // Step 2: Collect all elements
-  const elements = Array.from(document.querySelectorAll('*'));
-  debugSync('[Chroma-Semantic] Processing', elements.length, 'elements');
+  // Step 2: Stack-Based DFS (Depth First Search)
+  // Allows O(1) depth calculation and pause/resume capabilities
+  interface StackItem {
+    node: HTMLElement;
+    depth: number;
+  }
 
-  const BATCH_SIZE = 300; // Smaller batches for more complex processing
-
-  let currentIndex = 0;
+  // Initialize stack with body
+  const stack: StackItem[] = [{ node: document.body, depth: 0 }];
+  const BATCH_SIZE = 300;
 
   function processNextBatch() {
     if (checkPerformance()) return;
 
-    const endIndex = Math.min(currentIndex + BATCH_SIZE, elements.length);
+    let processedCount = 0;
 
-    for (let i = currentIndex; i < endIndex; i++) {
-      const element = elements[i];
-      if (!(element instanceof HTMLElement)) continue;
+    // Process stack until batch limit or empty
+    while (stack.length > 0 && processedCount < BATCH_SIZE) {
+      const item = stack.pop(); // Get latest item
+      if (!item) continue;
 
-      const depth = getDOMDepth(element);
-      const role = getSemanticRole(element);
+      const { node, depth } = item;
 
-      applySemanticStyle(element, role, depth);
+      // 1. Process the node with the FREE depth calculation
+      const role = getSemanticRole(node);
+      applySemanticStyle(node, role, depth);
+      processedCount++;
+
+      // 2. Add children to stack (reverse order to maintain visual flow)
+      // We increment depth simply by adding +1. No expensive "up-tree" lookups.
+      const children = Array.from(node.children);
+      for (let i = children.length - 1; i >= 0; i--) {
+        if (children[i] instanceof HTMLElement) {
+          stack.push({ 
+            node: children[i] as HTMLElement, 
+            depth: depth + 1 
+          });
+        }
+      }
     }
 
-    currentIndex += BATCH_SIZE;
-
-    if (currentIndex < elements.length) {
+    if (stack.length > 0) {
       requestAnimationFrame(processNextBatch);
     } else {
       const totalTime = performance.now() - startTime;
@@ -388,7 +401,13 @@ export function applyChromaSemantic(settings: Settings): void {
         });
 
         newElements.forEach((el) => {
-          const depth = getDOMDepth(el);
+          // For mutation observer, we need to calculate depth
+          let depth = 0;
+          let parent = el.parentElement;
+          while (parent) {
+            depth++;
+            parent = parent.parentElement;
+          }
           const role = getSemanticRole(el);
           applySemanticStyle(el, role, depth);
         });
@@ -410,4 +429,3 @@ export function applyChromaSemantic(settings: Settings): void {
 
   document.documentElement.setAttribute("data-udr-mode", "chroma-semantic");
 }
-
