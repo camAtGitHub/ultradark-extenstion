@@ -31,11 +31,13 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
   - Uses OffscreenCanvas which normalizes colors to hex format (both `#rgb` and `#rrggbb`)
   - Debug logs can be enabled via the "Enable debug logging" option to see full analysis details
   - **UX Consideration**: Contrast slider is disabled (greyed out) when optimizer is enabled to prevent user confusion
-- **Dark Detection**: `src/utils/dark-detection.ts` contains functions for detecting if a site is already dark-themed:
-  - `isAlreadyDarkTheme()` - Main detection function that combines multiple heuristics
-  - `hasExplicitDarkThemeMarkers()` - Checks for dark theme classes, attributes, and meta tags
-  - `getAverageBackgroundLuminance()` - Calculates luminance from page backgrounds (threshold: 0.2 for dark)
-  - Detection relies on actual DOM/CSS analysis, not user's system preferences
+- **Dark Detection**: `src/utils/dark-detection.ts` - Lean detection strategy (no metadata guessing):
+  - `isAlreadyDarkTheme()` - Main detection function using only browser standards and visual reality
+  - **CHECK 1 - Browser Standards**: Reads `color-scheme` CSS property from computed styles (official standard)
+  - **CHECK 2 - Visual Reality**: Calculates WCAG luminance from html/body backgroundColor (threshold: 0.3 for dark)
+  - **NO REGEX MATCHING**: Does not check class names, IDs, or other metadata (too fragile)
+  - **Extension Guard**: Detects if UltraDark has already applied styles to prevent false positives
+  - Detection happens before application to avoid "double inversion" on native dark sites
 
 ## Popup-to-Content Communication Flow
 1. User changes setting in popup UI (`src/popup/index.ts`)
