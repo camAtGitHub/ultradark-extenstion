@@ -201,7 +201,7 @@ function processCSSVariables(): number {
             }
           }
         }
-      } catch (e) {
+      } catch {
         // Catch CORS errors for cross-origin stylesheets
         continue;
       }

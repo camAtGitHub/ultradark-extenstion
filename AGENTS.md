@@ -38,6 +38,14 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
   - **NO REGEX MATCHING**: Does not check class names, IDs, or other metadata (too fragile)
   - **Extension Guard**: Detects if UltraDark has already applied styles to prevent false positives
   - Detection happens before application to avoid "double inversion" on native dark sites
+- **Passive Mode**: 
+  - `applyPassiveMode()` in `src/content/index.ts` - "Do No Harm" state for natively dark sites
+  - Triggered when `isAlreadyDarkTheme()` returns true (site is already dark)
+  - Sets `data-udr-state="passive"` on `<html>` element
+  - Only applies minimal polish: slightly dims images/videos (opacity: 0.9) to match dark ambiance
+  - Does NOT modify backgrounds, text colors, or apply any algorithms (Photon/Chroma)
+  - Prevents "double inversion" that would break native dark themes
+  - Cleaned up by `removeCss()` when extension is disabled or settings change
 
 ## Popup-to-Content Communication Flow
 1. User changes setting in popup UI (`src/popup/index.ts`)

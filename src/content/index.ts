@@ -84,6 +84,34 @@ function removeShield() {
   }
 }
 
+// PASSIVE MODE
+// For natively dark sites - minimal interference, just polish
+function applyPassiveMode() {
+  debugSync('[UltraDark] Native dark theme detected. Engaging Passive Mode.');
+  
+  // 1. Mark the state
+  document.documentElement.setAttribute('data-udr-state', 'passive');
+  
+  // 2. Inject minimal enhancements (No inversion, just polish)
+  const style = document.createElement('style');
+  style.id = 'udr-passive-style';
+  style.textContent = `
+    /* Slightly dim images to match dark ambiance */
+    html[data-udr-state="passive"] img,
+    html[data-udr-state="passive"] video {
+      filter: opacity(0.9) !important;
+      transition: filter 0.3s ease;
+    }
+    html[data-udr-state="passive"] img:hover,
+    html[data-udr-state="passive"] video:hover {
+      filter: opacity(1) !important;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  debugSync('[UltraDark] Passive Mode applied - images dimmed, backgrounds untouched');
+}
+
 const PRE_INJECT_CSS = `
 html,
 body {
@@ -209,6 +237,14 @@ function removeCss() {
   // Remove the instant shield if active
   if (shieldActive) {
     removeShield();
+  }
+  
+  // Remove passive mode if active
+  const passiveStyle = document.getElementById('udr-passive-style');
+  if (passiveStyle) {
+    passiveStyle.remove();
+    document.documentElement.removeAttribute('data-udr-state');
+    debugSync('Passive Mode removed');
   }
 
   // Remove pre-inject.css effects by resetting html and body styles
@@ -383,9 +419,10 @@ async function tick() {
   const per = use.perSite[origin] || {};
   const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
   
-  if (shouldDetectDark && !applied && !preInjected && isAlreadyDarkTheme()) {
-    debugSync('Site already uses dark theme, skipping');
-    return;
+  if (shouldDetectDark && !applied && !preInjected && !shieldActive && isAlreadyDarkTheme()) {
+    debugSync('Site already uses dark theme, engaging Passive Mode');
+    applyPassiveMode();
+    return; // STOP. Do not run Chroma or Shield.
   }
 
   debugSync('Applying dark theme with mode:', use.mode);
