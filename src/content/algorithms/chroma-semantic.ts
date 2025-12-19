@@ -160,55 +160,71 @@ function getSemanticRole(element: Element): string {
 
 /**
  * Scan and modify CSS Custom Properties
+ * Upgraded "Hijacking" implementation that overrides CSS variables globally
  */
 function processCSSVariables(): number {
-  let modified = 0;
+  const overrides: string[] = [];
+  const processedProps = new Set<string>();
+  
+  // Regex to identify variable types
+  const bgRegex = /background|bg-|surface|canvas|panel/i;
+  const textRegex = /text|foreground|color|fg-/i;
 
   try {
-    for (const sheet of document.styleSheets) {
+    // Iterate all loaded stylesheets
+    for (const sheet of Array.from(document.styleSheets)) {
       try {
-        const rules = sheet.cssRules || sheet.rules;
-        for (let i = 0; i < rules.length; i++) {
-          const rule = rules[i];
-          if (rule instanceof CSSStyleRule) {
+        const rules = sheet.cssRules;
+        for (const rule of Array.from(rules)) {
+          // We only care about global variables defined on :root or html
+          if (rule instanceof CSSStyleRule && (rule.selectorText === ':root' || rule.selectorText === 'html')) {
             const style = rule.style;
-            
-            // Look for CSS custom properties (variables)
-            for (let j = 0; j < style.length; j++) {
-              const prop = style[j];
-              if (prop.startsWith('--')) {
-                const value = style.getPropertyValue(prop);
+            for (let i = 0; i < style.length; i++) {
+              const prop = style[i];
+              if (prop.startsWith('--') && !processedProps.has(prop)) {
                 
-                // Try to parse as color
-                if (value.match(/#[0-9a-f]{3,6}/i) || value.match(/rgb/i)) {
-                  debugSync('[Chroma-Semantic] Found CSS variable:', prop, '=', value);
-                  
-                  // Activate the modifications
-                  // Map all root color variables to a safe dark theme base automatically
-                  // This uses the cascade to update thousands of nodes instantly
-                  const root = document.documentElement;
-                  if (prop.includes('background') || prop.includes('bg')) {
-                     root.style.setProperty(prop, '#121212'); // Force dark base
-                     modified++;
-                  } else if (prop.includes('text') || prop.includes('color') || prop.includes('fg')) {
-                     root.style.setProperty(prop, '#e0e0e0'); // Force light text
-                     modified++;
-                  }
+                const value = style.getPropertyValue(prop).trim();
+                // Basic check to ensure it's a color (hex, rgb, hsl)
+                if (!/#|rgb|hsl/i.test(value)) continue;
+
+                // Hijack Logic
+                if (bgRegex.test(prop)) {
+                  // Force dark background
+                  overrides.push(`${prop}: #121212 !important;`);
+                  processedProps.add(prop);
+                } else if (textRegex.test(prop)) {
+                  // Force light text
+                  overrides.push(`${prop}: #e0e0e0 !important;`);
+                  processedProps.add(prop);
                 }
               }
             }
           }
         }
-      } catch {
-        // Cross-origin stylesheet - skip (CORS prevents access)
-        debugSync('[Chroma-Semantic] Skipping cross-origin stylesheet');
+      } catch (e) {
+        // Catch CORS errors for cross-origin stylesheets
+        continue;
       }
     }
   } catch (e) {
-    debugSync('[Chroma-Semantic] Error processing CSS variables:', e);
+    console.error('[Chroma] Error scanning CSS variables', e);
   }
 
-  return modified;
+  // Inject the "Hijack" Block
+  if (overrides.length > 0) {
+    const styleId = 'udr-css-hijack';
+    let style = document.getElementById(styleId);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = styleId;
+      document.head.appendChild(style);
+    }
+    style.textContent = `:root { ${overrides.join('\n')} }`;
+    debugSync('[Chroma-Semantic] CSS Variable Hijack injected:', overrides.length, 'variables');
+    return overrides.length;
+  }
+
+  return 0;
 }
 
 /**
@@ -299,6 +315,13 @@ export function resetChromaSemantic(): void {
   if (mutationObserver) {
     mutationObserver.disconnect();
     mutationObserver = null;
+  }
+  
+  // Remove CSS variable hijack style
+  const hijackStyle = document.getElementById('udr-css-hijack');
+  if (hijackStyle) {
+    hijackStyle.remove();
+    debugSync('[Chroma-Semantic] CSS Variable Hijack removed');
   }
 }
 

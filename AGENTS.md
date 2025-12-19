@@ -16,6 +16,12 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
   - Images/videos are re-inverted while shield is active to maintain correct appearance
   - Shield uses brute-force CSS filters and is replaced by sophisticated algorithms once ready
 - **Shared CSS builder**: `src/content/style-template.ts` builds the injected CSS using brightness/contrast/etc.
+- **CSS Variable Hijacking**: 
+  - `processCSSVariables()` in `src/content/algorithms/chroma-semantic.ts` - Scans for CSS Custom Properties on :root and html
+  - Identifies color variables by pattern matching (background/bg/surface/canvas/panel for backgrounds, text/foreground/color/fg for text)
+  - Injects a single `<style id="udr-css-hijack">` block that overrides all matched variables globally
+  - O(1) global theming - changing one :root variable updates the entire page instantly
+  - Cleaned up by `resetChromaSemantic()` when switching modes
 - **Contrast Optimizer**: `src/content/optimizer-worker.ts` is a Web Worker that analyzes page contrast and automatically adjusts contrast settings:
   - Samples up to 120 text elements from the page
   - Calculates WCAG-compliant contrast ratios using relative luminance
