@@ -8,7 +8,6 @@ import { urlExcluded } from "../utils/regex";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
 import { applyPhotonInverter, removePhotonInverter } from "./algorithms/photon-inverter";
-import { applyDomWalker, resetDomWalker } from "./algorithms/dom-walker";
 import { applyChromaSemantic, resetChromaSemantic } from "./algorithms/chroma-semantic";
 import { buildCss, ensureStyleTag } from "./style-template";
 import { waitForDocumentReady, isDocumentBodyReady } from "../utils/document-ready";
@@ -18,6 +17,7 @@ let applied = false;
 let preInjected = false;
 let preInjectTag: HTMLStyleElement | null = null;
 let currentMode: Settings["mode"] | null = null;
+let shieldActive = false;
 
 (async () => {
   await initDebugCache();
@@ -37,6 +37,51 @@ async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use:
   if (typeof per.enabled === "boolean") merged.enabled = per.enabled;
 
   return { use: merged, excluded };
+}
+
+// THE INSTANT SHIELD
+// Injects a brute-force filter immediately to prevent blinding the user
+function applyShield() {
+  // Prevent duplicate injection
+  if (document.getElementById('udr-shield')) {
+    debugSync('[Shield] Shield already active, skipping');
+    return;
+  }
+
+  const shield = document.createElement('style');
+  shield.id = 'udr-shield';
+  // 1. Invert the whole page
+  // 2. Rotate hue 180deg to restore colors (roughly)
+  // 3. Set background to white (which becomes black when inverted)
+  shield.textContent = `
+    html { 
+      filter: invert(1) hue-rotate(180deg) !important; 
+      background-color: white !important;
+    }
+    img, video, iframe {
+      filter: invert(1) hue-rotate(180deg) !important;
+      opacity: 0.8;
+    }
+  `;
+  document.documentElement.appendChild(shield);
+  shieldActive = true;
+  debugSync('[Shield] Instant Shield applied');
+}
+
+// THE HANDOVER
+// Called when the smart algorithm (Chroma) has finished its first pass
+function removeShield() {
+  const shield = document.getElementById('udr-shield');
+  if (shield) {
+    // Optional: Add a CSS transition class to body for smooth fade
+    setTimeout(() => {
+      shield.remove();
+      shieldActive = false;
+      debugSync('[Shield] Shield removed, handover complete');
+    }, 50); 
+  } else {
+    debugSync('[Shield] No shield to remove');
+  }
 }
 
 const PRE_INJECT_CSS = `
@@ -92,8 +137,6 @@ function applyFilterCss(settings: Settings) {
 function resetModeArtifacts() {
   if (currentMode === "photon-inverter") {
     removePhotonInverter();
-  } else if (currentMode === "dom-walker") {
-    resetDomWalker();
   } else if (currentMode === "chroma-semantic") {
     resetChromaSemantic();
   }
@@ -110,14 +153,17 @@ function applyCss(s: Settings) {
 
   if (s.mode === "photon-inverter") {
     applyPhotonInverter(s);
-  } else if (s.mode === "dom-walker") {
-    applyDomWalker(s);
   } else if (s.mode === "chroma-semantic") {
     applyChromaSemantic(s);
   } else {
-    // Fallback to photon-inverter for unknown modes
-    debugSync('Unknown mode, falling back to photon-inverter');
+    // Fallback to photon-inverter for unknown modes (including deprecated dom-walker)
+    debugSync('Unknown mode or deprecated mode, falling back to photon-inverter');
     applyPhotonInverter(s);
+  }
+  
+  // Remove the shield now that the intelligent engine is ready
+  if (shieldActive) {
+    removeShield();
   }
 
   document.documentElement.setAttribute("data-udr-mode", s.mode);
@@ -159,6 +205,11 @@ function removeCss() {
   }
 
   removePreInjectCss();
+  
+  // Remove the instant shield if active
+  if (shieldActive) {
+    removeShield();
+  }
 
   // Remove pre-inject.css effects by resetting html and body styles
   // The pre-inject.css applies !important styles, so we need to override them
@@ -306,11 +357,18 @@ async function tick() {
     debugSync('Skipping - extension disabled or URL excluded:', location.href);
     if (applied) removeCss();
     else if (preInjected) removePreInjectCss();
+    else if (shieldActive) removeShield();
     return;
   }
 
+  // Apply Instant Shield immediately to prevent white flash
+  // This happens BEFORE waiting for document ready
+  if (!applied && !shieldActive && !preInjected) {
+    applyShield();
+  }
+
   // Wait for document body to be ready before detection and theme application
-  // This is critical for all algorithms, especially DOM-walker and Chroma-semantic
+  // This is critical for all algorithms, especially Chroma-semantic
   try {
     await waitForDocumentReady();
     debugSync('Document ready, proceeding with detection and application');

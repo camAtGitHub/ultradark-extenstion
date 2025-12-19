@@ -6,9 +6,15 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 - **Content scripts**: `src/content/` contains algorithms and the main entry (`index.ts`) that reads settings and applies the selected algorithm.
 - **Algorithms**: 
   - Photon inverter (`src/content/algorithms/photon-inverter.ts`) - Uses CSS filters via `generatePhotonInverterCSS()`
-  - DOM walker (`src/content/algorithms/dom-walker.ts`) - DOM traversal with color inversion
   - Chroma semantic (`src/content/algorithms/chroma-semantic.ts`) - Semantic color palettes based on DOM depth
-  - **IMPORTANT**: All three algorithms use the slider settings (brightness, contrast, sepia, grayscale, blueShift) through `applyFilterCss()` in `src/content/index.ts`, which is called for ALL modes before the algorithm-specific function
+  - **IMPORTANT**: Both algorithms use the slider settings (brightness, contrast, sepia, grayscale, blueShift) through `applyFilterCss()` in `src/content/index.ts`, which is called for ALL modes before the algorithm-specific function
+  - **NOTE**: DOM walker algorithm has been deprecated and removed as per architectural decision (Ticket UD-001)
+- **Instant Shield (Anti-FOUW)**: 
+  - `applyShield()` in `src/content/index.ts` - Applies immediate CSS filter (invert + hue-rotate) to prevent white flash
+  - Shield is applied BEFORE waiting for document ready to ensure instant darkening
+  - `removeShield()` is called after the intelligent algorithm completes its first pass
+  - Images/videos are re-inverted while shield is active to maintain correct appearance
+  - Shield uses brute-force CSS filters and is replaced by sophisticated algorithms once ready
 - **Shared CSS builder**: `src/content/style-template.ts` builds the injected CSS using brightness/contrast/etc.
 - **Contrast Optimizer**: `src/content/optimizer-worker.ts` is a Web Worker that analyzes page contrast and automatically adjusts contrast settings:
   - Samples up to 120 text elements from the page
