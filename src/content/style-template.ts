@@ -43,20 +43,37 @@ html[udr-applied="true"] video,
 html[udr-applied="true"] canvas,
 html[udr-applied="true"] svg,
 html[udr-applied="true"] picture,
+html[udr-applied="true"] iframe,
+html[udr-applied="true"] [style*="background-image"],
 html[udr-applied="true"] [role="img"] {
   filter: ${mediaFilter} !important; /* re-invert media */
 }`
     : "";
 
-  const background = invert ? "background-color: #111 !important;" : "";
+  // For inversion mode: set white backgrounds (which become black when inverted)
+  // This fixes the "white columns" issue on pages with explicit white backgrounds
+  const backgroundFix = invert
+    ? `
+/* Set base to white (becomes black when inverted) */
+html[udr-applied="true"] {
+  background: #fff !important;
+}
+
+/* Fix transparent/unset backgrounds - make them white so they become dark when inverted */
+html[udr-applied="true"] body,
+html[udr-applied="true"] *:not(img):not(video):not(canvas):not(svg):not(picture):not(iframe):not([style*="background-image"]) {
+  background-color: #fff !important;
+}
+`
+    : "";
 
   return `
 /* UltraDark Reader injected CSS */
 :root { --udr-filter: ${filter}; }
 html[udr-applied="true"] {
   filter: var(--udr-filter) !important;
-  ${background}
 }
+${backgroundFix}
 ${mediaReinvert}
 ${amoledCss}
 
