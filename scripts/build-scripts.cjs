@@ -39,6 +39,19 @@ async function buildAll() {
     });
     console.log('✔ optimizer worker built with esbuild -> dist/assets/optimizer-worker.js');
 
+    // Build early content script for instant shield/pre-inject
+    await build({
+      entryPoints: ['src/content/early.ts'],
+      bundle: true,
+      outfile: 'dist/src/content/early.js',
+      platform: 'browser',
+      format: 'iife',
+      target: ['es2020'],
+      sourcemap: false,
+      minify: false
+    });
+    console.log('✔ early content script built with esbuild -> dist/src/content/early.js');
+
     // Read content script source and replace worker import
     let contentSource = readFileSync('src/content/index.ts', 'utf-8');
     

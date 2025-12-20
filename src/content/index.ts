@@ -119,6 +119,17 @@ body {
   color: #e0e0e0 !important;
 }`;
 
+function syncEarlyArtifacts() {
+  const existingShield = document.getElementById('udr-shield');
+  shieldActive = !!existingShield;
+
+  const existingPreInject = document.getElementById('udr-preinject') as HTMLStyleElement | null;
+  if (existingPreInject) {
+    preInjectTag = existingPreInject;
+    preInjected = true;
+  }
+}
+
 function ensurePreInjectCss() {
   if (!preInjectTag) {
     preInjectTag = document.createElement('style');
@@ -387,6 +398,7 @@ async function tick() {
   const { use, excluded } = await effectiveSettingsFor(location.href, s);
 
   const origin = new URL(location.href).origin;
+  syncEarlyArtifacts();
 
   // Check if should skip due to exclusion
   if (!use.enabled || excluded) {
