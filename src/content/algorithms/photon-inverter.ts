@@ -3,7 +3,7 @@
 /**
  * Algorithm 1: "Photon Inverter" (High Performance / CSS Filters)
  * 
- * Strategy: Simple CSS inversion with image/video re-inversion
+ * Strategy: Double Flip method - invert(100%) + hue-rotate(180deg) for color correction
  * Complexity: O(1) (Browser Render Engine handles complexity)
  * Use Case: Low-power devices, huge legacy static HTML pages, rapid prototyping
  * 
@@ -13,28 +13,64 @@
 import type { Settings } from "../../types/settings";
 import { STYLE_TAG_ID } from "../../utils/defaults";
 import { debugSync } from "../../utils/logger";
-import { buildCss, ensureStyleTag } from "../style-template";
+import { ensureStyleTag } from "../style-template";
 
 const DARK_THEME_SNIPPET_ID = "dark-theme-snippet";
 
-function hueRotateFromBlueShift(blueShift: number): number {
-  return Math.round((blueShift / 100) * 180);
-}
-
 /**
- * Generate CSS for the new Photon Inverter algorithm
- * Uses simple invert(100%) on :root with image/video re-inversion
+ * Generate CSS using the Bookmarklet's superior filter logic.
+ * 
+ * CORE DIFFERENCE:
+ * We use the "Double Flip" method from the bookmarklet:
+ * 1. invert(1) -> turns white to black (good) but makes colors weird (blue -> orange).
+ * 2. hue-rotate(180deg) -> flips the colors back (orange -> blue).
  */
 export function generatePhotonInverterCSS(settings: Settings): string {
-  return buildCss({
-    brightness: settings.brightness,
-    contrast: settings.contrast,
-    sepia: settings.sepia,
-    grayscale: settings.grayscale,
-    hueRotateDeg: hueRotateFromBlueShift(settings.blueShift),
-    amoled: settings.amoled,
-    invert: true
-  });
+  // Calculate hue rotation:
+  // Baseline is 180deg (from bookmarklet).
+  // We add the user's 'blueShift' slider on top of that.
+  const baseHue = 180;
+  const userHue = Math.round((settings.blueShift / 100) * 180);
+  const totalHue = baseHue + userHue;
+
+  // We respect the sliders by adding them into the filter chain
+  const filters = [
+    `invert(100%)`,                  // The base dark mode
+    `hue-rotate(${totalHue}deg)`,    // The color correction
+    settings.grayscale ? `grayscale(${settings.grayscale}%)` : '',
+    settings.sepia ? `sepia(${settings.sepia}%)` : '',
+    settings.contrast !== 100 ? `contrast(${settings.contrast}%)` : '',
+    settings.brightness !== 100 ? `brightness(${settings.brightness}%)` : ''
+  ].filter(Boolean).join(" ");
+
+  // AMOLED mode: force pure black backgrounds
+  const amoledCss = settings.amoled
+    ? `
+html, body, body *:not(img):not(video):not(canvas):not(svg):not([data-udr-skip]) {
+  background-color: #000 !important;
+  background-image: none !important;
+}`
+    : "";
+
+  return `
+    /* Force the document canvas to be white so it inverts to black */
+    html {
+      background-color: #ffffff !important;
+      filter: ${filters} !important;
+      min-height: 100vh;
+    }
+
+    /* 
+     * MEDIA RE-INVERSION
+     * Images/Videos are already inverted by the html filter.
+     * We re-invert them to restore their original colors.
+     */
+    img, video, picture, canvas, iframe, svg, [style*="background-image"] {
+      filter: invert(100%) hue-rotate(180deg) !important;
+    }
+
+    ${amoledCss}
+  `;
 }
 
 /**
