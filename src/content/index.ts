@@ -10,14 +10,12 @@ import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
 import { applyPhotonInverter, removePhotonInverter } from "./algorithms/photon-inverter";
 import { applyChromaSemantic, resetChromaSemantic } from "./algorithms/chroma-semantic";
 import { buildCss, ensureStyleTag } from "./style-template";
-import { waitForDocumentReady, isDocumentBodyReady } from "../utils/document-ready";
+import { waitForDocumentReady, waitForPageLoad, isDocumentBodyReady } from "../utils/document-ready";
+import { applyShield, removeShield, ensurePreInjectCss, removePreInjectCss, isShieldActive, isPreInjectApplied } from "./instant-shield";
 
 let worker: Worker | null = null;
 let applied = false;
-let preInjected = false;
-let preInjectTag: HTMLStyleElement | null = null;
 let currentMode: Settings["mode"] | null = null;
-let shieldActive = false;
 
 (async () => {
   await initDebugCache();
@@ -37,51 +35,6 @@ async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use:
   if (typeof per.enabled === "boolean") merged.enabled = per.enabled;
 
   return { use: merged, excluded };
-}
-
-// THE INSTANT SHIELD
-// Injects a brute-force filter immediately to prevent blinding the user
-function applyShield() {
-  // Prevent duplicate injection
-  if (document.getElementById('udr-shield')) {
-    debugSync('[Shield] Shield already active, skipping');
-    return;
-  }
-
-  const shield = document.createElement('style');
-  shield.id = 'udr-shield';
-  // 1. Invert the whole page
-  // 2. Rotate hue 180deg to restore colors (roughly)
-  // 3. Set background to white (which becomes black when inverted)
-  shield.textContent = `
-    html { 
-      filter: invert(1) hue-rotate(180deg) !important; 
-      background-color: white !important;
-    }
-    img, video, iframe {
-      filter: invert(1) hue-rotate(180deg) !important;
-      opacity: 0.8;
-    }
-  `;
-  document.documentElement.appendChild(shield);
-  shieldActive = true;
-  debugSync('[Shield] Instant Shield applied');
-}
-
-// THE HANDOVER
-// Called when the smart algorithm (Chroma) has finished its first pass
-function removeShield() {
-  const shield = document.getElementById('udr-shield');
-  if (shield) {
-    // Optional: Add a CSS transition class to body for smooth fade
-    setTimeout(() => {
-      shield.remove();
-      shieldActive = false;
-      debugSync('[Shield] Shield removed, handover complete');
-    }, 50); 
-  } else {
-    debugSync('[Shield] No shield to remove');
-  }
 }
 
 // PASSIVE MODE
@@ -110,37 +63,6 @@ function applyPassiveMode() {
   document.head.appendChild(style);
   
   debugSync('[UltraDark] Passive Mode applied - images dimmed, backgrounds untouched');
-}
-
-const PRE_INJECT_CSS = `
-html,
-body {
-  background-color: #1a1a1a !important;
-  color: #e0e0e0 !important;
-}`;
-
-function ensurePreInjectCss() {
-  if (!preInjectTag) {
-    preInjectTag = document.createElement('style');
-    preInjectTag.id = 'udr-preinject';
-    preInjectTag.textContent = PRE_INJECT_CSS;
-  }
-
-  if (!preInjectTag.isConnected) {
-    // Prefer head but fall back to documentElement to run as early as possible
-    const parent = document.head || document.documentElement;
-    parent.prepend(preInjectTag);
-  }
-
-  preInjected = true;
-}
-
-function removePreInjectCss() {
-  if (preInjectTag?.parentNode) {
-    preInjectTag.parentNode.removeChild(preInjectTag);
-  }
-
-  preInjected = false;
 }
 
 function hueRotateFromBlueShift(blueShift: number): number {
@@ -190,7 +112,7 @@ function applyCss(s: Settings) {
   }
   
   // Remove the shield now that the intelligent engine is ready
-  if (shieldActive) {
+  if (isShieldActive()) {
     removeShield();
   }
 
@@ -235,7 +157,7 @@ function removeCss() {
   removePreInjectCss();
   
   // Remove the instant shield if active
-  if (shieldActive) {
+  if (isShieldActive()) {
     removeShield();
   }
   
@@ -392,14 +314,14 @@ async function tick() {
   if (!use.enabled || excluded) {
     debugSync('Skipping - extension disabled or URL excluded:', location.href);
     if (applied) removeCss();
-    else if (preInjected) removePreInjectCss();
-    else if (shieldActive) removeShield();
+    else if (isPreInjectApplied()) removePreInjectCss();
+    else if (isShieldActive()) removeShield();
     return;
   }
 
   // Apply Instant Shield immediately to prevent white flash
   // This happens BEFORE waiting for document ready
-  if (!applied && !shieldActive && !preInjected) {
+  if (!applied && !isShieldActive() && !isPreInjectApplied()) {
     applyShield();
   }
 
@@ -413,13 +335,20 @@ async function tick() {
     // Proceed anyway - algorithms have their own fallback mechanisms
   }
 
+  try {
+    await waitForPageLoad();
+    debugSync('Window load completed, running photon inverter after full page load');
+  } catch (error) {
+    debugSync('⚠️ Timeout waiting for window load, proceeding with current DOM:', error);
+  }
+
   // Check if site is already dark (unless forceDarkMode is set for this site)
   // Only run detection if we haven't already applied our theme
   // This prevents false positives from detecting our own styles
   const per = use.perSite[origin] || {};
   const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
   
-  if (shouldDetectDark && !applied && !preInjected && !shieldActive && isAlreadyDarkTheme()) {
+  if (shouldDetectDark && !applied && !isPreInjectApplied() && !isShieldActive() && isAlreadyDarkTheme()) {
     debugSync('Site already uses dark theme, engaging Passive Mode');
     applyPassiveMode();
     return; // STOP. Do not run Chroma or Shield.

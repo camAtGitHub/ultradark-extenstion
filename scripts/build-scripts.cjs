@@ -65,6 +65,19 @@ async function buildAll() {
     });
     console.log('✔ content script built with esbuild -> dist/src/content/index.js');
 
+    // Build early document_start bootstrap
+    await build({
+      entryPoints: ['src/content/early.ts'],
+      bundle: true,
+      outfile: 'dist/src/content/early.js',
+      platform: 'browser',
+      format: 'iife',
+      target: ['es2020'],
+      sourcemap: false,
+      minify: false
+    });
+    console.log('✔ early content script built with esbuild -> dist/src/content/early.js');
+
     // Clean up temp file
     const fs = require('fs');
     if (fs.existsSync(tempContentPath)) {
