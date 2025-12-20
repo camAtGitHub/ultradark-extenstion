@@ -54,3 +54,21 @@ export async function waitForDocumentReady(): Promise<void> {
 export function isDocumentBodyReady(): boolean {
   return document.body !== null && document.body !== undefined;
 }
+
+/**
+ * Wait for the full page load event so that computed styles are stable
+ */
+export async function waitForPageLoad(timeoutMs = 8000): Promise<void> {
+  if (document.readyState === 'complete') return Promise.resolve();
+
+  return new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Timeout waiting for window.load'));
+    }, timeoutMs);
+
+    window.addEventListener('load', () => {
+      clearTimeout(timeout);
+      resolve();
+    }, { once: true });
+  });
+}
