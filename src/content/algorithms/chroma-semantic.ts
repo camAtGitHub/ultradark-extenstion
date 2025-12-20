@@ -233,8 +233,15 @@ function processCSSVariables(): boolean {
 function applySemanticStyle(element: HTMLElement, role: string, depth: number): void {
   if (processedElements.has(element)) return;
 
-  // OPTIMIZATION: Don't call getComputedStyle on hidden elements
-  if (element.offsetParent === null) return;
+  // CRITICAL FIX: Use checkVisibility() instead of offsetParent
+  // offsetParent returns null for position:fixed elements (headers/navs),
+  // causing them to remain white. checkVisibility() handles this correctly.
+  if (element.checkVisibility && !element.checkVisibility({
+    checkOpacity: true,
+    checkVisibilityCSS: true
+  })) {
+    return;
+  }
 
   const computed = getComputedStyle(element);
   
@@ -438,22 +445,29 @@ function setupMutationObserver() {
   }
 
   mutationObserver = new MutationObserver((mutations) => {
-    // Optimization: Debounce or Limit
-    // Avoid the "Depth Charge" - don't calculate depth via while(parent)
-    
+    // Performance Guard: Don't process too many mutations in one frame
+    let nodesProcessed = 0;
+    const MUTATION_CAP = 100;
+
     for (const mutation of mutations) {
+      if (nodesProcessed > MUTATION_CAP) break;
+
       for (const node of mutation.addedNodes) {
         if (node instanceof HTMLElement) {
-          // TRICK: Don't calculate depth. Just assume depth 2 (generic content)
-          // or inherit the parent's processed state if we tracked it.
-          // Calculating depth via while(parent) is too slow here.
+          // 1. Process the container
           applySemanticStyle(node, 'generic', 2); 
+          nodesProcessed++;
+
+          // 2. Process children (capped)
+          // Use getElementsByTagName('*') to get descendants
+          // Strict limits are needed for performance
+          const descendants = node.getElementsByTagName('*');
+          const limit = Math.min(descendants.length, 20); // Lower cap for children
           
-          // Shallow process children
-          const children = node.getElementsByTagName('*');
-          for (let i = 0; i < Math.min(children.length, 50); i++) { // Cap at 50 nodes per mutation
-            if (children[i] instanceof HTMLElement) {
-              applySemanticStyle(children[i] as HTMLElement, 'generic', 3);
+          for (let i = 0; i < limit; i++) {
+            const child = descendants[i];
+            if (child instanceof HTMLElement) {
+              applySemanticStyle(child, 'generic', 3);
             }
           }
         }
@@ -461,13 +475,11 @@ function setupMutationObserver() {
     }
   });
 
-  // Safety check before attaching observer
   if (document.body) {
     mutationObserver.observe(document.body, {
       childList: true,
       subtree: true
     });
-
     debugSync('[Chroma-Semantic] MutationObserver attached');
   } else {
     debugSync('[Chroma-Semantic] ⚠️ document.body disappeared, cannot attach MutationObserver');
