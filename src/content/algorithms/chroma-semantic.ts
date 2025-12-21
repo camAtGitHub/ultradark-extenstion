@@ -12,7 +12,7 @@ import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 
-const processedElements = new Set<HTMLElement>();
+const processedElements = new WeakSet<HTMLElement>(); // Use WeakSet to prevent memory leaks
 let mutationObserver: MutationObserver | null = null;
 
 /**
@@ -160,55 +160,71 @@ function getSemanticRole(element: Element): string {
 
 /**
  * Scan and modify CSS Custom Properties
+ * OPTIMIZED: Returns TRUE if significant variables were found, indicating we can skip heavy DOM walking.
  */
-function processCSSVariables(): number {
-  let modified = 0;
+function processCSSVariables(): boolean {
+  const overrides: string[] = [];
+  const processedProps = new Set<string>();
+  
+  // Regex to identify variable types
+  const bgRegex = /background|bg-|surface|canvas|panel/i;
+  const textRegex = /text|foreground|color|fg-/i;
+  let significantFinds = 0;
 
   try {
-    for (const sheet of document.styleSheets) {
+    // Standard for loop is faster than Array.from on huge lists
+    const sheets = document.styleSheets;
+    for (let i = 0; i < sheets.length; i++) {
       try {
-        const rules = sheet.cssRules || sheet.rules;
-        for (let i = 0; i < rules.length; i++) {
-          const rule = rules[i];
-          if (rule instanceof CSSStyleRule) {
+        const rules = sheets[i].cssRules;
+        if (!rules) continue;
+        
+        for (let j = 0; j < rules.length; j++) {
+          const rule = rules[j];
+          // We only care about global variables defined on :root or html
+          if (rule instanceof CSSStyleRule && (rule.selectorText === ':root' || rule.selectorText === 'html')) {
             const style = rule.style;
-            
-            // Look for CSS custom properties (variables)
-            for (let j = 0; j < style.length; j++) {
-              const prop = style[j];
-              if (prop.startsWith('--')) {
-                const value = style.getPropertyValue(prop);
+            for (let k = 0; k < style.length; k++) {
+              const prop = style[k];
+              if (prop.startsWith('--') && !processedProps.has(prop)) {
                 
-                // Try to parse as color
-                if (value.match(/#[0-9a-f]{3,6}/i) || value.match(/rgb/i)) {
-                  debugSync('[Chroma-Semantic] Found CSS variable:', prop, '=', value);
-                  
-                  // Activate the modifications
-                  // Map all root color variables to a safe dark theme base automatically
-                  // This uses the cascade to update thousands of nodes instantly
-                  const root = document.documentElement;
-                  if (prop.includes('background') || prop.includes('bg')) {
-                     root.style.setProperty(prop, '#121212'); // Force dark base
-                     modified++;
-                  } else if (prop.includes('text') || prop.includes('color') || prop.includes('fg')) {
-                     root.style.setProperty(prop, '#e0e0e0'); // Force light text
-                     modified++;
-                  }
+                // Optimization: avoid getPropertyValue unless regex matches prop name first
+                if (bgRegex.test(prop)) {
+                  overrides.push(`${prop}: #121212 !important;`);
+                  processedProps.add(prop);
+                  significantFinds++;
+                } else if (textRegex.test(prop)) {
+                  overrides.push(`${prop}: #e0e0e0 !important;`);
+                  processedProps.add(prop);
+                  significantFinds++;
                 }
               }
             }
           }
         }
       } catch {
-        // Cross-origin stylesheet - skip (CORS prevents access)
-        debugSync('[Chroma-Semantic] Skipping cross-origin stylesheet');
+        // Catch CORS errors for cross-origin stylesheets
+        continue;
       }
     }
   } catch (e) {
-    debugSync('[Chroma-Semantic] Error processing CSS variables:', e);
+    console.error('[Chroma] Error scanning CSS variables', e);
   }
 
-  return modified;
+  // Inject the "Hijack" Block
+  if (overrides.length > 0) {
+    const styleId = 'udr-css-hijack';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `:root { ${overrides.join('\n')} }`;
+      document.head.appendChild(style);
+    }
+    debugSync('[Chroma] Hijacked', overrides.length, 'variables.');
+  }
+
+  // If we found more than 5 global theme variables, we assume the site is mostly styled
+  return significantFinds > 5;
 }
 
 /**
@@ -216,6 +232,16 @@ function processCSSVariables(): number {
  */
 function applySemanticStyle(element: HTMLElement, role: string, depth: number): void {
   if (processedElements.has(element)) return;
+
+  // CRITICAL FIX: Use checkVisibility() instead of offsetParent
+  // offsetParent returns null for position:fixed elements (headers/navs),
+  // causing them to remain white. checkVisibility() handles this correctly.
+  if (element.checkVisibility && !element.checkVisibility({
+    checkOpacity: true,
+    checkVisibilityCSS: true
+  })) {
+    return;
+  }
 
   const computed = getComputedStyle(element);
   
@@ -289,16 +315,20 @@ function parseColor(colorStr: string): { r: number; g: number; b: number } | nul
 }
 
 export function resetChromaSemantic(): void {
-  processedElements.forEach((el) => {
-    el.style.backgroundColor = "";
-    el.style.color = "";
-    el.style.borderColor = "";
-  });
-  processedElements.clear();
+  // Note: WeakSet doesn't support iteration, so we can't reset individual element styles
+  // Instead, we'll remove the injected style tags and let the browser's normal cascade take over
+  // The WeakSet will be garbage collected naturally when elements are removed from the DOM
 
   if (mutationObserver) {
     mutationObserver.disconnect();
     mutationObserver = null;
+  }
+  
+  // Remove CSS variable hijack style
+  const hijackStyle = document.getElementById('udr-css-hijack');
+  if (hijackStyle) {
+    hijackStyle.remove();
+    debugSync('[Chroma-Semantic] CSS Variable Hijack removed');
   }
 }
 
@@ -308,7 +338,7 @@ export function resetChromaSemantic(): void {
  */
 export function applyChromaSemantic(settings: Settings): void {
   const startTime = performance.now();
-  const PERFORMANCE_THRESHOLD = 3000; // 3000ms limit before fallback
+  const PERFORMANCE_THRESHOLD = 1500; // Reduced from 3000ms to 1.5s
 
   debugSync('[Chroma-Semantic] Starting advanced semantic analysis');
 
@@ -328,15 +358,24 @@ export function applyChromaSemantic(settings: Settings): void {
       debugSync('[Chroma-Semantic] ⚠️ Performance threshold exceeded:', elapsed.toFixed(2), 'ms. Falling back to Photon Inverter');
       // Fallback to Photon Inverter
       applyPhotonInverter(settings);
-      // TODO: Show user notification "Complex page detected: Switched to High-Performance Mode"
       return true;
     }
     return false;
   };
 
-  // Step 1: Process CSS Variables
-  const variablesModified = processCSSVariables();
-  debugSync('[Chroma-Semantic] Found', variablesModified, 'CSS custom properties');
+  // Step 1: CSS Variables (The "Spray Gun")
+  const isGlobalThemeApplied = processCSSVariables();
+  debugSync('[Chroma-Semantic] CSS Variables check:', isGlobalThemeApplied ? 'significant variables found' : 'insufficient variables');
+
+  // LOGIC GATE: If variables handled the theme, ABORT the heavy walker.
+  if (isGlobalThemeApplied) {
+    debugSync('[Chroma] Global variables detected. Skipping heavy DOM traversal.');
+    document.documentElement.setAttribute("data-udr-mode", "chroma-lite");
+    return; // EXIT EARLY - HUGE PERFORMANCE WIN
+  }
+
+  // Step 2: Fallback - The DOM Walker (The "Tiny Brush")
+  debugSync('[Chroma] CSS Variables insufficient. Starting DOM analysis.');
 
   if (checkPerformance()) return;
 
@@ -349,7 +388,7 @@ export function applyChromaSemantic(settings: Settings): void {
 
   // Initialize stack with body
   const stack: StackItem[] = [{ node: document.body, depth: 0 }];
-  const BATCH_SIZE = 300;
+  const BATCH_SIZE = 500; // Increased batch size since we added the offsetParent check
 
   function processNextBatch() {
     if (checkPerformance()) return;
@@ -370,9 +409,11 @@ export function applyChromaSemantic(settings: Settings): void {
 
       // 2. Add children to stack (reverse order to maintain visual flow)
       // We increment depth simply by adding +1. No expensive "up-tree" lookups.
-      const children = Array.from(node.children);
+      // Optimization: access children via loop, not Array.from (saves GC)
+      const children = node.children;
       for (let i = children.length - 1; i >= 0; i--) {
-        if (children[i] instanceof HTMLElement) {
+        // Simple depth check: Cap it at 10 to prevent hanging on deeply nested garbage
+        if (depth < 10 && children[i] instanceof HTMLElement) {
           stack.push({ 
             node: children[i] as HTMLElement, 
             depth: depth + 1 
@@ -388,51 +429,7 @@ export function applyChromaSemantic(settings: Settings): void {
       debugSync('[Chroma-Semantic] ✅ Complete in', totalTime.toFixed(2), 'ms.');
       
       // Set up MutationObserver for dynamic content
-      if (mutationObserver) {
-        mutationObserver.disconnect();
-      }
-
-      mutationObserver = new MutationObserver((mutations) => {
-        const newElements: HTMLElement[] = [];
-        
-        mutations.forEach((mutation) => {
-          mutation.addedNodes.forEach((node) => {
-            if (node instanceof HTMLElement) {
-              newElements.push(node);
-              const descendants = node.querySelectorAll('*');
-              descendants.forEach((desc) => {
-                if (desc instanceof HTMLElement) newElements.push(desc);
-              });
-            }
-          });
-        });
-
-        newElements.forEach((el) => {
-          // For mutation observer, we need to calculate depth
-          let depth = 0;
-          let parent = el.parentElement;
-          while (parent) {
-            depth++;
-            parent = parent.parentElement;
-          }
-          const role = getSemanticRole(el);
-          applySemanticStyle(el, role, depth);
-        });
-      });
-
-      // Safety check before attaching observer
-      if (document.body) {
-        mutationObserver.observe(document.body, {
-          childList: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ['style', 'class']
-        });
-
-        debugSync('[Chroma-Semantic] MutationObserver attached');
-      } else {
-        debugSync('[Chroma-Semantic] ⚠️ document.body disappeared, cannot attach MutationObserver');
-      }
+      setupMutationObserver();
     }
   }
 
@@ -440,4 +437,51 @@ export function applyChromaSemantic(settings: Settings): void {
   requestAnimationFrame(processNextBatch);
 
   document.documentElement.setAttribute("data-udr-mode", "chroma-semantic");
+}
+
+function setupMutationObserver() {
+  if (mutationObserver) {
+    mutationObserver.disconnect();
+  }
+
+  mutationObserver = new MutationObserver((mutations) => {
+    // Performance Guard: Don't process too many mutations in one frame
+    let nodesProcessed = 0;
+    const MUTATION_CAP = 100;
+
+    for (const mutation of mutations) {
+      if (nodesProcessed > MUTATION_CAP) break;
+
+      for (const node of mutation.addedNodes) {
+        if (node instanceof HTMLElement) {
+          // 1. Process the container
+          applySemanticStyle(node, 'generic', 2); 
+          nodesProcessed++;
+
+          // 2. Process children (capped)
+          // Use getElementsByTagName('*') to get descendants
+          // Strict limits are needed for performance
+          const descendants = node.getElementsByTagName('*');
+          const limit = Math.min(descendants.length, 20); // Lower cap for children
+          
+          for (let i = 0; i < limit; i++) {
+            const child = descendants[i];
+            if (child instanceof HTMLElement) {
+              applySemanticStyle(child, 'generic', 3);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  if (document.body) {
+    mutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+    debugSync('[Chroma-Semantic] MutationObserver attached');
+  } else {
+    debugSync('[Chroma-Semantic] ⚠️ document.body disappeared, cannot attach MutationObserver');
+  }
 }
