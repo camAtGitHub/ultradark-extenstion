@@ -1,3 +1,4 @@
+// File: src/utils/dark-detection.ts
 import { debugSync } from "./logger";
 
 // Helper: Standard WCAG Luminance calculation

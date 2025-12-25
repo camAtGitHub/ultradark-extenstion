@@ -1,4 +1,4 @@
-// src/utils/storage.ts
+// File: src/utils/storage.ts
 import type { Settings } from "../types/settings";
 import { DEFAULTS } from "./defaults";
 

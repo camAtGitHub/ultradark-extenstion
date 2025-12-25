@@ -1,4 +1,4 @@
-// src/content/index.ts
+// File: src/content/index.ts
 import WorkerUrl from "./optimizer-worker?worker&url";
 
 import type { Settings } from "../types/settings";

@@ -1,4 +1,4 @@
-// src/content/algorithms/photon-inverter.ts
+// File: src/content/algorithms/photon-inverter.ts
 
 /**
  * Algorithm 1: "Photon Inverter" (Bookmarklet Logic with DOM Fixes)

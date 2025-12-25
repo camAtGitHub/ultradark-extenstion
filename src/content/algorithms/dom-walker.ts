@@ -1,4 +1,4 @@
-// src/content/algorithms/dom-walker.ts
+// File: src/content/algorithms/dom-walker.ts
 
 /**
  * Algorithm 2: "DOM Walker" (Intermediate / Style Parsing)

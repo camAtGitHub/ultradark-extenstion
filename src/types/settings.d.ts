@@ -1,4 +1,4 @@
-// src/types/settings.d.ts
+// File: src/types/settings.d.ts
 export type Mode = "photon-inverter" | "dom-walker" | "chroma-semantic";
 export interface Schedule {
   enabled: boolean;

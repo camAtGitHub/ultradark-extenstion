@@ -1,4 +1,4 @@
-// src/content/algorithms/chroma-semantic.ts
+// File: src/content/algorithms/chroma-semantic.ts
 
 /**
  * Algorithm 3: "Chroma-Semantic Engine" (Opus Magnum / Advanced)
