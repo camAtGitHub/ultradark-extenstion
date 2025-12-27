@@ -9,6 +9,7 @@ import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
 import { applyPhotonInverter, removePhotonInverter } from "./algorithms/photon-inverter";
 import { applyChromaSemantic, resetChromaSemantic } from "./algorithms/chroma-semantic";
+import { applyDomWalker, resetDomWalker } from "./algorithms/dom-walker";
 import { buildCss, ensureStyleTag } from "./style-template";
 import { waitForDocumentReady, isDocumentBodyReady } from "../utils/document-ready";
 
@@ -146,6 +147,8 @@ function applyFilterCss(settings: Settings) {
 function resetModeArtifacts() {
   if (currentMode === "photon-inverter") {
     removePhotonInverter();
+  } else if (currentMode === "dom-walker") {
+    resetDomWalker();
   } else if (currentMode === "chroma-semantic") {
     resetChromaSemantic();
   }
@@ -160,6 +163,8 @@ function applyCss(s: Settings) {
 
   if (s.mode === "photon-inverter") {
     applyPhotonInverter(s);
+  } else if (s.mode === "dom-walker") {
+    applyDomWalker(s);
   } else if (s.mode === "chroma-semantic") {
     applyChromaSemantic(s);
   } else {
