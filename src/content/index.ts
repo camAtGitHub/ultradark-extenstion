@@ -37,7 +37,7 @@ async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use:
 
   if (typeof per.enabled === "boolean") merged.enabled = per.enabled;
 
-  return { use: merged, excluded: false }; // Fixed logic: typo in original returned excluded as true
+  return { use: merged, excluded: false }; 
 }
 
 function applyShield() {
@@ -159,8 +159,17 @@ function applyCss(s: Settings) {
   console.log('[UltraDark] Applying CSS with mode:', s.mode);
   
   resetModeArtifacts();
-  applyFilterCss(s);
 
+  // CRITICAL FIX FOR PHOTON INVERTER:
+  // Photon Inverter requires the ORIGINAL text color (usually Black) to invert to White.
+  // Pre-Inject forces text to Light Grey (#e0e0e0). When inverted, this becomes Dark Grey (#1f1f1f).
+  // We must remove Pre-Inject styles to allow correct inversion.
+  if (s.mode !== "photon-inverter") {
+      console.log('[UltraDark] Applying Global Filter Sliders...');
+      applyFilterCss(s);
+    }
+
+  
   if (s.mode === "photon-inverter") {
     applyPhotonInverter(s);
   } else if (s.mode === "dom-walker") {
@@ -342,7 +351,6 @@ async function tick() {
   const per = use.perSite[origin] || {};
   const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
 
-  // STRATEGY: Pre-Detection (before shield)
   let isDark = false;
 
   if (shouldDetectDark && isDocumentBodyReady()) {
