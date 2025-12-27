@@ -1,4 +1,4 @@
-// src/utils/regex.ts
+// File: src/utils/regex.ts
 export function compileRegexList(patterns: string[]): RegExp[] {
   const out: RegExp[] = [];
   for (const p of patterns) {

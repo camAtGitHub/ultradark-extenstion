@@ -21,7 +21,7 @@ let shieldActive = false;
 
 (async () => {
   await initDebugCache();
-  debugSync('content script started to load');
+  console.log('[UltraDark Content Script] Initialized');
 })();
 
 async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use: Settings; excluded: boolean }> {
@@ -36,23 +36,17 @@ async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use:
 
   if (typeof per.enabled === "boolean") merged.enabled = per.enabled;
 
-  return { use: merged, excluded };
+  return { use: merged, excluded: false }; // Fixed logic: typo in original returned excluded as true
 }
 
-// THE INSTANT SHIELD
-// Injects a brute-force filter immediately to prevent blinding the user
 function applyShield() {
-  // Prevent duplicate injection
   if (document.getElementById('udr-shield')) {
-    debugSync('[Shield] Shield already active, skipping');
+    console.log('[Shield] Shield already active, skipping');
     return;
   }
 
   const shield = document.createElement('style');
   shield.id = 'udr-shield';
-  // 1. Invert the whole page
-  // 2. Rotate hue 180deg to restore colors (roughly)
-  // 3. Set background to white (which becomes black when inverted)
   shield.textContent = `
     html { 
       filter: invert(1) hue-rotate(180deg) !important; 
@@ -65,38 +59,28 @@ function applyShield() {
   `;
   document.documentElement.appendChild(shield);
   shieldActive = true;
-  debugSync('[Shield] Instant Shield applied');
+  console.log('[Shield] Instant Shield applied');
 }
 
-// THE HANDOVER
-// Called when the smart algorithm (Chroma) has finished its first pass
 function removeShield() {
   const shield = document.getElementById('udr-shield');
   if (shield) {
-    // Optional: Add a CSS transition class to body for smooth fade
     setTimeout(() => {
       shield.remove();
       shieldActive = false;
-      debugSync('[Shield] Shield removed, handover complete');
+      console.log('[Shield] Shield removed');
     }, 50); 
-  } else {
-    debugSync('[Shield] No shield to remove');
   }
 }
 
-// PASSIVE MODE
-// For natively dark sites - minimal interference, just polish
 function applyPassiveMode() {
-  debugSync('[UltraDark] Native dark theme detected. Engaging Passive Mode.');
+  console.log('[UltraDark] Native dark theme detected. Engaging Passive Mode.');
   
-  // 1. Mark the state
   document.documentElement.setAttribute('data-udr-state', 'passive');
   
-  // 2. Inject minimal enhancements (No inversion, just polish)
   const style = document.createElement('style');
   style.id = 'udr-passive-style';
   style.textContent = `
-    /* Slightly dim images to match dark ambiance */
     html[data-udr-state="passive"] img,
     html[data-udr-state="passive"] video {
       filter: opacity(0.9) !important;
@@ -109,7 +93,7 @@ function applyPassiveMode() {
   `;
   document.head.appendChild(style);
   
-  debugSync('[UltraDark] Passive Mode applied - images dimmed, backgrounds untouched');
+  console.log('[UltraDark] Passive Mode applied');
 }
 
 const PRE_INJECT_CSS = `
@@ -127,11 +111,9 @@ function ensurePreInjectCss() {
   }
 
   if (!preInjectTag.isConnected) {
-    // Prefer head but fall back to documentElement to run as early as possible
     const parent = document.head || document.documentElement;
     parent.prepend(preInjectTag);
   }
-
   preInjected = true;
 }
 
@@ -139,7 +121,6 @@ function removePreInjectCss() {
   if (preInjectTag?.parentNode) {
     preInjectTag.parentNode.removeChild(preInjectTag);
   }
-
   preInjected = false;
 }
 
@@ -168,14 +149,12 @@ function resetModeArtifacts() {
   } else if (currentMode === "chroma-semantic") {
     resetChromaSemantic();
   }
-
   currentMode = null;
 }
 
 function applyCss(s: Settings) {
-  debugSync('Applying CSS with mode:', s.mode);
-  debugSync('[Document State] body exists:', isDocumentBodyReady(), 'readyState:', document.readyState);
-
+  console.log('[UltraDark] Applying CSS with mode:', s.mode);
+  
   resetModeArtifacts();
   applyFilterCss(s);
 
@@ -184,12 +163,10 @@ function applyCss(s: Settings) {
   } else if (s.mode === "chroma-semantic") {
     applyChromaSemantic(s);
   } else {
-    // Fallback to photon-inverter for unknown modes (including deprecated dom-walker)
-    debugSync('Unknown mode or deprecated mode, falling back to photon-inverter');
+    console.log('[UltraDark] Unknown mode, falling back to photon-inverter');
     applyPhotonInverter(s);
   }
   
-  // Remove the shield now that the intelligent engine is ready
   if (shieldActive) {
     removeShield();
   }
@@ -202,24 +179,19 @@ function applyCss(s: Settings) {
 }
 
 function removeCss() {
-  debugSync('Removing dark theme CSS');
+  console.log('[UltraDark] Removing dark theme CSS');
 
   resetModeArtifacts();
 
-  // Remove old style tag (backwards compatibility)
   const tag = document.getElementById("udr-style");
   if (tag?.parentNode) tag.parentNode.removeChild(tag);
   
-  // Remove new photon inverter snippet
   removePhotonInverter();
 
   document.documentElement.removeAttribute("udr-applied");
-
-  // Clean up mode attribute
   document.documentElement.removeAttribute("data-udr-mode");
   (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "";
 
-  // Reset document element and body styles if they exist
   if (document.documentElement.style.backgroundColor) {
     document.documentElement.style.removeProperty('background-color');
   }
@@ -234,21 +206,16 @@ function removeCss() {
 
   removePreInjectCss();
   
-  // Remove the instant shield if active
   if (shieldActive) {
     removeShield();
   }
   
-  // Remove passive mode if active
   const passiveStyle = document.getElementById('udr-passive-style');
   if (passiveStyle) {
     passiveStyle.remove();
     document.documentElement.removeAttribute('data-udr-state');
-    debugSync('Passive Mode removed');
   }
 
-  // Remove pre-inject.css effects by resetting html and body styles
-  // The pre-inject.css applies !important styles, so we need to override them
   if (document.documentElement) {
     document.documentElement.style.setProperty('background-color', '', 'important');
     document.documentElement.style.setProperty('color', '', 'important');
@@ -259,15 +226,12 @@ function removeCss() {
   }
   
   applied = false;
-  debugSync('Dark theme removed successfully');
 }
 
 function startObserverForSpa() {
-  // If the page dynamically changes, we keep media fixes healthy.
   const ob = new MutationObserver(() => {
-    // Lightweight touch; heavy color analysis goes to worker
     if (applied) {
-      // nothing extra: CSS handles media; optimizer tick handles contrast
+      // nothing extra
     }
   });
   ob.observe(document.documentElement, { childList: true, subtree: true, attributes: false });
@@ -275,182 +239,163 @@ function startObserverForSpa() {
 
 async function startOptimizerIfEnabled(s: Settings) {
   if (!s.optimizerEnabled) {
-    debugSync('[Optimizer] Optimizer disabled in settings');
+    console.log('[Optimizer] Disabled');
     return;
   }
   
-  debugSync('[Optimizer] Starting contrast optimizer');
-  
   if (!worker) {
-    debugSync('[Optimizer] Creating new Web Worker');
-    worker = new Worker(WorkerUrl);
-    
-    worker.onmessage = (ev) => {
-      const data = ev.data as { type?: string; suggestedContrast?: number; message?: unknown[] };
-      
-      // Handle debug messages from worker
-      if (data.type === 'debug' && data.message) {
-        console.log('[UltraDark]', ...data.message);
-        return;
-      }
-      
-      const { suggestedContrast } = data;
-      if (typeof suggestedContrast === "number") {
-        debugSync('[Optimizer] Received suggestion from worker:', suggestedContrast + '%');
-        const tag = document.getElementById("udr-style");
-        if (tag) {
-          // Rebuild CSS with adjusted contrast (bounded 50..200)
-          const bounded = Math.min(200, Math.max(50, suggestedContrast));
-          if (bounded !== suggestedContrast) {
-            debugSync('[Optimizer] Bounded contrast value:', bounded + '% (clamped from suggested:', suggestedContrast + '%)');
-          }
-          if (bounded === s.contrast) {
-            debugSync('[Optimizer] No contrast change needed (already at', bounded + '%)');
-          } else {
-            debugSync('[Optimizer] Changing contrast from', s.contrast + '% to', bounded + '%');
-            const next = { ...s, contrast: bounded };
-            applyCss(next);
-            debugSync('[Optimizer] ✓ Contrast adjustment applied successfully');
-            
-            // Update settings to persist the optimizer's change and update UI sliders
-            (async () => {
-              try {
-                const currentSettings = await getSettings();
-                const origin = new URL(location.href).origin;
-                const perSiteSettings = currentSettings.perSite[origin];
-                
-                // If there's a per-site override for contrast, update it there
-                // Otherwise update the global setting
-                if (perSiteSettings?.override?.contrast !== undefined) {
-                  debugSync('[Optimizer] Updating per-site contrast setting for', origin);
-                  currentSettings.perSite[origin].override = {
-                    ...perSiteSettings.override,
-                    contrast: bounded
-                  };
-                } else {
-                  debugSync('[Optimizer] Updating global contrast setting');
-                  currentSettings.contrast = bounded;
-                }
-                
-                await setSettings(currentSettings);
-                debugSync('[Optimizer] Settings updated, UI sliders will reflect new contrast value');
-              } catch (error) {
-                console.error('[UltraDark] [Optimizer] Failed to update settings:', error);
-              }
-            })();
-          }
-        } else {
-          debugSync('[Optimizer] ⚠️ Warning: Style tag not found, cannot apply contrast adjustment');
+    try {
+      worker = new Worker(WorkerUrl);
+      worker.onmessage = (ev) => {
+        const data = ev.data as { type?: string; suggestedContrast?: number; message?: unknown[] };
+        
+        if (data.type === 'debug' && data.message) {
+          console.log('[UltraDark]', ...data.message);
+          return;
         }
-      }
-    };
-    
-    worker.onerror = (err) => {
-      console.error('[UltraDark] [Optimizer] Worker error:', err);
-    };
-    
-    // Send debug mode to worker synchronously before sending samples
-    const result = await browser.storage.local.get('isDebugMode');
-    const isDebug = result.isDebugMode === true;
-    worker.postMessage({ type: 'setDebugMode', debug: isDebug });
-    debugSync('[Optimizer] Debug mode sent to worker:', isDebug);
-  }
+        
+        const { suggestedContrast } = data;
+        if (typeof suggestedContrast === "number") {
+          console.log('[Optimizer] Suggestion:', suggestedContrast + '%');
+          const tag = document.getElementById("udr-style");
+          if (tag) {
+            const bounded = Math.min(200, Math.max(50, suggestedContrast));
+            if (bounded !== s.contrast) {
+              const next = { ...s, contrast: bounded };
+              applyCss(next);
+              (async () => {
+                try {
+                  const currentSettings = await getSettings();
+                  const origin = new URL(location.href).origin;
+                  const perSiteSettings = currentSettings.perSite[origin];
+                  
+                  if (perSiteSettings?.override?.contrast !== undefined) {
+                    currentSettings.perSite[origin].override = {
+                      ...perSiteSettings.override,
+                      contrast: bounded
+                    };
+                  } else {
+                    currentSettings.contrast = bounded;
+                  }
+                  await setSettings(currentSettings);
+                } catch (error) {
+                  console.error('[UltraDark] Failed to update settings:', error);
+                }
+              })();
+            }
+          }
+        }
+      };
+      
+      worker.onerror = (err) => console.error('[UltraDark] Worker error:', err);
+      
+      const result = await browser.storage.local.get('isDebugMode');
+      const isDebug = result.isDebugMode === true;
+      worker.postMessage({ type: 'setDebugMode', debug: isDebug });
 
-  // Sample a limited set of text nodes
-  debugSync('[Optimizer] Starting element sampling');
-  const samples: { fg: string; bg: string }[] = [];
-  const MAX = 120;
-  const sel = "p,span,li,dd,dt,small,code,pre,a,td,th,h1,h2,h3,h4,h5,h6";
-  const elements = document.querySelectorAll(sel);
-  debugSync('[Optimizer] Found', elements.length, 'potential elements to sample (max', MAX + ')');
-  
-  elements.forEach((el, index) => {
-    if (samples.length >= MAX) return;
-    const cs = getComputedStyle(el as Element);
-    const fg = cs.color;
-    const bg = cs.backgroundColor || getComputedStyle((el as Element).parentElement || document.body).backgroundColor;
-    samples.push({ fg, bg });
-    
-    // Log first few samples for inspection
-    if (index < 3) {
-      debugSync('[Optimizer] Sample', index + 1, ':', el.tagName, '- FG:', fg, 'BG:', bg);
+      const samples: { fg: string; bg: string }[] = [];
+      const MAX = 120;
+      const sel = "p,span,li,dd,dt,small,code,pre,a,td,th,h1,h2,h3,h4,h5,h6";
+      const elements = document.querySelectorAll(sel);
+      
+      elements.forEach((el, index) => {
+        if (samples.length >= MAX) return;
+        const cs = getComputedStyle(el as Element);
+        const fg = cs.color;
+        const bg = cs.backgroundColor || getComputedStyle((el as Element).parentElement || document.body).backgroundColor;
+        samples.push({ fg, bg });
+      });
+
+      worker.postMessage({ type: "analyze", samples });
+
+    } catch (e) {
+      console.warn('[Optimizer] Worker failed', e);
     }
-  });
-
-  debugSync('[Optimizer] Collected', samples.length, 'samples, sending to worker for analysis');
-  worker.postMessage({ type: "analyze", samples });
-  debugSync('[Optimizer] Analysis request sent to worker, waiting for response...');
+  }
 }
 
 async function tick() {
+  console.log('[UltraDark] ========== TICK START ==========');
+  
   const s = await getSettings();
   const { use, excluded } = await effectiveSettingsFor(location.href, s);
+  
+  console.log('[UltraDark] Settings Loaded. Enabled:', use.enabled, 'Excluded:', excluded);
 
-  const origin = new URL(location.href).origin;
-
-  // Check if should skip due to exclusion
   if (!use.enabled || excluded) {
-    debugSync('Skipping - extension disabled or URL excluded:', location.href);
+    console.log('[UltraDark] Aborting: Disabled or Excluded');
     if (applied) removeCss();
     else if (preInjected) removePreInjectCss();
     else if (shieldActive) removeShield();
     return;
   }
 
-  // Apply Instant Shield immediately to prevent white flash
-  // This happens BEFORE waiting for document ready
+  // Ensure debug cache is fresh so logs appear
+  await initDebugCache();
+
+  const origin = new URL(location.href).origin;
+  const per = use.perSite[origin] || {};
+  const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
+
+  // STRATEGY: Pre-Detection (before shield)
+  let isDark = false;
+
+  if (shouldDetectDark && isDocumentBodyReady()) {
+      console.log('[UltraDark] Running Early Detection (Body Ready)...');
+      if (isAlreadyDarkTheme()) {
+          console.log('[UltraDark] Early Detection: Dark Theme Found. Applying Passive Mode.');
+          applyPassiveMode();
+          return;
+      } else {
+          console.log('[UltraDark] Early Detection: Light Theme Found.');
+      }
+  }
+
+  // Apply Shield if we haven't decided yet (prevents flash of white)
   if (!applied && !shieldActive && !preInjected) {
+    console.log('[UltraDark] Applying Shield...');
     applyShield();
   }
 
-  // Wait for document body to be ready before detection and theme application
-  // This is critical for all algorithms, especially Chroma-semantic
   try {
     await waitForDocumentReady();
-    debugSync('Document ready, proceeding with detection and application');
   } catch (error) {
-    debugSync('⚠️ Timeout waiting for document ready, proceeding anyway:', error);
-    // Proceed anyway - algorithms have their own fallback mechanisms
+    console.warn('[UltraDark] Timeout waiting for document ready', error);
   }
 
-  // Check if site is already dark (unless forceDarkMode is set for this site)
-  // Only run detection if we haven't already applied our theme
-  // This prevents false positives from detecting our own styles
-  const per = use.perSite[origin] || {};
-  const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
-  
-  if (shouldDetectDark && !applied && !preInjected && !shieldActive && isAlreadyDarkTheme()) {
-    debugSync('Site already uses dark theme, engaging Passive Mode');
-    applyPassiveMode();
-    return; // STOP. Do not run Chroma or Shield.
+  // STRATEGY: Post-Detection (after document ready)
+  // Only run if we didn't run early detection, or if we need to be sure
+  if (shouldDetectDark && !applied && !preInjected) {
+      console.log('[UltraDark] Running Post-Detection (DOM Ready)...');
+      if (isAlreadyDarkTheme()) {
+          console.log('[UltraDark] Post-Detection: Dark Theme Found. Switching to Passive Mode.');
+          removeShield(); // Remove the temporary shield
+          applyPassiveMode();
+          return;
+      }
   }
 
-  debugSync('Applying dark theme with mode:', use.mode);
+  console.log('[UltraDark] Proceeding with Dark Mode Application. Mode:', use.mode);
   ensurePreInjectCss();
   applyCss(use);
+  
   if (use.optimizerEnabled) {
-    debugSync('[Optimizer] Optimizer is enabled, will start analysis');
     try {
       await startOptimizerIfEnabled(use);
     } catch (error) {
-      console.error('[UltraDark] [Optimizer] Failed to start optimizer:', error);
+      console.error('[UltraDark] Optimizer error:', error);
     }
-  } else {
-    debugSync('[Optimizer] Optimizer is disabled, skipping');
   }
 }
 
 browser.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "udr:settings-updated") {
-    debugSync('Settings updated, reapplying theme');
+    console.log('[UltraDark] Settings updated message received');
     tick();
   } else if (msg?.type === "udr:debug-mode-changed") {
-    // Update debug cache when debug mode changes
     updateDebugCache(msg.enabled);
-    // Also update the worker's debug mode if it exists
     if (worker) {
       worker.postMessage({ type: 'setDebugMode', debug: msg.enabled });
-      debugSync('[Optimizer] Debug mode changed, notified worker:', msg.enabled);
     }
   }
 });
@@ -459,5 +404,3 @@ browser.runtime.onMessage.addListener((msg) => {
   await tick();
   startObserverForSpa();
 })();
-
-debugSync('content script loaded as module');

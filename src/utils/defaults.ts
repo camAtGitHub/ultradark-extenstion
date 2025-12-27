@@ -1,17 +1,17 @@
-// src/utils/defaults.ts
+// File: src/utils/defaults.ts
 import type { Settings } from "../types/settings";
 
 export const DEFAULTS: Settings = {
   enabled: true,
   mode: "photon-inverter",
   amoled: false,
-  brightness: 90,
-  contrast: 110,
+  brightness: 100, // Changed from 90. 100% is neutral inversion. <100 darkens an already inverted page.
+  contrast: 105,   // Changed from 110. 105% improves readability without being too harsh.
   sepia: 0,
   grayscale: 0,
   blueShift: 0,
   optimizerEnabled: true,
-  detectDarkSites: true, // Auto-detect dark sites by default
+  detectDarkSites: true,
   perSite: {},
   excludeRegex: [],
   schedule: { enabled: false, start: "21:00", end: "07:00" }

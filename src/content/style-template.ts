@@ -1,4 +1,4 @@
-// src/content/style-template.ts
+// File: src/content/style-template.ts
 import { STYLE_TAG_ID } from "../utils/defaults";
 
 export function ensureStyleTag(): HTMLStyleElement {

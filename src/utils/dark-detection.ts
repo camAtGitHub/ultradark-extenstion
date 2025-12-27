@@ -10,107 +10,190 @@ function getLuminance(r: number, g: number, b: number): number {
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
 }
 
-// Helper: Parse 'rgb(x, y, z)' string
+// Helper: Parse 'rgb(x, y, z)' or 'rgba(x, y, z, a)' string
+// Returns null if transparent or unparseable
 function parseRGB(str: string): {r:number, g:number, b:number} | null {
-  const match = str.match(/(\d+),\s*(\d+),\s*(\d+)/);
-  if (!match) return null;
-  return { r: parseInt(match[1]), g: parseInt(match[2]), b: parseInt(match[3]) };
+  // Handle rgba(r, g, b, a)
+  const rgbaMatch = str.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/);
+  if (rgbaMatch) {
+    const r = parseInt(rgbaMatch[1], 10);
+    const g = parseInt(rgbaMatch[2], 10);
+    const b = parseInt(rgbaMatch[3], 10);
+    
+    // Check Alpha if present
+    if (rgbaMatch[4]) {
+      const alpha = parseFloat(rgbaMatch[4]);
+      if (alpha <= 0.05) return null; // Treat almost-transparent as transparent
+    }
+    
+    return { r, g, b };
+  }
+
+  // Handle Hex #RGB or #RRGGBB
+  const hexMatch = str.match(/^#([a-f\d]{3}|[a-f\d]{6})$/i);
+  if (hexMatch) {
+    let hex = hexMatch[1];
+    if (hex.length === 3) {
+      hex = hex.split('').map(c => c + c).join('');
+    }
+    return {
+      r: parseInt(hex.substring(0, 2), 16),
+      g: parseInt(hex.substring(2, 4), 16),
+      b: parseInt(hex.substring(4, 6), 16)
+    };
+  }
+  
+  return null;
 }
 
 /**
- * LEAN DARK DETECTION
- * No guessing. No metadata. Only standards and pixels.
+ * ADVANCED DARK DETECTION
+ * 
+ * Fixes:
+ * 1. Special handling for <body> to ensure the canvas color is always checked.
+ * 2. Fallback sampling of direct body children if semantic selectors fail (prevents Valid=0).
+ * 3. Robust RGBA parsing.
  */
 export function isAlreadyDarkTheme(): boolean {
   const html = document.documentElement;
   const body = document.body;
   
-  debugSync('[Dark Detection] ========== DETECTION START ==========');
-  debugSync('[Dark Detection] URL:', window.location.href);
+  console.log('[UltraDark Dark Detection] ========== DETECTION START ==========');
+  console.log('[UltraDark Dark Detection] URL:', window.location.href);
   
   if (!html || !body) {
-    debugSync('[Dark Detection] ERROR: Missing html or body element');
-    debugSync('[Dark Detection] Result: FALSE (missing elements)');
+    console.log('[UltraDark Dark Detection] ⛔ Body/HTML missing. Result: FALSE');
     return false;
   }
 
   // GUARD: Don't detect our own styles
-  // This is not metadata guessing - it's checking if WE modified the page
-  // Return false to allow reapplication with updated settings
   const hasUdrStyle = !!document.getElementById('udr-style');
   const hasUdrPreinject = !!document.getElementById('udr-preinject');
   const hasUdrShield = !!document.getElementById('udr-shield');
   const hasUdrAppliedAttr = html.getAttribute('udr-applied') === 'true';
-  const hasDataUdrApplied = html.getAttribute('data-udr-applied') === '1';
   
-  debugSync('[Dark Detection] Extension markers check:');
-  debugSync('[Dark Detection]   - udr-style tag:', hasUdrStyle);
-  debugSync('[Dark Detection]   - udr-preinject tag:', hasUdrPreinject);
-  debugSync('[Dark Detection]   - udr-shield tag:', hasUdrShield);
-  debugSync('[Dark Detection]   - udr-applied attribute:', hasUdrAppliedAttr);
-  debugSync('[Dark Detection]   - data-udr-applied attribute:', hasDataUdrApplied);
-  
-  if (hasUdrStyle || hasUdrPreinject || hasUdrShield || hasUdrAppliedAttr || hasDataUdrApplied) {
-    debugSync('[Dark Detection] Extension markers found, allowing reapplication');
-    debugSync('[Dark Detection] Result: FALSE (extension already applied)');
-    debugSync('[Dark Detection] ========== DETECTION END ==========');
+  console.log('[UltraDark Dark Detection] Checking Extension Markers...');
+  if (hasUdrStyle || hasUdrPreinject || hasUdrShield || hasUdrAppliedAttr) {
+    console.log('[UltraDark Dark Detection] ✅ Extension styles detected. Aborting detection to prevent false positives.');
     return false;
   }
 
   // CHECK 1: The Official Standard
-  // If the site explicitly tells the browser it is dark, believe it.
   const colorScheme = window.getComputedStyle(html).colorScheme;
-  debugSync('[Dark Detection] CHECK 1 - Browser Standards:');
-  debugSync('[Dark Detection]   - color-scheme property:', colorScheme || '(not set)');
-  
   if (colorScheme === 'dark') {
-    debugSync('[Dark Detection] "color-scheme: dark" detected.');
-    debugSync('[Dark Detection] Result: TRUE (browser standard indicates dark)');
-    debugSync('[Dark Detection] ========== DETECTION END ==========');
+    console.log('[UltraDark Dark Detection] 🎨 Browser reports "color-scheme: dark". Result: TRUE');
     return true;
   }
 
-  // CHECK 2: Visual Reality (Pixels)
-  // Check background color of the main containers.
-  debugSync('[Dark Detection] CHECK 2 - Visual Reality (Luminance):');
-  const targets = [html, body];
+  // CHECK 2: Visual Reality (Sampling)
+  console.log('[UltraDark Dark Detection] 🔍 Sampling visual elements for luminance...');
   
-  for (const el of targets) {
-    const bg = window.getComputedStyle(el).backgroundColor;
+  let darkVotes = 0;
+  let validSamples = 0;
+  let skippedTransparent = 0;
+  let skippedHidden = 0;
+
+  // Helper to process an element
+  const processElement = (el: Element, source: string) => {
+    // Skip hidden elements
+    const isVisible = el.checkVisibility ? 
+        el.checkVisibility({checkVisibilityCSS: true, checkOpacity: true}) : 
+        (el.offsetParent !== null || el.getClientRects().length > 0);
     
-    debugSync(`[Dark Detection]   - <${el.tagName}> backgroundColor:`, bg);
-    
-    // Ignore transparent backgrounds
-    if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
-      debugSync(`[Dark Detection]   - <${el.tagName}>: SKIPPED (transparent)`);
-      continue;
+    // Note: We DO NOT skip body even if offsetParent is null (empty canvas), 
+    // because body defines the intended background color of the site.
+    if (source !== 'body' && !isVisible) {
+      skippedHidden++;
+      return;
     }
 
-    const rgb = parseRGB(bg);
-    if (rgb) {
-      const lum = getLuminance(rgb.r, rgb.g, rgb.b);
-      const threshold = 0.3;
-      
-      debugSync(`[Dark Detection]   - <${el.tagName}> RGB:`, `(${rgb.r}, ${rgb.g}, ${rgb.b})`);
-      debugSync(`[Dark Detection]   - <${el.tagName}> Luminance:`, lum.toFixed(4), `(threshold: ${threshold})`);
-      
-      // Threshold: 0.3 covers most dark gray/black themes
-      if (lum < threshold) {
-        debugSync(`[Dark Detection]   - <${el.tagName}>: LOW LUMINANCE (${lum.toFixed(4)} < ${threshold})`);
-        debugSync(`[Dark Detection] Low luminance detected on <${el.tagName}>: ${lum.toFixed(2)}`);
-        debugSync('[Dark Detection] Result: TRUE (luminance below threshold)');
-        debugSync('[Dark Detection] ========== DETECTION END ==========');
-        return true;
-      } else {
-        debugSync(`[Dark Detection]   - <${el.tagName}>: HIGH LUMINANCE (${lum.toFixed(4)} >= ${threshold})`);
-      }
-    } else {
-      debugSync(`[Dark Detection]   - <${el.tagName}>: PARSE FAILED`);
+    // Skip elements with no size (unless it's body)
+    if (source !== 'body') {
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) {
+            skippedHidden++;
+            return;
+        }
     }
+
+    const bg = window.getComputedStyle(el).backgroundColor;
+    const rgb = parseRGB(bg);
+    
+    if (!rgb) {
+      skippedTransparent++;
+      return; // Skip transparent or unparseable colors
+    }
+
+    const lum = getLuminance(rgb.r, rgb.g, rgb.b);
+    const threshold = 0.2; // Darker than #333333 is considered dark
+    
+    console.log(`[UltraDark Dark Detection] Sample <${el.tagName.toLowerCase()}${el.className ? '.' + el.className.split(' ')[0] : ''}> (${source}): RGB(${rgb.r}, ${rgb.g}, ${rgb.b}) | Luminance: ${lum.toFixed(3)}`);
+    
+    if (lum < threshold) {
+      darkVotes++;
+    }
+    validSamples++;
+  };
+
+  // PHASE 1: High-Priority Semantic Elements
+  const selectors = [
+    'body', // Always check body first
+    'main', 
+    '[role="main"]',
+    'article', 
+    '.container', 
+    '#app', 
+    '#root', 
+    '.app-container',
+    'header',
+    '.navbar',
+    '.sidebar',
+    '.content',
+    '.wrapper',
+    '.main-content',
+    '.page'
+  ];
+
+  // We iterate all elements matching the selectors
+  // Note: We use forEach on querySelectorAll results, which is fine for ~20 elements.
+  for (const sel of selectors) {
+    const elements = document.querySelectorAll(sel);
+    elements.forEach(el => processElement(el, sel));
   }
 
-  debugSync('[Dark Detection] Site is LIGHT.');
-  debugSync('[Dark Detection] Result: FALSE (no dark indicators found)');
-  debugSync('[Dark Detection] ========== DETECTION END ==========');
-  return false;
+  console.log(`[UltraDark Dark Detection] PHASE 1 Stats: Valid=${validSamples}, Skipped(Transp)=${skippedTransparent}, Skipped(Hidden)=${skippedHidden}`);
+
+  // PHASE 2: Fallback (Direct Body Children)
+  // If Phase 1 yielded NO valid samples (e.g., generic structure not caught by selectors),
+  // we fall back to the first 5 direct children of body.
+  if (validSamples === 0) {
+      console.log('[UltraDark Dark Detection] ⚠️ Phase 1 yielded 0 valid samples. Starting Phase 2 Fallback (Body Children)...');
+      
+      // Get direct children
+      const children = Array.from(body.children);
+      const limit = Math.min(children.length, 5); // Sample max 5 children to save time
+      
+      for (let i = 0; i < limit; i++) {
+          processElement(children[i], `body-child[${i}]`);
+      }
+      
+      console.log(`[UltraDark Dark Detection] PHASE 2 Stats: Valid=${validSamples} (Total)`);
+  }
+
+  if (validSamples === 0) {
+    console.log('[UltraDark Dark Detection] ⚠️ Still no valid samples after Fallback. Defaulting to FALSE (Light).');
+    return false;
+  }
+
+  const ratio = darkVotes / validSamples;
+  console.log(`[UltraDark Dark Detection] 🗳️  Dark Votes: ${darkVotes}/${validSamples} (${(ratio*100).toFixed(0)}%)`);
+  
+  // If more than 40% of the visible structure is dark, we call it a dark site.
+  if (ratio > 0.4) {
+    console.log('[UltraDark Dark Detection] ✅ Result: TRUE (Dark theme detected)');
+    return true;
+  } else {
+    console.log('[UltraDark Dark Detection] ✅ Result: FALSE (Light theme detected)');
+    return false;
+  }
 }
