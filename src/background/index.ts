@@ -1,26 +1,45 @@
 // src/background/index.ts
 /// <reference types="web-ext-types" />
-import { getSettings, setSettings, updateSettings, originFromUrl } from "../utils/storage";
+import {
+  getSettings,
+  setSettings,
+  updateSettings,
+  originFromUrl,
+} from "../utils/storage";
 import { applyScheduleTick } from "./scheduler";
 import { debugSync, initDebugCache, info } from "../utils/logger";
 
 (async () => {
   await initDebugCache();
-  debugSync('Background script initialized');
+  debugSync("Background script initialized");
+
+  // Create alarm for scheduler (in case extension was reloaded)
+  browser.alarms.create("udr-schedule", { periodInMinutes: 1 });
+  debugSync("Scheduler alarm created");
 })();
 
 browser.runtime.onInstalled.addListener(() => {
-  info('Extension installed/updated');
+  info("Extension installed/updated");
   // Initialize context menus
   browser.contextMenus.create({
     id: "udr-toggle-site",
     title: "UltraDark: Toggle on this site",
-    contexts: ["page", "browser_action"]
+    contexts: ["page", "browser_action"],
   });
   browser.contextMenus.create({
     id: "udr-exclude-site",
     title: "UltraDark: Exclude this site",
-    contexts: ["page", "browser_action"]
+    contexts: ["page", "browser_action"],
+  });
+  browser.contextMenus.create({
+    id: "udr-test-schedule",
+    title: "UltraDark: Test schedule (debug)",
+    contexts: ["browser_action"],
+  });
+  browser.contextMenus.create({
+    id: "udr-exclude-site",
+    title: "UltraDark: Exclude this site",
+    contexts: ["page", "browser_action"],
   });
 
   // Alarm to check schedule every minute
@@ -29,15 +48,21 @@ browser.runtime.onInstalled.addListener(() => {
 
 browser.alarms.onAlarm.addListener((a) => {
   if (a.name === "udr-schedule") {
-    debugSync('Running schedule check');
+    debugSync("Running schedule check");
     applyScheduleTick();
   }
 });
 
 browser.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === "udr-test-schedule") {
+    debugSync("Manual schedule test triggered");
+    applyScheduleTick();
+    return;
+  }
+
   if (!tab?.url) return;
   const origin = originFromUrl(tab.url);
-  debugSync('Context menu clicked:', info.menuItemId, 'for', origin);
+  debugSync("Context menu clicked:", info.menuItemId, "for", origin);
   const s = await getSettings();
   s.perSite[origin] ||= {};
   if (info.menuItemId === "udr-toggle-site") {
@@ -47,7 +72,10 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
     s.perSite[origin].exclude = !(s.perSite[origin].exclude ?? false);
   }
   await setSettings(s);
-  if (tab.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
+  if (tab.id)
+    browser.tabs
+      .sendMessage(tab.id, { type: "udr:settings-updated" })
+      .catch(() => {});
 });
 
 browser.runtime.onMessage.addListener(async (msg, sender) => {
@@ -55,24 +83,28 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     return getSettings();
   }
   if (msg?.type === "udr:set-settings") {
-    debugSync('Settings updated via message');
+    debugSync("Settings updated via message");
     await setSettings(msg.payload);
     // Inform active tab to re-apply
     if (sender?.tab?.id) {
-      browser.tabs.sendMessage(sender.tab.id, { type: "udr:settings-updated" }).catch(() => {});
+      browser.tabs
+        .sendMessage(sender.tab.id, { type: "udr:settings-updated" })
+        .catch(() => {});
     }
   }
   if (msg?.type === "udr:update-settings") {
-    debugSync('Settings patched via message');
+    debugSync("Settings patched via message");
     await updateSettings(msg.payload);
     if (sender?.tab?.id) {
-      browser.tabs.sendMessage(sender.tab.id, { type: "udr:settings-updated" }).catch(() => {});
+      browser.tabs
+        .sendMessage(sender.tab.id, { type: "udr:settings-updated" })
+        .catch(() => {});
     }
   }
   if (msg?.type === "udr:debug-mode-changed") {
     // Update debug cache in background script when debug mode changes
     const { updateDebugCache } = await import("../utils/logger");
     updateDebugCache(msg.enabled);
-    debugSync('Debug mode changed to:', msg.enabled);
+    debugSync("Debug mode changed to:", msg.enabled);
   }
 });

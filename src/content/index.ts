@@ -7,11 +7,20 @@ import { getSettings, setSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
-import { applyPhotonInverter, removePhotonInverter } from "./algorithms/photon-inverter";
-import { applyChromaSemantic, resetChromaSemantic } from "./algorithms/chroma-semantic";
+import {
+  applyPhotonInverter,
+  removePhotonInverter,
+} from "./algorithms/photon-inverter";
+import {
+  applyChromaSemantic,
+  resetChromaSemantic,
+} from "./algorithms/chroma-semantic";
 import { applyDomWalker, resetDomWalker } from "./algorithms/dom-walker";
 import { buildCss, ensureStyleTag } from "./style-template";
-import { waitForDocumentReady, isDocumentBodyReady } from "../utils/document-ready";
+import {
+  waitForDocumentReady,
+  isDocumentBodyReady,
+} from "../utils/document-ready";
 
 let worker: Worker | null = null;
 let applied = false;
@@ -22,32 +31,35 @@ let shieldActive = false;
 
 (async () => {
   await initDebugCache();
-  console.log('[UltraDark Content Script] Initialized');
+  console.log("[UltraDark Content Script] Initialized");
 })();
 
-async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use: Settings; excluded: boolean }> {
+async function effectiveSettingsFor(
+  url: string,
+  base: Settings,
+): Promise<{ use: Settings; excluded: boolean }> {
   const origin = new URL(url).origin;
   const per = base.perSite[origin] || {};
   const excluded = per.exclude === true || urlExcluded(url, base.excludeRegex);
 
   const merged: Settings = {
     ...base,
-    ...(per.override || {})
+    ...(per.override || {}),
   };
 
   if (typeof per.enabled === "boolean") merged.enabled = per.enabled;
 
-  return { use: merged, excluded: false }; 
+  return { use: merged, excluded: false };
 }
 
 function applyShield() {
-  if (document.getElementById('udr-shield')) {
-    console.log('[UltraDark][Shield] Shield already active, skipping');
+  if (document.getElementById("udr-shield")) {
+    console.log("[UltraDark][Shield] Shield already active, skipping");
     return;
   }
 
-  const shield = document.createElement('style');
-  shield.id = 'udr-shield';
+  const shield = document.createElement("style");
+  shield.id = "udr-shield";
   shield.textContent = `
     html { 
       filter: invert(1) hue-rotate(180deg) !important; 
@@ -60,27 +72,27 @@ function applyShield() {
   `;
   document.documentElement.appendChild(shield);
   shieldActive = true;
-  console.log('[UltraDark][Shield] Instant Shield applied');
+  console.log("[UltraDark][Shield] Instant Shield applied");
 }
 
 function removeShield() {
-  const shield = document.getElementById('udr-shield');
+  const shield = document.getElementById("udr-shield");
   if (shield) {
     setTimeout(() => {
       shield.remove();
       shieldActive = false;
-      console.log('[UltraDark][Shield] Shield removed');
-    }, 50); 
+      console.log("[UltraDark][Shield] Shield removed");
+    }, 50);
   }
 }
 
 function applyPassiveMode() {
-  console.log('[UltraDark] Native dark theme detected. Engaging Passive Mode.');
-  
-  document.documentElement.setAttribute('data-udr-state', 'passive');
-  
-  const style = document.createElement('style');
-  style.id = 'udr-passive-style';
+  console.log("[UltraDark] Native dark theme detected. Engaging Passive Mode.");
+
+  document.documentElement.setAttribute("data-udr-state", "passive");
+
+  const style = document.createElement("style");
+  style.id = "udr-passive-style";
   style.textContent = `
     html[data-udr-state="passive"] img,
     html[data-udr-state="passive"] video {
@@ -93,8 +105,8 @@ function applyPassiveMode() {
     }
   `;
   document.head.appendChild(style);
-  
-  console.log('[UltraDark] Passive Mode applied');
+
+  console.log("[UltraDark] Passive Mode applied");
 }
 
 const PRE_INJECT_CSS = `
@@ -106,8 +118,8 @@ body {
 
 function ensurePreInjectCss() {
   if (!preInjectTag) {
-    preInjectTag = document.createElement('style');
-    preInjectTag.id = 'udr-preinject';
+    preInjectTag = document.createElement("style");
+    preInjectTag.id = "udr-preinject";
     preInjectTag.textContent = PRE_INJECT_CSS;
   }
 
@@ -130,7 +142,7 @@ function hueRotateFromBlueShift(blueShift: number): number {
 }
 
 function applyFilterCss(settings: Settings) {
-  console.log('[UltraDark] Applying Global Filter Sliders...');
+  console.log("[UltraDark] Applying Global Filter Sliders...");
   const tag = ensureStyleTag();
   const css = buildCss({
     brightness: settings.brightness,
@@ -139,7 +151,7 @@ function applyFilterCss(settings: Settings) {
     grayscale: settings.grayscale,
     hueRotateDeg: hueRotateFromBlueShift(settings.blueShift),
     amoled: settings.amoled,
-    invert: settings.mode === "photon-inverter"
+    invert: settings.mode === "photon-inverter",
   });
 
   tag.textContent = css;
@@ -157,32 +169,36 @@ function resetModeArtifacts() {
 }
 
 function applyCss(s: Settings) {
-  console.log('[UltraDark] Applying CSS with mode:', s.mode);
-  
+  console.log("[UltraDark] Applying CSS with mode:", s.mode);
+
   resetModeArtifacts();
 
   // CRITICAL FIX FOR PHOTON INVERTER:
   // Photon Inverter requires the ORIGINAL text color (usually Black) to invert to White.
   // Pre-Inject forces text to Light Grey (#e0e0e0). When inverted, this becomes Dark Grey (#1f1f1f).
   // We must remove Pre-Inject styles to allow correct inversion via removePreInjectCss().
-  
+
   if (s.mode === "photon-inverter") {
-      console.log('[UltraDark] Removing Pre-Inject styles for Photon Inverter to ensure correct text color inversion.');
-      removePreInjectCss();
-      applyPhotonInverter(s);
+    console.log(
+      "[UltraDark] Removing Pre-Inject styles for Photon Inverter to ensure correct text color inversion.",
+    );
+    removePreInjectCss();
+    applyPhotonInverter(s);
   } else if (s.mode === "dom-walker") {
-      applyFilterCss(s);
-      applyDomWalker(s);
+    applyFilterCss(s);
+    applyDomWalker(s);
   } else if (s.mode === "chroma-semantic") {
-      applyFilterCss(s);
-      applyChromaSemantic(s);
+    applyFilterCss(s);
+    applyChromaSemantic(s);
   } else {
-      console.log('[UltraDark] Unknown mode, falling back to photon-inverter');
-      console.log('[UltraDark] Removing Pre-Inject styles for Photon Inverter to ensure correct text color inversion.');
-      removePreInjectCss();
-      applyPhotonInverter(s);
+    console.log("[UltraDark] Unknown mode, falling back to photon-inverter");
+    console.log(
+      "[UltraDark] Removing Pre-Inject styles for Photon Inverter to ensure correct text color inversion.",
+    );
+    removePreInjectCss();
+    applyPhotonInverter(s);
   }
-  
+
   if (shieldActive) {
     removeShield();
   }
@@ -190,57 +206,65 @@ function applyCss(s: Settings) {
   document.documentElement.setAttribute("data-udr-mode", s.mode);
   currentMode = s.mode;
   document.documentElement.setAttribute("udr-applied", "true");
-  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "1";
+  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[
+    DATA_ATTR_APPLIED
+  ] = "1";
   applied = true;
 }
 
 function removeCss() {
-  console.log('[UltraDark] Removing dark theme CSS');
+  console.log("[UltraDark] Removing dark theme CSS");
 
   resetModeArtifacts();
 
   const tag = document.getElementById("udr-style");
   if (tag?.parentNode) tag.parentNode.removeChild(tag);
-  
+
   removePhotonInverter();
 
   document.documentElement.removeAttribute("udr-applied");
   document.documentElement.removeAttribute("data-udr-mode");
-  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] = "";
+  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[
+    DATA_ATTR_APPLIED
+  ] = "";
 
   if (document.documentElement.style.backgroundColor) {
-    document.documentElement.style.removeProperty('background-color');
+    document.documentElement.style.removeProperty("background-color");
   }
   if (document.body && document.body.style) {
     if (document.body.style.backgroundColor) {
-      document.body.style.removeProperty('background-color');
+      document.body.style.removeProperty("background-color");
     }
     if (document.body.style.color) {
-      document.body.style.removeProperty('color');
+      document.body.style.removeProperty("color");
     }
   }
 
   removePreInjectCss();
-  
+
   if (shieldActive) {
     removeShield();
   }
-  
-  const passiveStyle = document.getElementById('udr-passive-style');
+
+  const passiveStyle = document.getElementById("udr-passive-style");
   if (passiveStyle) {
     passiveStyle.remove();
-    document.documentElement.removeAttribute('data-udr-state');
+    document.documentElement.removeAttribute("data-udr-state");
   }
 
   if (document.documentElement) {
-    document.documentElement.style.setProperty('background-color', '', 'important');
-    document.documentElement.style.setProperty('color', '', 'important');
+    document.documentElement.style.setProperty(
+      "background-color",
+      "",
+      "important",
+    );
+    document.documentElement.style.setProperty("color", "", "important");
   }
   if (document.body) {
-    document.body.style.setProperty('background-color', '', 'important');
-    document.body.style.setProperty('color', '', 'important');
+    document.body.style.setProperty("background-color", "", "important");
+    document.body.style.setProperty("color", "", "important");
   }
-  
+
   applied = false;
 }
 
@@ -250,29 +274,40 @@ function startObserverForSpa() {
       // nothing extra
     }
   });
-  ob.observe(document.documentElement, { childList: true, subtree: true, attributes: false });
+  ob.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: false,
+  });
 }
 
 async function startOptimizerIfEnabled(s: Settings) {
   if (!s.optimizerEnabled) {
-    console.log('[UltraDark][Optimizer] Disabled');
+    console.log("[UltraDark][Optimizer] Disabled");
     return;
   }
-  
+
   if (!worker) {
     try {
       worker = new Worker(WorkerUrl);
       worker.onmessage = (ev) => {
-        const data = ev.data as { type?: string; suggestedContrast?: number; message?: unknown[] };
-        
-        if (data.type === 'debug' && data.message) {
-          console.log('[UltraDark]', ...data.message);
+        const data = ev.data as {
+          type?: string;
+          suggestedContrast?: number;
+          message?: unknown[];
+        };
+
+        if (data.type === "debug" && data.message) {
+          console.log("[UltraDark]", ...data.message);
           return;
         }
-        
+
         const { suggestedContrast } = data;
         if (typeof suggestedContrast === "number") {
-          console.log('[UltraDark][Optimizer] Suggestion:', suggestedContrast + '%');
+          console.log(
+            "[UltraDark][Optimizer] Suggestion:",
+            suggestedContrast + "%",
+          );
           const tag = document.getElementById("udr-style");
           if (tag) {
             const bounded = Math.min(200, Math.max(50, suggestedContrast));
@@ -284,62 +319,72 @@ async function startOptimizerIfEnabled(s: Settings) {
                   const currentSettings = await getSettings();
                   const origin = new URL(location.href).origin;
                   const perSiteSettings = currentSettings.perSite[origin];
-                  
+
                   if (perSiteSettings?.override?.contrast !== undefined) {
                     currentSettings.perSite[origin].override = {
                       ...perSiteSettings.override,
-                      contrast: bounded
+                      contrast: bounded,
                     };
                   } else {
                     currentSettings.contrast = bounded;
                   }
                   await setSettings(currentSettings);
                 } catch (error) {
-                  console.error('[UltraDark] Failed to update settings:', error);
+                  console.error(
+                    "[UltraDark] Failed to update settings:",
+                    error,
+                  );
                 }
               })();
             }
           }
         }
       };
-      
-      worker.onerror = (err) => console.error('[UltraDark] Worker error:', err);
-      
-      const result = await browser.storage.local.get('isDebugMode');
+
+      worker.onerror = (err) => console.error("[UltraDark] Worker error:", err);
+
+      const result = await browser.storage.local.get("isDebugMode");
       const isDebug = result.isDebugMode === true;
-      worker.postMessage({ type: 'setDebugMode', debug: isDebug });
+      worker.postMessage({ type: "setDebugMode", debug: isDebug });
 
       const samples: { fg: string; bg: string }[] = [];
       const MAX = 120;
       const sel = "p,span,li,dd,dt,small,code,pre,a,td,th,h1,h2,h3,h4,h5,h6";
       const elements = document.querySelectorAll(sel);
-      
+
       elements.forEach((el, index) => {
         if (samples.length >= MAX) return;
         const cs = getComputedStyle(el as Element);
         const fg = cs.color;
-        const bg = cs.backgroundColor || getComputedStyle((el as Element).parentElement || document.body).backgroundColor;
+        const bg =
+          cs.backgroundColor ||
+          getComputedStyle((el as Element).parentElement || document.body)
+            .backgroundColor;
         samples.push({ fg, bg });
       });
 
       worker.postMessage({ type: "analyze", samples });
-
     } catch (e) {
-      console.warn('[Optimizer] Worker failed', e);
+      console.warn("[Optimizer] Worker failed", e);
     }
   }
 }
 
 async function tick() {
-  console.log('[UltraDark] ========== TICK START ==========');
-  
+  console.log("[UltraDark] ========== TICK START ==========");
+
   const s = await getSettings();
   const { use, excluded } = await effectiveSettingsFor(location.href, s);
-  
-  console.log('[UltraDark] Settings Loaded. Enabled:', use.enabled, 'Excluded:', excluded);
+
+  console.log(
+    "[UltraDark] Settings Loaded. Enabled:",
+    use.enabled,
+    "Excluded:",
+    excluded,
+  );
 
   if (!use.enabled || excluded) {
-    console.log('[UltraDark] Aborting: Disabled or Excluded');
+    console.log("[UltraDark] Aborting: Disabled or Excluded");
     if (applied) removeCss();
     else if (preInjected) removePreInjectCss();
     else if (shieldActive) removeShield();
@@ -352,61 +397,68 @@ async function tick() {
   const per = use.perSite[origin] || {};
   const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
 
-  let isDark = false;
+  const isDark = false;
 
   if (shouldDetectDark && isDocumentBodyReady()) {
-      console.log('[UltraDark] Running Early Detection (Body Ready)...');
-      if (isAlreadyDarkTheme()) {
-          console.log('[UltraDark] Early Detection: Dark Theme Found. Applying Passive Mode.');
-          applyPassiveMode();
-          return;
-      } else {
-          console.log('[UltraDark] Early Detection: Light Theme Found.');
-      }
+    console.log("[UltraDark] Running Early Detection (Body Ready)...");
+    if (isAlreadyDarkTheme()) {
+      console.log(
+        "[UltraDark] Early Detection: Dark Theme Found. Applying Passive Mode.",
+      );
+      applyPassiveMode();
+      return;
+    } else {
+      console.log("[UltraDark] Early Detection: Light Theme Found.");
+    }
   }
 
   if (!applied && !shieldActive && !preInjected) {
-    console.log('[UltraDark] Applying Shield...');
+    console.log("[UltraDark] Applying Shield...");
     applyShield();
   }
 
   try {
     await waitForDocumentReady();
   } catch (error) {
-    console.warn('[UltraDark] Timeout waiting for document ready', error);
+    console.warn("[UltraDark] Timeout waiting for document ready", error);
   }
 
   if (shouldDetectDark && !applied && !preInjected) {
-      console.log('[UltraDark] Running Post-Detection (DOM Ready)...');
-      if (isAlreadyDarkTheme()) {
-          console.log('[UltraDark] Post-Detection: Dark Theme Found. Switching to Passive Mode.');
-          removeShield(); // Remove the temporary shield
-          applyPassiveMode();
-          return;
-      }
+    console.log("[UltraDark] Running Post-Detection (DOM Ready)...");
+    if (isAlreadyDarkTheme()) {
+      console.log(
+        "[UltraDark] Post-Detection: Dark Theme Found. Switching to Passive Mode.",
+      );
+      removeShield(); // Remove the temporary shield
+      applyPassiveMode();
+      return;
+    }
   }
 
-  console.log('[UltraDark] Proceeding with Dark Mode Application. Mode:', use.mode);
+  console.log(
+    "[UltraDark] Proceeding with Dark Mode Application. Mode:",
+    use.mode,
+  );
   ensurePreInjectCss();
   applyCss(use);
-  
+
   if (use.optimizerEnabled) {
     try {
       await startOptimizerIfEnabled(use);
     } catch (error) {
-      console.error('[UltraDark] Optimizer error:', error);
+      console.error("[UltraDark] Optimizer error:", error);
     }
   }
 }
 
 browser.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "udr:settings-updated") {
-    console.log('[UltraDark] Settings updated message received');
+    console.log("[UltraDark] Settings updated message received");
     tick();
   } else if (msg?.type === "udr:debug-mode-changed") {
     updateDebugCache(msg.enabled);
     if (worker) {
-      worker.postMessage({ type: 'setDebugMode', debug: msg.enabled });
+      worker.postMessage({ type: "setDebugMode", debug: msg.enabled });
     }
   }
 });

@@ -24,7 +24,14 @@ body {
   width: 360px;
   background: var(--page-bg);
   color: var(--page-text);
-  font-family: system, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  font-family:
+    system,
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 12px;
   -webkit-font-smoothing: antialiased;
 }
@@ -48,7 +55,11 @@ body {
   top: -40%;
   height: 140px;
   opacity: 0.4;
-  background: radial-gradient(circle at top, var(--accent-soft), transparent 70%);
+  background: radial-gradient(
+    circle at top,
+    var(--accent-soft),
+    transparent 70%
+  );
   pointer-events: none;
   z-index: 0;
 }
@@ -113,7 +124,9 @@ body {
   height: 22px;
   border-radius: 999px;
   background: var(--switch-track-off);
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9), 0 4px 12px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.9),
+    0 4px 12px rgba(0, 0, 0, 0.6);
   transition: background 0.18s ease-out;
 }
 
@@ -184,7 +197,10 @@ body {
   color: #9ca3af;
   font-size: 11px;
   cursor: pointer;
-  transition: background 0.16s ease-out, color 0.16s ease-out, box-shadow 0.16s ease-out,
+  transition:
+    background 0.16s ease-out,
+    color 0.16s ease-out,
+    box-shadow 0.16s ease-out,
     transform 0.12s ease-out;
 }
 
@@ -195,7 +211,9 @@ body {
 .mode-btn.active {
   background: var(--accent);
   color: #f9fafb;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9), 0 6px 14px var(--accent-soft);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.9),
+    0 6px 14px var(--accent-soft);
 }
 
 .mode-btn:focus {
@@ -256,7 +274,9 @@ body {
 }
 
 .slider-value {
-  font-feature-settings: "tnum" 1, "lnum" 1;
+  font-feature-settings:
+    "tnum" 1,
+    "lnum" 1;
 }
 
 input[type="range"] {
@@ -327,7 +347,9 @@ input[type="range"]:focus {
   color: var(--accent);
   font-size: 11px;
   cursor: pointer;
-  transition: background 0.16s ease-out, transform 0.12s ease-out;
+  transition:
+    background 0.16s ease-out,
+    transform 0.12s ease-out;
   border: 1px solid rgba(34, 211, 238, 0.3);
   white-space: nowrap;
 }
@@ -401,4 +423,19 @@ input[type="range"]:disabled::-webkit-slider-thumb {
 input[type="range"]:disabled::-moz-range-thumb {
   background: #6b7280;
   cursor: not-allowed;
+}
+
+/* Disabled toggle state (when schedule is enabled) */
+.disabled-toggle {
+  opacity: 0.5;
+  color: red;
+}
+
+.disabled-toggle + .track {
+  opacity: 0.5;
+  background: red;
+}
+
+.disabled-toggle:checked + .track {
+  background: red;
 }

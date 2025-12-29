@@ -17,7 +17,10 @@
           <input id="debugMode" type="checkbox" />
           <span>Enable debug logging</span>
         </label>
-        <p class="hint">When enabled, detailed debug messages will appear in the browser console.</p>
+        <p class="hint">
+          When enabled, detailed debug messages will appear in the browser
+          console.
+        </p>
       </section>
 
       <section class="card">
@@ -25,35 +28,64 @@
         <label class="toggle-label">
           <input id="schedEnabled" type="checkbox" />
           <span>Enable night schedule</span>
+          <span
+            id="scheduleStatus"
+            class="status-text"
+            style="display: none"
+          ></span>
         </label>
         <div class="row">
-          <label>Start <input id="schedStart" type="time" value="21:00" /></label>
+          <label
+            >Start <input id="schedStart" type="time" value="21:00"
+          /></label>
           <label>End <input id="schedEnd" type="time" value="07:00" /></label>
         </div>
-        <p class="hint">During the window, UltraDark toggles on automatically.</p>
+        <p class="hint">
+          During the window, UltraDark toggles on automatically.
+        </p>
       </section>
 
       <section class="card">
         <h2>Regex Exclusions</h2>
-        <p class="hint">Add one pattern per line. Accepts plain strings or <code>/regex/flags</code>.</p>
-        <textarea id="regexList" rows="8" placeholder="e.g. /^.*\\.example\\.com$/"></textarea>
+        <p class="hint">
+          Add one pattern per line. Accepts plain strings or
+          <code>/regex/flags</code>.
+        </p>
+        <textarea
+          id="regexList"
+          rows="8"
+          placeholder="e.g. /^.*\\.example\\.com$/"
+        ></textarea>
         <div class="row">
-          <input id="testUrl" type="url" placeholder="https://site.example.com/page" />
+          <input
+            id="testUrl"
+            type="url"
+            placeholder="https://site.example.com/page"
+          />
           <button id="testBtn">Test</button>
         </div>
-        <div id="testResult" class="badge" style="display: none;"></div>
+        <div id="testResult" class="badge" style="display: none"></div>
       </section>
 
       <section class="card">
         <h2>Per-Site Overrides</h2>
-        <p class="hint">Configure UltraDark behavior for specific sites. Changes are saved automatically.</p>
+        <p class="hint">
+          Configure UltraDark behavior for specific sites. Changes are saved
+          automatically.
+        </p>
         <div id="sites"></div>
       </section>
 
       <section class="card">
         <h2>Reset Settings</h2>
-        <p class="hint">Reset all settings to their default values. This will clear all per-site overrides, regex exclusions, and restore default theme settings.</p>
-        <button id="resetSettings" class="danger-btn">Reset All Settings to Default</button>
+        <p class="hint">
+          Reset all settings to their default values. This will clear all
+          per-site overrides, regex exclusions, and restore default theme
+          settings.
+        </p>
+        <button id="resetSettings" class="danger-btn">
+          Reset All Settings to Default
+        </button>
       </section>
     </main>
     <script type="module" src="./index.ts"></script>

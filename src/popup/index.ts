@@ -10,7 +10,10 @@ let activeTabUrl: string | null = null;
 
 async function captureActiveTabUrl(): Promise<void> {
   try {
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
     if (tab?.url) {
       activeTabUrl = tab.url;
     }
@@ -27,10 +30,10 @@ async function captureActiveTabUrl(): Promise<void> {
  */
 function debounce<T extends (...args: unknown[]) => void>(
   func: T,
-  wait = 250
+  wait = 250,
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  
+
   return (...args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => {
@@ -38,7 +41,6 @@ function debounce<T extends (...args: unknown[]) => void>(
     }, wait);
   };
 }
-
 
 async function init() {
   const s = await getSettings();
@@ -67,6 +69,22 @@ async function init() {
     optimizer.checked = st.optimizerEnabled;
     detectDark.checked = st.detectDarkSites;
 
+    // Handle schedule state
+    const toggleLabel = $(".toggle-main-label");
+    const subtitle = $(".popup-subtitle");
+
+    if (st.schedule?.enabled) {
+      toggle.disabled = true;
+      toggle.classList.add("disabled-toggle");
+      toggleLabel.textContent = "Global Dark Mode (Auto)";
+      subtitle.textContent = "Dark mode controller (Scheduled)";
+    } else {
+      toggle.disabled = false;
+      toggle.classList.remove("disabled-toggle");
+      toggleLabel.textContent = "Global Dark Mode";
+      subtitle.textContent = "Dark mode controller";
+    }
+
     // Update mode buttons
     modeButtons.forEach((btn) => {
       const mode = (btn as HTMLElement).dataset.mode;
@@ -94,15 +112,24 @@ async function init() {
     updateSliderBackground(sepia, st.sepia, 0, 100);
     updateSliderBackground(grayscale, st.grayscale, 0, 100);
     updateSliderBackground(blueShift, st.blueShift, 0, 100);
-    
+
     // Disable contrast slider when optimizer is enabled
     updateContrastSliderState(st.optimizerEnabled);
   }
 
-  function updateSliderBackground(slider: HTMLInputElement, value: number, min: number, max: number) {
+  function updateSliderBackground(
+    slider: HTMLInputElement,
+    value: number,
+    min: number,
+    max: number,
+  ) {
     const percent = ((value - min) / (max - min)) * 100;
-    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
-    const track = getComputedStyle(document.documentElement).getPropertyValue("--slider-track").trim();
+    const accent = getComputedStyle(document.documentElement)
+      .getPropertyValue("--accent")
+      .trim();
+    const track = getComputedStyle(document.documentElement)
+      .getPropertyValue("--slider-track")
+      .trim();
     slider.style.background = `linear-gradient(to right, ${accent} 0%, ${accent} ${percent}%, ${track} ${percent}%, ${track} 100%)`;
   }
 
@@ -112,8 +139,14 @@ async function init() {
     s.enabled = toggle.checked;
     reflect(s);
     await setSettings(s);
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
+    const [tab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (tab?.id)
+      browser.tabs
+        .sendMessage(tab.id, { type: "udr:settings-updated" })
+        .catch(() => {});
   };
 
   // Mode button click handler
@@ -124,20 +157,38 @@ async function init() {
         s.mode = mode;
         reflect(s);
         await setSettings(s);
-        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-        if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
+        const [tab] = await browser.tabs.query({
+          active: true,
+          currentWindow: true,
+        });
+        if (tab?.id)
+          browser.tabs
+            .sendMessage(tab.id, { type: "udr:settings-updated" })
+            .catch(() => {});
       }
     });
   });
 
-  function bindRange(el: HTMLInputElement, key: keyof Settings, label: HTMLElement, min: number, max: number) {
+  function bindRange(
+    el: HTMLInputElement,
+    key: keyof Settings,
+    label: HTMLElement,
+    min: number,
+    max: number,
+  ) {
     // Create a debounced version of the settings update function
     const debouncedUpdate = debounce(async (value: number) => {
       // @ts-expect-error - Settings type allows numeric values for slider keys
       s[key] = value;
       await setSettings(s);
-      const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-      if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
+      const [tab] = await browser.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (tab?.id)
+        browser.tabs
+          .sendMessage(tab.id, { type: "udr:settings-updated" })
+          .catch(() => {});
     }, 250); // 250ms debounce delay
 
     el.oninput = () => {
@@ -151,32 +202,44 @@ async function init() {
   }
 
   function updateContrastSliderState(optimizerEnabled: boolean) {
-    const contrastSliderRow = contrast.closest('.slider-row') as HTMLElement;
+    const contrastSliderRow = contrast.closest(".slider-row") as HTMLElement;
     if (optimizerEnabled) {
       contrast.disabled = true;
       contrast.title = "Disabled: Optimizer controls contrast automatically";
-      contrast.setAttribute('aria-label', 'Contrast slider (disabled - optimizer active)');
-      contrastSliderRow?.classList.add('disabled');
+      contrast.setAttribute(
+        "aria-label",
+        "Contrast slider (disabled - optimizer active)",
+      );
+      contrastSliderRow?.classList.add("disabled");
     } else {
       contrast.disabled = false;
       contrast.title = "";
-      contrast.removeAttribute('aria-label');
-      contrastSliderRow?.classList.remove('disabled');
+      contrast.removeAttribute("aria-label");
+      contrastSliderRow?.classList.remove("disabled");
     }
   }
 
-  amoled.onchange = optimizer.onchange = detectDark.onchange = async () => {
-    s.amoled = amoled.checked;
-    s.optimizerEnabled = optimizer.checked;
-    s.detectDarkSites = detectDark.checked;
-    
-    // Update contrast slider state when optimizer toggle changes
-    updateContrastSliderState(s.optimizerEnabled);
-    
-    await setSettings(s);
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
-  };
+  amoled.onchange =
+    optimizer.onchange =
+    detectDark.onchange =
+      async () => {
+        s.amoled = amoled.checked;
+        s.optimizerEnabled = optimizer.checked;
+        s.detectDarkSites = detectDark.checked;
+
+        // Update contrast slider state when optimizer toggle changes
+        updateContrastSliderState(s.optimizerEnabled);
+
+        await setSettings(s);
+        const [tab] = await browser.tabs.query({
+          active: true,
+          currentWindow: true,
+        });
+        if (tab?.id)
+          browser.tabs
+            .sendMessage(tab.id, { type: "udr:settings-updated" })
+            .catch(() => {});
+      };
 
   bindRange(brightness, "brightness", briV, 50, 120);
   bindRange(contrast, "contrast", conV, 50, 200);
@@ -197,7 +260,7 @@ async function init() {
       contrast: 110,
       sepia: 0,
       grayscale: 0,
-      blueShift: 0
+      blueShift: 0,
     };
 
     // Update UI sliders and values
@@ -206,7 +269,7 @@ async function init() {
     sepia.value = String(defaultValues.sepia);
     grayscale.value = String(defaultValues.grayscale);
     blueShift.value = String(defaultValues.blueShift);
-    
+
     briV.textContent = `${defaultValues.brightness}%`;
     conV.textContent = `${defaultValues.contrast}%`;
     sepV.textContent = `${defaultValues.sepia}%`;
@@ -232,8 +295,14 @@ async function init() {
     await setSettings(s);
 
     // Send message to active tab to apply new settings immediately
-    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
+    const [tab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true,
+    });
+    if (tab?.id)
+      browser.tabs
+        .sendMessage(tab.id, { type: "udr:settings-updated" })
+        .catch(() => {});
   });
 
   // Add Active Site button handler
@@ -244,28 +313,43 @@ async function init() {
     }
 
     // Explicitly prevent moz-extension:// and other internal URLs
-    if (activeTabUrl.startsWith("moz-extension://") || activeTabUrl.startsWith("about:") || activeTabUrl.startsWith("chrome://")) {
-      alert("Cannot add override for internal extension/browser pages. Please navigate to a website (http:// or https://) first.");
+    if (
+      activeTabUrl.startsWith("moz-extension://") ||
+      activeTabUrl.startsWith("about:") ||
+      activeTabUrl.startsWith("chrome://")
+    ) {
+      alert(
+        "Cannot add override for internal extension/browser pages. Please navigate to a website (http:// or https://) first.",
+      );
       return;
     }
 
     // Only allow http:// and https:// URLs
-    if (!activeTabUrl.startsWith("http://") && !activeTabUrl.startsWith("https://")) {
-      alert(`Cannot add override for ${activeTabUrl.split(":")[0]}: URLs. Only http:// and https:// sites are supported.`);
+    if (
+      !activeTabUrl.startsWith("http://") &&
+      !activeTabUrl.startsWith("https://")
+    ) {
+      alert(
+        `Cannot add override for ${activeTabUrl.split(":")[0]}: URLs. Only http:// and https:// sites are supported.`,
+      );
       return;
     }
 
     const origin = originFromUrl(activeTabUrl);
-    
+
     // Check if already exists
     if (s.perSite[origin]) {
-      alert(`Override for ${origin} already exists. Open "More options" to modify it.`);
+      alert(
+        `Override for ${origin} already exists. Open "More options" to modify it.`,
+      );
       return;
     }
 
     s.perSite[origin] = {};
     await setSettings(s);
-    alert(`Added ${origin} to per-site overrides. Open "More options" to configure it.`);
+    alert(
+      `Added ${origin} to per-site overrides. Open "More options" to configure it.`,
+    );
   });
 }
 

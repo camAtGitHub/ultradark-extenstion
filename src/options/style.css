@@ -18,7 +18,13 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 14px/1.5 Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font:
+    14px/1.5 Inter,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    sans-serif;
 }
 main {
   max-width: 760px;
@@ -96,9 +102,18 @@ button:focus {
   transition: opacity 0.2s;
 }
 .badge.success {
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid var(--success);
-  color: var(--success);
+  background: var(--success);
+}
+
+/* Disabled toggle state (when schedule is enabled) */
+.disabled-toggle {
+  opacity: 0.5;
+  color: red;
+}
+
+.status-text {
+  color: var(--muted);
+  font-size: 12px;
 }
 .badge.error {
   background: rgba(239, 68, 68, 0.1);
@@ -121,7 +136,9 @@ button:focus {
   background: #0c0e13;
   border: 1px solid #23283a;
   border-radius: 10px;
-  transition: opacity 0.2s, transform 0.2s;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
 }
 .site-origin {
   font-size: 13px;

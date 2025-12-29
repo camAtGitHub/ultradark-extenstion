@@ -2,17 +2,37 @@
 import type { Settings } from "../types/settings";
 import { getSettings, setSettings } from "../utils/storage";
 import { compileRegexList } from "../utils/regex";
+import { withinWindow } from "../background/scheduler";
 
 async function loadAndReflect() {
   const s = await getSettings();
 
   // Load debug mode setting from local storage
-  const debugModeResult = await browser.storage.local.get('isDebugMode');
-  (document.getElementById("debugMode") as HTMLInputElement).checked = debugModeResult.isDebugMode === true;
+  const debugModeResult = await browser.storage.local.get("isDebugMode");
+  (document.getElementById("debugMode") as HTMLInputElement).checked =
+    debugModeResult.isDebugMode === true;
 
-  (document.getElementById("schedEnabled") as HTMLInputElement).checked = s.schedule.enabled;
-  (document.getElementById("schedStart") as HTMLInputElement).value = s.schedule.start;
-  (document.getElementById("schedEnd") as HTMLInputElement).value = s.schedule.end;
+  (document.getElementById("schedEnabled") as HTMLInputElement).checked =
+    s.schedule.enabled;
+  (document.getElementById("schedStart") as HTMLInputElement).value =
+    s.schedule.start;
+  (document.getElementById("schedEnd") as HTMLInputElement).value =
+    s.schedule.end;
+
+  // Handle schedule status
+  const statusText = document.getElementById(
+    "scheduleStatus",
+  ) as HTMLSpanElement;
+
+  if (s.schedule?.enabled) {
+    const isActive = withinWindow(s.schedule.start, s.schedule.end);
+    statusText.textContent = isActive
+      ? " (Currently active)"
+      : " (Outside scheduling hours)";
+    statusText.style.display = "inline";
+  } else {
+    statusText.style.display = "none";
+  }
 
   const regexList = document.getElementById("regexList") as HTMLTextAreaElement;
   regexList.value = s.excludeRegex.join("\n");
@@ -31,12 +51,12 @@ function renderSiteList(s: Settings) {
   for (const [origin, conf] of entries) {
     const row = document.createElement("div");
     row.className = "site";
-    
+
     // Determine which radio should be selected
     const alwaysOn = conf.enabled === true;
     const disabled = conf.exclude === true;
     const useDefault = !alwaysOn && !disabled;
-    
+
     row.innerHTML = `
       <code class="site-origin">${origin}</code>
       <div class="site-controls">
@@ -65,11 +85,17 @@ function renderSiteList(s: Settings) {
     const radios = row.querySelectorAll('input[type="radio"]');
     radios.forEach((radio) => {
       radio.addEventListener("change", async () => {
-        const selected = (row.querySelector(`input[name="mode-${origin}"]:checked`) as HTMLInputElement)?.value;
-        const forceDarkMode = (row.querySelector('input[data-k="forceDarkMode"]') as HTMLInputElement).checked;
+        const selected = (
+          row.querySelector(
+            `input[name="mode-${origin}"]:checked`,
+          ) as HTMLInputElement
+        )?.value;
+        const forceDarkMode = (
+          row.querySelector('input[data-k="forceDarkMode"]') as HTMLInputElement
+        ).checked;
         const st = await getSettings();
         st.perSite[origin] ||= {};
-        
+
         // Set mutually exclusive states
         if (selected === "enabled") {
           st.perSite[origin].enabled = true;
@@ -82,7 +108,7 @@ function renderSiteList(s: Settings) {
           st.perSite[origin].enabled = false;
           st.perSite[origin].exclude = false;
         }
-        
+
         st.perSite[origin].forceDarkMode = forceDarkMode;
         await setSettings(st);
         showFeedback(row, "Saved");
@@ -90,7 +116,9 @@ function renderSiteList(s: Settings) {
     });
 
     // Auto-save force dark mode checkbox
-    const forceDarkCheckbox = row.querySelector('input[data-k="forceDarkMode"]');
+    const forceDarkCheckbox = row.querySelector(
+      'input[data-k="forceDarkMode"]',
+    );
     forceDarkCheckbox?.addEventListener("change", async () => {
       const forceDarkMode = (forceDarkCheckbox as HTMLInputElement).checked;
       const st = await getSettings();
@@ -121,12 +149,12 @@ function renderSiteList(s: Settings) {
 function showFeedback(element: HTMLElement, message: string) {
   const existing = element.querySelector(".save-feedback");
   if (existing) existing.remove();
-  
+
   const feedback = document.createElement("span");
   feedback.className = "save-feedback";
   feedback.textContent = message;
   element.appendChild(feedback);
-  
+
   setTimeout(() => {
     feedback.style.opacity = "0";
     setTimeout(() => feedback.remove(), 200);
@@ -138,26 +166,32 @@ function bind() {
   const debugMode = document.getElementById("debugMode") as HTMLInputElement;
   debugMode.onchange = async () => {
     await browser.storage.local.set({ isDebugMode: debugMode.checked });
-    
+
     // Notify background script that debug mode changed
-    browser.runtime.sendMessage({ 
-      type: "udr:debug-mode-changed", 
-      enabled: debugMode.checked 
-    }).catch(() => {}); // Ignore errors
-    
+    browser.runtime
+      .sendMessage({
+        type: "udr:debug-mode-changed",
+        enabled: debugMode.checked,
+      })
+      .catch(() => {}); // Ignore errors
+
     // Notify all tabs that debug mode changed
     const tabs = await browser.tabs.query({});
     for (const tab of tabs) {
       if (tab.id) {
-        browser.tabs.sendMessage(tab.id, { 
-          type: "udr:debug-mode-changed", 
-          enabled: debugMode.checked 
-        }).catch(() => {}); // Ignore errors for tabs without content script
+        browser.tabs
+          .sendMessage(tab.id, {
+            type: "udr:debug-mode-changed",
+            enabled: debugMode.checked,
+          })
+          .catch(() => {}); // Ignore errors for tabs without content script
       }
     }
   };
 
-  const schedEnabled = document.getElementById("schedEnabled") as HTMLInputElement;
+  const schedEnabled = document.getElementById(
+    "schedEnabled",
+  ) as HTMLInputElement;
   const schedStart = document.getElementById("schedStart") as HTMLInputElement;
   const schedEnd = document.getElementById("schedEnd") as HTMLInputElement;
 
@@ -165,88 +199,110 @@ function bind() {
     const s = await getSettings();
     s.schedule.enabled = schedEnabled.checked;
     await setSettings(s);
+    // Reload to update status and global toggle state
+    loadAndReflect();
   };
   schedStart.onchange = schedEnd.onchange = async () => {
     const s = await getSettings();
     s.schedule.start = schedStart.value;
     s.schedule.end = schedEnd.value;
     await setSettings(s);
+    // Reload to update status
+    loadAndReflect();
   };
 
   // Auto-save regex on blur or when test is clicked
   const regexList = document.getElementById("regexList") as HTMLTextAreaElement;
   regexList.addEventListener("blur", async () => {
-    const raw = regexList.value.split("\n").map((x) => x.trim()).filter(Boolean);
+    const raw = regexList.value
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean);
     const s = await getSettings();
     s.excludeRegex = raw;
     await setSettings(s);
   });
 
-  (document.getElementById("testBtn") as HTMLButtonElement).onclick = async () => {
-    const raw = (document.getElementById("regexList") as HTMLTextAreaElement).value.split("\n").map((x) => x.trim()).filter(Boolean);
-    const testUrl = (document.getElementById("testUrl") as HTMLInputElement).value.trim();
-    const badge = document.getElementById("testResult")!;
-    
-    if (!testUrl) {
-      badge.style.display = "block";
-      badge.className = "badge error";
-      badge.textContent = "Please enter a URL to test";
-      return;
-    }
-    
-    try {
-      const regexes = compileRegexList(raw);
-      const excluded = regexes.some((re) => re.test(testUrl));
-      badge.style.display = "block";
-      badge.className = excluded ? "badge success" : "badge info";
-      badge.textContent = excluded ? "✓ URL matches exclusion rules" : "URL does not match any rules";
-      
-      // Auto-save regex patterns when testing
-      const s = await getSettings();
-      s.excludeRegex = raw;
-      await setSettings(s);
-    } catch (err) {
-      badge.style.display = "block";
-      badge.className = "badge error";
-      badge.textContent = `Error: ${(err as Error).message || "Invalid regex pattern"}`;
-    }
-  };
+  (document.getElementById("testBtn") as HTMLButtonElement).onclick =
+    async () => {
+      const raw = (
+        document.getElementById("regexList") as HTMLTextAreaElement
+      ).value
+        .split("\n")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const testUrl = (
+        document.getElementById("testUrl") as HTMLInputElement
+      ).value.trim();
+      const badge = document.getElementById("testResult")!;
+
+      if (!testUrl) {
+        badge.style.display = "block";
+        badge.className = "badge error";
+        badge.textContent = "Please enter a URL to test";
+        return;
+      }
+
+      try {
+        const regexes = compileRegexList(raw);
+        const excluded = regexes.some((re) => re.test(testUrl));
+        badge.style.display = "block";
+        badge.className = excluded ? "badge success" : "badge info";
+        badge.textContent = excluded
+          ? "✓ URL matches exclusion rules"
+          : "URL does not match any rules";
+
+        // Auto-save regex patterns when testing
+        const s = await getSettings();
+        s.excludeRegex = raw;
+        await setSettings(s);
+      } catch (err) {
+        badge.style.display = "block";
+        badge.className = "badge error";
+        badge.textContent = `Error: ${(err as Error).message || "Invalid regex pattern"}`;
+      }
+    };
 
   // Reset all settings to defaults
-  (document.getElementById("resetSettings") as HTMLButtonElement).onclick = async () => {
-    const confirmed = confirm(
-      "Are you sure you want to reset ALL settings to defaults?\n\n" +
-      "This will:\n" +
-      "• Clear all per-site overrides\n" +
-      "• Remove all regex exclusions\n" +
-      "• Restore default theme settings\n" +
-      "• Keep debug mode setting\n\n" +
-      "This action cannot be undone."
-    );
-    
-    if (!confirmed) return;
+  (document.getElementById("resetSettings") as HTMLButtonElement).onclick =
+    async () => {
+      const confirmed = confirm(
+        "Are you sure you want to reset ALL settings to defaults?\n\n" +
+          "This will:\n" +
+          "• Clear all per-site overrides\n" +
+          "• Remove all regex exclusions\n" +
+          "• Restore default theme settings\n" +
+          "• Keep debug mode setting\n\n" +
+          "This action cannot be undone.",
+      );
 
-    // Import DEFAULTS from defaults.ts
-    const { DEFAULTS } = await import("../utils/defaults");
-    
-    // Reset sync storage to defaults
-    await setSettings(DEFAULTS);
-    
-    // Reload the UI to reflect changes
-    await loadAndReflect();
-    
-    // Notify all tabs to update
-    const tabs = await browser.tabs.query({});
-    for (const tab of tabs) {
-      if (tab.id) {
-        browser.tabs.sendMessage(tab.id, { 
-          type: "udr:settings-updated"
-        }).catch(() => {});
+      if (!confirmed) return;
+
+      // Import DEFAULTS from defaults.ts
+      const { DEFAULTS } = await import("../utils/defaults");
+
+      // Reset sync storage to defaults
+      await setSettings(DEFAULTS);
+
+      // Reload the UI to reflect changes
+      await loadAndReflect();
+
+      // Notify all tabs to update
+      const tabs = await browser.tabs.query({});
+      for (const tab of tabs) {
+        if (tab.id) {
+          browser.tabs
+            .sendMessage(tab.id, {
+              type: "udr:settings-updated",
+            })
+            .catch(() => {});
+        }
       }
-    }
-    
-    alert("Settings have been reset to defaults. All tabs will be refreshed with the default theme.");
-  };
+
+      alert(
+        "Settings have been reset to defaults. All tabs will be refreshed with the default theme.",
+      );
+    };
 }
 
 loadAndReflect();
