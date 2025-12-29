@@ -42,7 +42,7 @@ async function effectiveSettingsFor(url: string, base: Settings): Promise<{ use:
 
 function applyShield() {
   if (document.getElementById('udr-shield')) {
-    console.log('[Shield] Shield already active, skipping');
+    console.log('[UltraDark][Shield] Shield already active, skipping');
     return;
   }
 
@@ -60,7 +60,7 @@ function applyShield() {
   `;
   document.documentElement.appendChild(shield);
   shieldActive = true;
-  console.log('[Shield] Instant Shield applied');
+  console.log('[UltraDark][Shield] Instant Shield applied');
 }
 
 function removeShield() {
@@ -69,7 +69,7 @@ function removeShield() {
     setTimeout(() => {
       shield.remove();
       shieldActive = false;
-      console.log('[Shield] Shield removed');
+      console.log('[UltraDark][Shield] Shield removed');
     }, 50); 
   }
 }
@@ -130,6 +130,7 @@ function hueRotateFromBlueShift(blueShift: number): number {
 }
 
 function applyFilterCss(settings: Settings) {
+  console.log('[UltraDark] Applying Global Filter Sliders...');
   const tag = ensureStyleTag();
   const css = buildCss({
     brightness: settings.brightness,
@@ -163,22 +164,23 @@ function applyCss(s: Settings) {
   // CRITICAL FIX FOR PHOTON INVERTER:
   // Photon Inverter requires the ORIGINAL text color (usually Black) to invert to White.
   // Pre-Inject forces text to Light Grey (#e0e0e0). When inverted, this becomes Dark Grey (#1f1f1f).
-  // We must remove Pre-Inject styles to allow correct inversion.
-  if (s.mode !== "photon-inverter") {
-      console.log('[UltraDark] Applying Global Filter Sliders...');
-      applyFilterCss(s);
-    }
-
+  // We must remove Pre-Inject styles to allow correct inversion via removePreInjectCss().
   
   if (s.mode === "photon-inverter") {
-    applyPhotonInverter(s);
+      console.log('[UltraDark] Removing Pre-Inject styles for Photon Inverter to ensure correct text color inversion.');
+      removePreInjectCss();
+      applyPhotonInverter(s);
   } else if (s.mode === "dom-walker") {
-    applyDomWalker(s);
+      applyFilterCss(s);
+      applyDomWalker(s);
   } else if (s.mode === "chroma-semantic") {
-    applyChromaSemantic(s);
+      applyFilterCss(s);
+      applyChromaSemantic(s);
   } else {
-    console.log('[UltraDark] Unknown mode, falling back to photon-inverter');
-    applyPhotonInverter(s);
+      console.log('[UltraDark] Unknown mode, falling back to photon-inverter');
+      console.log('[UltraDark] Removing Pre-Inject styles for Photon Inverter to ensure correct text color inversion.');
+      removePreInjectCss();
+      applyPhotonInverter(s);
   }
   
   if (shieldActive) {
@@ -253,7 +255,7 @@ function startObserverForSpa() {
 
 async function startOptimizerIfEnabled(s: Settings) {
   if (!s.optimizerEnabled) {
-    console.log('[Optimizer] Disabled');
+    console.log('[UltraDark][Optimizer] Disabled');
     return;
   }
   
@@ -270,7 +272,7 @@ async function startOptimizerIfEnabled(s: Settings) {
         
         const { suggestedContrast } = data;
         if (typeof suggestedContrast === "number") {
-          console.log('[Optimizer] Suggestion:', suggestedContrast + '%');
+          console.log('[UltraDark][Optimizer] Suggestion:', suggestedContrast + '%');
           const tag = document.getElementById("udr-style");
           if (tag) {
             const bounded = Math.min(200, Math.max(50, suggestedContrast));
@@ -344,7 +346,6 @@ async function tick() {
     return;
   }
 
-  // Ensure debug cache is fresh so logs appear
   await initDebugCache();
 
   const origin = new URL(location.href).origin;
@@ -364,7 +365,6 @@ async function tick() {
       }
   }
 
-  // Apply Shield if we haven't decided yet (prevents flash of white)
   if (!applied && !shieldActive && !preInjected) {
     console.log('[UltraDark] Applying Shield...');
     applyShield();
@@ -376,8 +376,6 @@ async function tick() {
     console.warn('[UltraDark] Timeout waiting for document ready', error);
   }
 
-  // STRATEGY: Post-Detection (after document ready)
-  // Only run if we didn't run early detection, or if we need to be sure
   if (shouldDetectDark && !applied && !preInjected) {
       console.log('[UltraDark] Running Post-Detection (DOM Ready)...');
       if (isAlreadyDarkTheme()) {
