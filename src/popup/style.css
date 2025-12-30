@@ -327,10 +327,11 @@ input[type="range"]:focus {
 .popup-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   margin-top: auto;
   padding-top: 4px;
+  flex-wrap: wrap;
 }
 
 .footer-right {
@@ -438,4 +439,34 @@ input[type="range"]:disabled::-moz-range-thumb {
 
 .disabled-toggle:checked + .track {
   background: red;
+}
+
+/* Prototype Link */
+.prototype-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 0.16s ease-out,
+    color 0.16s ease-out,
+    transform 0.12s ease-out;
+}
+
+.prototype-link:hover {
+  background: rgba(148, 163, 184, 0.25);
+  color: #e5e7eb;
+  transform: translateY(-1px);
+}
+
+.prototype-link:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }

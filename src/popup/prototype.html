@@ -1,0 +1,187 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>UltraDark - Saved Sites</title>
+    <meta name="viewport" content="width=device,initial-scale=1" />
+    <link href="./prototype.css" rel="stylesheet" />
+  </head>
+  <body>
+    <main class="prototype-container">
+      <div class="prototype-header">
+        <div class="header-left">
+          <a href="index.html" class="back-link" title="Back to main">←</a>
+          <div>
+            <h1 class="prototype-title">Saved Sites</h1>
+            <p class="prototype-subtitle">Manage per-site settings</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          id="addCurrentSite"
+          class="action-btn primary-btn"
+          title="Add current site"
+        >
+          + Add Current
+        </button>
+      </div>
+
+      <div class="search-filter">
+        <input
+          type="text"
+          id="siteSearch"
+          placeholder="Filter sites..."
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="site-list-container" id="siteListContainer">
+        <div class="site-list" id="siteList">
+          <!-- Sites will be rendered here -->
+        </div>
+      </div>
+
+      <div class="site-details" id="siteDetails">
+        <div class="details-header">
+          <div class="site-info">
+            <span class="site-favicon" id="detailFavicon">🌐</span>
+            <span class="site-domain" id="detailDomain">example.com</span>
+          </div>
+          <button
+            type="button"
+            id="deleteSite"
+            class="delete-btn"
+            title="Delete site override"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
+              />
+            </svg>
+            Delete
+          </button>
+        </div>
+
+        <div class="mode-selector">
+          <span class="mode-label">Algorithm</span>
+          <div class="mode-buttons">
+            <button
+              type="button"
+              class="mode-btn"
+              data-mode="photon-inverter"
+              title="CSS Filter-based"
+            >
+              Photon
+            </button>
+            <button
+              type="button"
+              class="mode-btn"
+              data-mode="chroma-semantic"
+              title="Semantic analysis"
+            >
+              Chroma
+            </button>
+          </div>
+        </div>
+
+        <div class="toggles-row">
+          <div class="toggle">
+            <div class="toggle-text">
+              <span class="toggle-label">Always enabled</span>
+              <span class="toggle-caption">Force dark mode on this site</span>
+            </div>
+            <label class="switch small">
+              <input type="checkbox" id="alwaysEnabled" />
+              <span class="track"></span>
+            </label>
+          </div>
+          <div class="toggle">
+            <div class="toggle-text">
+              <span class="toggle-label">Always disabled</span>
+              <span class="toggle-caption">Never apply dark mode</span>
+            </div>
+            <label class="switch small">
+              <input type="checkbox" id="alwaysDisabled" />
+              <span class="track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="sliders">
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Brightness</span>
+              <span class="slider-value" id="briV">90%</span>
+            </div>
+            <input type="range" id="brightness" min="50" max="120" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Contrast</span>
+              <span class="slider-value" id="conV">110%</span>
+            </div>
+            <input type="range" id="contrast" min="50" max="200" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Sepia</span>
+              <span class="slider-value" id="sepV">0%</span>
+            </div>
+            <input type="range" id="sepia" min="0" max="100" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Grayscale</span>
+              <span class="slider-value" id="gryV">0%</span>
+            </div>
+            <input type="range" id="grayscale" min="0" max="100" />
+          </div>
+          <div class="slider-row">
+            <div class="slider-label">
+              <span>Blue shift</span>
+              <span class="slider-value" id="bluV">0%</span>
+            </div>
+            <input type="range" id="blueShift" min="0" max="100" />
+          </div>
+        </div>
+
+        <div class="save-indicator" id="saveIndicator">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          <span>Saved</span>
+        </div>
+      </div>
+
+      <div class="empty-state" id="emptyState">
+        <svg
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+        </svg>
+        <p>No saved sites yet</p>
+        <span>Add sites to customize settings per domain</span>
+      </div>
+    </main>
+    <script type="module" src="./prototype.ts"></script>
+  </body>
+</html>
