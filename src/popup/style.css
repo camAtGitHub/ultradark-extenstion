@@ -21,7 +21,8 @@ html,
 body {
   margin: 0;
   padding: 0;
-  width: 360px;
+  width: 400px;
+  height: 430px;
   background: var(--page-bg);
   color: var(--page-text);
   font-family:
@@ -43,6 +44,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-height: 100%;
   overflow: hidden;
   background: var(--card-bg);
   backdrop-filter: blur(18px);
