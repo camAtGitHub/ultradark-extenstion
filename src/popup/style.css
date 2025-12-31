@@ -22,7 +22,6 @@ body {
   margin: 0;
   padding: 0;
   width: 360px;
-  max-height: 580px;
   background: var(--page-bg);
   color: var(--page-text);
   font-family:
