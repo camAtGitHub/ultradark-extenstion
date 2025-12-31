@@ -133,6 +133,9 @@ body {
 /* Search Filter */
 .search-filter {
   flex-shrink: 0;
+  transition:
+    opacity 0.2s ease-out,
+    visibility 0.2s ease-out;
 }
 
 .search-filter input {
@@ -165,6 +168,9 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.4);
+  transition:
+    opacity 0.2s ease-out,
+    visibility 0.2s ease-out;
 }
 
 .site-list-container::-webkit-scrollbar {
@@ -182,6 +188,14 @@ body {
 
 .site-list-container::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
+}
+
+/* Hide list, search, empty state when modal is open */
+body.modal-open .search-filter,
+body.modal-open .site-list-container,
+body.modal-open .empty-state {
+  visibility: hidden;
+  opacity: 0;
 }
 
 .site-list {
@@ -306,9 +320,14 @@ body {
 }
 
 .site-details.visible {
-  display: block;
-  height: 360px;
-  overflow-y: auto;
+  position: absolute;
+  inset: 60px 14px 14px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--page-bg);
+  border: 1px solid var(--border);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   animation: slideUp 0.2s ease-out;
 }
 

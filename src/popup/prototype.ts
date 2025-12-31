@@ -299,6 +299,8 @@ function selectSite(domain: string) {
   const siteDetails = $("#siteDetails") as HTMLElement;
   siteDetails.classList.add("visible");
 
+  document.body.classList.add("modal-open");
+
   currentView = "details";
   const backLink = $("#backLink") as HTMLAnchorElement;
   backLink.title = "Back to site list";
@@ -504,6 +506,7 @@ function setupEventListeners() {
 
     const siteDetails = $("#siteDetails") as HTMLElement;
     siteDetails.classList.remove("visible");
+    document.body.classList.remove("modal-open");
 
     renderSiteList();
   });
@@ -551,6 +554,7 @@ function setupEventListeners() {
       currentView = "listings";
       const siteDetails = $("#siteDetails") as HTMLElement;
       siteDetails.classList.remove("visible");
+      document.body.classList.remove("modal-open");
       backLink.title = "Back to main";
     } else {
       window.location.href = "index.html";
