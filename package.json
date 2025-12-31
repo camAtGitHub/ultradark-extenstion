@@ -9,7 +9,8 @@
     "build:scripts": "node ./scripts/build-scripts.cjs",
     "build": "vite build && npm run build:scripts",
     "test": "vitest run",
-    "lint": "eslint .",
+    "lint": "eslint . && npm run lint:css",
+    "lint:css": "stylelint '**/*.css'",
     "zip": "node scripts/zip-dist.js"
   },
   "devDependencies": {
@@ -21,7 +22,10 @@
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
     "jsdom": "^27.2.0",
+    "postcss-scss": "^4.0.9",
     "prettier": "^3.3.3",
+    "stylelint": "^16.26.1",
+    "stylelint-config-standard": "^39.0.1",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^5.4.10",
