@@ -9,7 +9,7 @@ interface SiteData {
   domain: string;
   favicon: string;
   settings: {
-    mode: "photon-inverter" | "chroma-semantic";
+    mode: "photon-inverter" | "dom-walker" | "chroma-semantic";
     alwaysEnabled: boolean;
     alwaysDisabled: boolean;
     brightness: number;
@@ -23,6 +23,7 @@ interface SiteData {
 let currentSite: string | null = null;
 let allSites: SiteData[] = [];
 let filteredSites: SiteData[] = [];
+let currentView: "listings" | "details" = "listings";
 
 const dummySites: SiteData[] = [
   {
@@ -298,6 +299,10 @@ function selectSite(domain: string) {
   const siteDetails = $("#siteDetails") as HTMLElement;
   siteDetails.classList.add("visible");
 
+  currentView = "details";
+  const backLink = $("#backLink") as HTMLAnchorElement;
+  backLink.title = "Back to site list";
+
   $("#detailFavicon").textContent = site.favicon;
   $("#detailDomain").textContent = site.domain;
 
@@ -537,6 +542,19 @@ function setupEventListeners() {
     renderSiteList();
     selectSite(currentSite);
     showSaveIndicator();
+  });
+
+  const backLink = $("#backLink") as HTMLAnchorElement;
+  backLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (currentView === "details") {
+      currentView = "listings";
+      const siteDetails = $("#siteDetails") as HTMLElement;
+      siteDetails.classList.remove("visible");
+      backLink.title = "Back to main";
+    } else {
+      window.location.href = "index.html";
+    }
   });
 }
 

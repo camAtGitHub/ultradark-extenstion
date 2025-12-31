@@ -10,7 +10,7 @@
     <main class="prototype-container">
       <div class="prototype-header">
         <div class="header-left">
-          <a href="index.html" class="back-link" title="Back to main">←</a>
+          <a href="#" id="backLink" class="back-link" title="Back to main">←</a>
           <div>
             <h1 class="prototype-title">Saved Sites</h1>
             <p class="prototype-subtitle">Manage per-site settings</p>
@@ -79,6 +79,14 @@
               title="CSS Filter-based"
             >
               Photon
+            </button>
+            <button
+              type="button"
+              class="mode-btn"
+              data-mode="dom-walker"
+              title="DOM traversal-based"
+            >
+              DOM Walker
             </button>
             <button
               type="button"
