@@ -281,93 +281,143 @@ function startObserverForSpa() {
   });
 }
 
-async function startOptimizerIfEnabled(s: Settings) {
+/**
+ * OPTIMIZATION 3: Defer Worker Initialization
+ * 
+ * Use requestIdleCallback to defer optimizer worker sampling to after initial paint.
+ * This prevents blocking the main thread during critical rendering time.
+ */
+let workerInitPromise: Promise<void> | null = null;
+
+async function startOptimizerIfEnabled(s: Settings): Promise<void> {
   if (!s.optimizerEnabled) {
     console.log("[UltraDark][Optimizer] Disabled");
     return;
   }
+  
+  if (workerInitPromise) return workerInitPromise;
 
-  if (!worker) {
-    try {
-      worker = new Worker(WorkerUrl);
-      worker.onmessage = (ev) => {
-        const data = ev.data as {
-          type?: string;
-          suggestedContrast?: number;
-          message?: unknown[];
-        };
+  workerInitPromise = new Promise((resolve) => {
+    // Defer worker init to after paint using requestIdleCallback
+    const scheduleInit = window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 0));
+    scheduleInit(
+      () => {
+        initializeOptimizerWorker(s).then(resolve);
+      },
+      { timeout: 2000 } as IdleRequestOptions // Max 2s delay
+    );
+  });
 
-        if (data.type === "debug" && data.message) {
-          console.log("[UltraDark]", ...data.message);
-          return;
-        }
+  return workerInitPromise;
+}
 
-        const { suggestedContrast } = data;
-        if (typeof suggestedContrast === "number") {
-          console.log(
-            "[UltraDark][Optimizer] Suggestion:",
-            suggestedContrast + "%",
-          );
-          const tag = document.getElementById("udr-style");
-          if (tag) {
-            const bounded = Math.min(200, Math.max(50, suggestedContrast));
-            if (bounded !== s.contrast) {
-              const next = { ...s, contrast: bounded };
-              applyCss(next);
-              (async () => {
-                try {
-                  const currentSettings = await getSettings();
-                  const origin = new URL(location.href).origin;
-                  const perSiteSettings = currentSettings.perSite[origin];
+async function initializeOptimizerWorker(s: Settings): Promise<void> {
+  if (worker) return;
 
-                  if (perSiteSettings?.override?.contrast !== undefined) {
-                    currentSettings.perSite[origin].override = {
-                      ...perSiteSettings.override,
-                      contrast: bounded,
-                    };
-                  } else {
-                    currentSettings.contrast = bounded;
-                  }
-                  await setSettings(currentSettings);
-                } catch (error) {
-                  console.error(
-                    "[UltraDark] Failed to update settings:",
-                    error,
-                  );
-                }
-              })();
-            }
-          }
-        }
+  try {
+    worker = new Worker(WorkerUrl);
+    
+    worker.onmessage = (ev) => {
+      const data = ev.data as {
+        type?: string;
+        suggestedContrast?: number;
+        message?: unknown[];
       };
 
-      worker.onerror = (err) => console.error("[UltraDark] Worker error:", err);
+      if (data.type === "debug" && data.message) {
+        console.log("[UltraDark]", ...data.message);
+        return;
+      }
 
-      const result = await browser.storage.local.get("isDebugMode");
-      const isDebug = result.isDebugMode === true;
-      worker.postMessage({ type: "setDebugMode", debug: isDebug });
+      const { suggestedContrast } = data;
+      if (typeof suggestedContrast === "number") {
+        console.log(
+          "[UltraDark][Optimizer] Suggestion:",
+          suggestedContrast + "%",
+        );
+        const tag = document.getElementById("udr-style");
+        if (tag) {
+          const bounded = Math.min(200, Math.max(50, suggestedContrast));
+          if (bounded !== s.contrast) {
+            const next = { ...s, contrast: bounded };
+            applyCss(next);
+            (async () => {
+              try {
+                const currentSettings = await getSettings();
+                const origin = new URL(location.href).origin;
+                const perSiteSettings = currentSettings.perSite[origin];
 
-      const samples: { fg: string; bg: string }[] = [];
-      const MAX = 120;
-      const sel = "p,span,li,dd,dt,small,code,pre,a,td,th,h1,h2,h3,h4,h5,h6";
-      const elements = document.querySelectorAll(sel);
+                if (perSiteSettings?.override?.contrast !== undefined) {
+                  currentSettings.perSite[origin].override = {
+                    ...perSiteSettings.override,
+                    contrast: bounded,
+                  };
+                } else {
+                  currentSettings.contrast = bounded;
+                }
+                await setSettings(currentSettings);
+              } catch (error) {
+                console.error(
+                  "[UltraDark] Failed to update settings:",
+                  error,
+                );
+              }
+            })();
+          }
+        }
+      }
+    };
 
-      elements.forEach((el, index) => {
-        if (samples.length >= MAX) return;
-        const cs = getComputedStyle(el as Element);
-        const fg = cs.color;
-        const bg =
-          cs.backgroundColor ||
-          getComputedStyle((el as Element).parentElement || document.body)
-            .backgroundColor;
-        samples.push({ fg, bg });
-      });
+    worker.onerror = (err) => console.error("[UltraDark] Worker error:", err);
 
+    const result = await browser.storage.local.get("isDebugMode");
+    const isDebug = result.isDebugMode === true;
+    worker.postMessage({ type: "setDebugMode", debug: isDebug });
+
+    // Deferred sampling with batched reads and reduced sample size
+    const samples = await collectContrastSamples();
+    if (samples.length > 0) {
       worker.postMessage({ type: "analyze", samples });
-    } catch (e) {
-      console.warn("[Optimizer] Worker failed", e);
     }
+  } catch (e) {
+    console.warn("[Optimizer] Worker failed", e);
+    workerInitPromise = null;
   }
+}
+
+function collectContrastSamples(): Promise<Array<{ fg: string; bg: string }>> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      const samples: Array<{ fg: string; bg: string }> = [];
+      const MAX = 80;  // Reduced from 120 - 80 provides sufficient statistical accuracy
+      const sel = "p,span,li,a,td,th,h1,h2,h3";  // Reduced selector set (removed dd,dt,small,code,pre,h4,h5,h6)
+      
+      const elements = document.querySelectorAll(sel);
+      const elemArray = Array.from(elements).slice(0, MAX);
+      
+      // Batch read phase (all style reads together)
+      const styleData: Array<{ fg: string; bg: string }> = [];
+      for (const el of elemArray) {
+        const cs = getComputedStyle(el);
+        styleData.push({
+          fg: cs.color,
+          bg: cs.backgroundColor
+        });
+      }
+      
+      // Process phase (no layout impact, fill in missing backgrounds)
+      const bodyBg = getComputedStyle(document.body).backgroundColor; // Single read, cached by browser
+      for (const data of styleData) {
+        if (data.bg === 'rgba(0, 0, 0, 0)' || data.bg === 'transparent' || !data.bg) {
+          // Use body background as fallback
+          data.bg = bodyBg;
+        }
+        samples.push(data);
+      }
+      
+      resolve(samples);
+    });
+  });
 }
 
 async function tick() {
