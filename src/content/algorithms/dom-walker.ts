@@ -11,6 +11,7 @@
 import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
+import { parseRgbFast, isTransparentFast } from "../../utils/color-utils";
 
 const processedElements = new Set<HTMLElement>();
 let mutationObserver: MutationObserver | null = null;
@@ -96,24 +97,17 @@ function hslToRgb(h: number, s: number, l: number): RGB {
 
 /**
  * Parse RGB color string to RGB object
+ * OPTIMIZATION 6: Use shared cached color parser
  */
 function parseRgb(colorStr: string): RGB | null {
-  const rgbMatch = colorStr.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-  if (rgbMatch) {
-    return {
-      r: parseInt(rgbMatch[1], 10),
-      g: parseInt(rgbMatch[2], 10),
-      b: parseInt(rgbMatch[3], 10)
-    };
-  }
-  return null;
+  return parseRgbFast(colorStr);
 }
 
 /**
  * Check if color is transparent
  */
 function isTransparent(colorStr: string): boolean {
-  return colorStr === 'rgba(0, 0, 0, 0)' || colorStr === 'transparent';
+  return isTransparentFast(colorStr);
 }
 
 /**
