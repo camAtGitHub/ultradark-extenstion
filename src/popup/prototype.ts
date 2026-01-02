@@ -144,6 +144,7 @@ async function init() {
   await loadSites();
   setupEventListeners();
   renderSiteList();
+  initCustomScrollbar();
 }
 
 async function loadSites() {
@@ -560,6 +561,96 @@ function setupEventListeners() {
       window.location.href = "index.html";
     }
   });
+}
+
+function initCustomScrollbar() {
+  const wrapper = $(".scrollbar-wrapper") as HTMLElement;
+  const thumb = $(".scrollbar-thumb") as HTMLElement;
+  const track = $(".scrollbar-track") as HTMLElement;
+
+  if (!wrapper || !thumb || !track) return;
+
+  let isDragging = false;
+  let startY = 0;
+  let startThumbTop = 0;
+
+  function updateThumb() {
+    const containerHeight = wrapper.clientHeight;
+    const contentHeight = wrapper.scrollHeight;
+    const scrollTop = wrapper.scrollTop;
+
+    if (contentHeight <= containerHeight) {
+      thumb.style.display = "none";
+      return;
+    }
+
+    thumb.style.display = "block";
+
+    const thumbHeight = Math.max(
+      30,
+      (containerHeight / contentHeight) * containerHeight,
+    );
+    const maxThumbTop = containerHeight - thumbHeight - 8;
+    const scrollRatio = scrollTop / (contentHeight - containerHeight);
+    const thumbTop = scrollRatio * maxThumbTop;
+
+    thumb.style.height = `${thumbHeight}px`;
+    thumb.style.top = `${thumbTop + 4}px`;
+  }
+
+  function handleScroll() {
+    updateThumb();
+  }
+
+  function handleThumbMouseDown(e: MouseEvent) {
+    e.preventDefault();
+    isDragging = true;
+    thumb.classList.add("active");
+    startY = e.clientY;
+    const thumbStyle = getComputedStyle(thumb);
+    startThumbTop = parseInt(thumbStyle.top, 10);
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!isDragging) return;
+
+    const containerHeight = wrapper.clientHeight;
+    const contentHeight = wrapper.scrollHeight;
+    const deltaY = e.clientY - startY;
+    const trackHeight = containerHeight - 8;
+    const thumbHeight = parseInt(getComputedStyle(thumb).height, 10);
+    const maxThumbTop = trackHeight - thumbHeight;
+
+    let newThumbTop = startThumbTop + deltaY;
+    newThumbTop = Math.max(0, Math.min(newThumbTop, maxThumbTop));
+
+    thumb.style.top = `${newThumbTop + 4}px`;
+
+    const scrollRatio = newThumbTop / maxThumbTop;
+    const maxScroll = contentHeight - containerHeight;
+    wrapper.scrollTop = scrollRatio * maxScroll;
+  }
+
+  function handleMouseUp() {
+    isDragging = false;
+    thumb.classList.remove("active");
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  }
+
+  wrapper.addEventListener("scroll", handleScroll);
+  thumb.addEventListener("mousedown", handleThumbMouseDown);
+
+  const resizeObserver = new ResizeObserver(() => updateThumb());
+  resizeObserver.observe(wrapper);
+
+  updateThumb();
+
+  (window as { __scrollbarObserver?: ResizeObserver }).__scrollbarObserver =
+    resizeObserver;
 }
 
 init();
