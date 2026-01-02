@@ -32,7 +32,7 @@ UltraDark Reader uses two browser storage APIs:
   grayscale: number,          // 0-100: Grayscale filter percentage
   blueShift: number,          // 0-100: Blue light reduction (hue rotation)
   optimizerEnabled: boolean,  // Enable dynamic contrast optimizer
-  detectDarkSites: boolean,   // Skip dark theme on sites already dark
+  skipDarkSites: boolean,   // Skip dark theme on sites already dark
   perSite: {                  // Per-site override configuration
     "[origin]": {
       enabled?: boolean,      // Force on/off for this site
@@ -63,7 +63,7 @@ UltraDark Reader uses two browser storage APIs:
   grayscale: 0,
   blueShift: 0,
   optimizerEnabled: true,
-  detectDarkSites: true,
+  skipDarkSites: true,
   perSite: {},
   excludeRegex: [],
   schedule: { enabled: false, start: "21:00", end: "07:00" }
@@ -83,7 +83,7 @@ UltraDark Reader uses two browser storage APIs:
   grayscale: 0,
   blueShift: 15,
   optimizerEnabled: true,
-  detectDarkSites: true,
+  skipDarkSites: true,
   perSite: {
     "https://github.com": {
       enabled: true,
@@ -121,7 +121,7 @@ UltraDark Reader uses two browser storage APIs:
 - **contrast**: Adjusts color contrast
 - **sepia/grayscale/blueShift**: Apply color filters
 - **optimizerEnabled**: Activates web worker for dynamic contrast optimization
-- **detectDarkSites**: Prevents applying theme to sites already using dark mode
+- **skipDarkSites**: Prevents applying theme to sites already using dark mode
 - **perSite**: Site-specific overrides by origin (protocol + hostname)
 - **excludeRegex**: URL patterns to exclude from theming
 - **schedule**: Automatically enable/disable theme based on time of day
@@ -197,7 +197,7 @@ Settings are resolved in this priority order (highest to lowest):
 1. **Per-site override values** (`perSite[origin].override.*`)
 2. **Per-site enabled/exclude flags** (`perSite[origin].enabled/exclude`)
 3. **Global regex exclusions** (`excludeRegex`)
-4. **Dark site detection** (`detectDarkSites`, unless `forceDarkMode` is set)
+4. **Dark site detection** (`skipDarkSites`, unless `forceDarkMode` is set)
 5. **Global settings** (top-level settings values)
 
 ---

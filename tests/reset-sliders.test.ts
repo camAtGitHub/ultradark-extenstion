@@ -93,7 +93,7 @@ describe("Reset Sliders", () => {
       mode: "surgeon" as const,
       amoled: true,
       optimizerEnabled: false,
-      detectDarkSites: true,
+      skipDarkSites: true,
       brightness: 120,
       contrast: 150,
       sepia: 50,
@@ -134,7 +134,7 @@ describe("Reset Sliders", () => {
     expect(settings.mode).toBe("surgeon");
     expect(settings.amoled).toBe(true);
     expect(settings.optimizerEnabled).toBe(false);
-    expect(settings.detectDarkSites).toBe(true);
+    expect(settings.skipDarkSites).toBe(true);
     expect(settings.perSite["https://example.com"]).toEqual({ enabled: true });
     expect(settings.excludeRegex).toEqual(["pattern1", "pattern2"]);
     expect(settings.schedule).toEqual({ enabled: true, start: "22:00", end: "06:00" });

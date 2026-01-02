@@ -21,7 +21,7 @@ export interface Settings {
   grayscale: number;  // 0..100 (%)
   blueShift: number;  // 0..100 (%) -> hue rotation scaled internally
   optimizerEnabled: boolean;
-  detectDarkSites: boolean; // Auto-detect if sites are already dark
+  skipDarkSites: boolean; // Auto-detect if sites are already dark
   perSite: Record<string, SiteOverride>;
   excludeRegex: string[];
   schedule: Schedule;

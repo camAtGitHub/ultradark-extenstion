@@ -48,7 +48,7 @@ async function init() {
   const toggle = $("#toggle") as HTMLInputElement;
   const amoled = $("#amoled") as HTMLInputElement;
   const optimizer = $("#optimizer") as HTMLInputElement;
-  const detectDark = $("#detectDark") as HTMLInputElement;
+  const skipDark = $("#skipDark") as HTMLInputElement;
   const modeButtons = $$(".mode-btn");
 
   const brightness = $("#brightness") as HTMLInputElement;
@@ -67,7 +67,7 @@ async function init() {
     toggle.checked = st.enabled;
     amoled.checked = st.amoled;
     optimizer.checked = st.optimizerEnabled;
-    detectDark.checked = st.detectDarkSites;
+    skipDark.checked = st.skipDarkSites;
 
     // Handle schedule state
     const toggleLabel = $(".toggle-main-label");
@@ -221,11 +221,11 @@ async function init() {
 
   amoled.onchange =
     optimizer.onchange =
-    detectDark.onchange =
+    skipDark.onchange =
       async () => {
         s.amoled = amoled.checked;
         s.optimizerEnabled = optimizer.checked;
-        s.detectDarkSites = detectDark.checked;
+        s.skipDarkSites = skipDark.checked;
 
         // Update contrast slider state when optimizer toggle changes
         updateContrastSliderState(s.optimizerEnabled);

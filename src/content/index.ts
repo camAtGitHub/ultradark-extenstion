@@ -401,7 +401,7 @@ async function tick() {
 
   const origin = new URL(location.href).origin;
   const per = use.perSite[origin] || {};
-  const shouldDetectDark = use.detectDarkSites && !per.forceDarkMode;
+  const shouldDetectDark = use.skipDarkSites && !per.forceDarkMode;
 
   const isDark = false;
 

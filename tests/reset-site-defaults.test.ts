@@ -138,7 +138,7 @@ describe("Reset Site to Defaults", () => {
     expect(DEFAULTS.mode).toBe("photon-inverter");
     expect(DEFAULTS.enabled).toBe(true);
     expect(DEFAULTS.optimizerEnabled).toBe(true);
-    expect(DEFAULTS.detectDarkSites).toBe(true);
+    expect(DEFAULTS.skipDarkSites).toBe(true);
   });
 
   it("should handle URL origin extraction correctly", () => {
