@@ -86,6 +86,7 @@ export function isAlreadyDarkTheme(): boolean {
   }
 
   // CHECK 2: Visual Reality (Sampling)
+  // OPTIMIZATION: Batched style reads to prevent layout thrashing
   console.log('[UltraDark Dark Detection] 🔍 Sampling visual elements for luminance...');
   
   let darkVotes = 0;
@@ -93,39 +94,24 @@ export function isAlreadyDarkTheme(): boolean {
   let skippedTransparent = 0;
   let skippedHidden = 0;
 
-  // Helper to process an element
-  const processElement = (el: Element, source: string) => {
-    // Skip hidden elements
-    const isVisible = el.checkVisibility ? 
-        el.checkVisibility({checkVisibilityCSS: true, checkOpacity: true}) : 
-        (el.offsetParent !== null || el.getClientRects().length > 0);
-    
-    // Note: We DO NOT skip body even if offsetParent is null (empty canvas), 
-    // because body defines the intended background color of the site.
-    if (source !== 'body' && !isVisible) {
-      skippedHidden++;
-      return;
-    }
-
-    // Skip elements with no size (unless it's body)
-    if (source !== 'body') {
-        const rect = el.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) {
-            skippedHidden++;
-            return;
-        }
-    }
-
-    const bg = window.getComputedStyle(el).backgroundColor;
+  /**
+   * BATCHED DARK DETECTION
+   * 
+   * Strategy: Read all computed styles in a single batch, THEN process.
+   * This prevents forced synchronous layouts between reads.
+   */
+  const processElement = (el: Element, source: string, precomputedBg?: string) => {
+    // Use precomputed background if provided (batch mode)
+    const bg = precomputedBg ?? window.getComputedStyle(el).backgroundColor;
     const rgb = parseRGB(bg);
     
     if (!rgb) {
       skippedTransparent++;
-      return; // Skip transparent or unparseable colors
+      return;
     }
 
     const lum = getLuminance(rgb.r, rgb.g, rgb.b);
-    const threshold = 0.2; // Darker than #333333 is considered dark
+    const threshold = 0.2;
     
     console.log(`[UltraDark Dark Detection] Sample <${el.tagName.toLowerCase()}${el.className ? '.' + el.className.split(' ')[0] : ''}> (${source}): RGB(${rgb.r}, ${rgb.g}, ${rgb.b}) | Luminance: ${lum.toFixed(3)}`);
     
@@ -154,11 +140,34 @@ export function isAlreadyDarkTheme(): boolean {
     '.page'
   ];
 
-  // We iterate all elements matching the selectors
-  // Note: We use forEach on querySelectorAll results, which is fine for ~20 elements.
+  // PHASE 1A: Collect all elements first (no style reads)
+  const elementsToSample: Array<{ el: Element; source: string }> = [];
   for (const sel of selectors) {
     const elements = document.querySelectorAll(sel);
-    elements.forEach(el => processElement(el, sel));
+    elements.forEach(el => elementsToSample.push({ el, source: sel }));
+  }
+
+  // PHASE 1B: Batch read all computed styles (single layout pass)
+  const styleCache = new Map<Element, string>();
+  for (const { el, source } of elementsToSample) {
+    // Visibility check is cheaper than full style computation
+    // Skip obviously hidden elements before expensive style reads
+    if (source !== 'body') {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        skippedHidden++;
+        continue;
+      }
+    }
+    styleCache.set(el, window.getComputedStyle(el).backgroundColor);
+  }
+
+  // PHASE 1C: Process cached styles (no layout impact)
+  for (const { el, source } of elementsToSample) {
+    const cachedBg = styleCache.get(el);
+    if (cachedBg !== undefined) {
+      processElement(el, source, cachedBg);
+    }
   }
 
   console.log(`[UltraDark Dark Detection] PHASE 1 Stats: Valid=${validSamples}, Skipped(Transp)=${skippedTransparent}, Skipped(Hidden)=${skippedHidden}`);
