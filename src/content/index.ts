@@ -29,8 +29,37 @@ let preInjectTag: HTMLStyleElement | null = null;
 let currentMode: Settings["mode"] | null = null;
 let shieldActive = false;
 
+/**
+ * OPTIMIZATION 10: Eliminate Double Settings Fetch
+ * 
+ * Cache settings in memory with TTL to avoid redundant storage access.
+ * Invalidate cache on settings updates via message listener.
+ */
+let cachedSettings: Settings | null = null;
+let settingsCacheTime = 0;
+const SETTINGS_CACHE_TTL = 5000;  // 5 seconds
+let debugCacheInitialized = false;
+
+async function getCachedSettings(): Promise<Settings> {
+  const now = Date.now();
+  if (cachedSettings && (now - settingsCacheTime) < SETTINGS_CACHE_TTL) {
+    return cachedSettings;
+  }
+  
+  cachedSettings = await getSettings();
+  settingsCacheTime = now;
+  return cachedSettings;
+}
+
+// Invalidate cache on settings update
+function invalidateSettingsCache(): void {
+  cachedSettings = null;
+  settingsCacheTime = 0;
+}
+
 (async () => {
   await initDebugCache();
+  debugCacheInitialized = true;
   console.log("[UltraDark Content Script] Initialized");
 })();
 
@@ -445,37 +474,45 @@ function collectContrastSamples(): Promise<Array<{ fg: string; bg: string }>> {
   });
 }
 
-async function tick() {
-  console.log("[UltraDark] ========== TICK START ==========");
+async function tick(): Promise<void> {
+  debugSync('[UltraDark] ========== TICK START ==========');
 
-  const s = await getSettings();
-  const { use, excluded } = await effectiveSettingsFor(location.href, s);
-
-  console.log(
-    "[UltraDark] Settings Loaded. Enabled:",
-    use.enabled,
-    "Excluded:",
-    excluded,
-  );
-
-  if (!use.enabled || excluded) {
-    if (!use.enabled && excluded) {
-      console.log("[UltraDark] Aborting: Disabled AND Excluded");
-    } else if (!use.enabled) {
-      console.log("[UltraDark] Aborting: Disabled");
-    } else {
-      console.log("[UltraDark] Aborting: Excluded");
-    }
-    if (applied) removeCss();
-    else if (preInjected) removePreInjectCss();
-    else if (shieldActive) removeShield();
+  // OPTIMIZATION 10: Fast path with cached settings
+  const s = await getCachedSettings();
+  
+  // Quick exclusion check before heavy processing
+  const url = location.href;
+  const origin = new URL(url).origin;
+  const per = s.perSite[origin] || {};
+  
+  // Early exit if disabled (avoid unnecessary work)
+  if (!s.enabled || per.exclude === true || urlExcluded(url, s.excludeRegex)) {
+    debugSync('[UltraDark] Skipping: Disabled or Excluded');
+    cleanupIfNeeded();
     return;
   }
+  
+  // Compute effective settings (synchronous, no extra storage access)
+  const use: Settings = {
+    ...s,
+    ...(per.override || {}),
+  };
+  
+  if (typeof per.enabled === "boolean") {
+    use.enabled = per.enabled;
+  }
 
-  await initDebugCache();
+  debugSync(
+    "[UltraDark] Settings Loaded. Enabled:",
+    use.enabled,
+  );
 
-  const origin = new URL(location.href).origin;
-  const per = use.perSite[origin] || {};
+  // Initialize debug cache only if needed (lazy)
+  if (!debugCacheInitialized) {
+    await initDebugCache();
+    debugCacheInitialized = true;
+  }
+
   const shouldDetectDark = use.skipDarkSites && !per.forceDarkMode;
 
   const isDark = false;
@@ -532,9 +569,20 @@ async function tick() {
   }
 }
 
+function cleanupIfNeeded(): void {
+  if (applied) {
+    removeCss();
+  } else if (preInjected) {
+    removePreInjectCss();
+  } else if (shieldActive) {
+    removeShield();
+  }
+}
+
 browser.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "udr:settings-updated") {
     console.log("[UltraDark] Settings updated message received");
+    invalidateSettingsCache();  // OPTIMIZATION 10: Clear cache on update
     tick();
   } else if (msg?.type === "udr:debug-mode-changed") {
     updateDebugCache(msg.enabled);
