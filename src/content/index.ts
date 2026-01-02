@@ -384,7 +384,13 @@ async function tick() {
   );
 
   if (!use.enabled || excluded) {
-    console.log("[UltraDark] Aborting: Disabled or Excluded");
+    if (!use.enabled && excluded) {
+      console.log("[UltraDark] Aborting: Disabled AND Excluded");
+    } else if (!use.enabled) {
+      console.log("[UltraDark] Aborting: Disabled");
+    } else {
+      console.log("[UltraDark] Aborting: Excluded");
+    }
     if (applied) removeCss();
     else if (preInjected) removePreInjectCss();
     else if (shieldActive) removeShield();
