@@ -307,46 +307,116 @@ export function applyDomWalker(settings: Settings): void {
       debugSync('[DOM Walker] DOM traversal complete');
       
       // Set up MutationObserver for dynamic content
-      if (mutationObserver) {
-        mutationObserver.disconnect();
-      }
-
-      mutationObserver = new MutationObserver((mutations) => {
-        const newElements: Element[] = [];
-        
-        mutations.forEach((mutation) => {
-          mutation.addedNodes.forEach((node) => {
-            if (node instanceof Element) {
-              // Add the element and its descendants
-              newElements.push(node);
-              const descendants = node.querySelectorAll('*');
-              newElements.push(...Array.from(descendants));
-            }
-          });
-        });
-        
-        if (newElements.length > 0) {
-          debugSync('[DOM Walker] MutationObserver detected', newElements.length, 'new elements');
-          processBatch(newElements, 0, newElements.length);
-        }
-      });
-
-      // Safety check before attaching observer
-      if (document.body) {
-        mutationObserver.observe(document.body, {
-          childList: true,
-          subtree: true
-        });
-
-        debugSync('[DOM Walker] MutationObserver attached to body');
-      } else {
-        debugSync('[DOM Walker] ⚠️ document.body disappeared, cannot attach MutationObserver');
-      }
+      setupOptimizedMutationObserver();
     }
   }
   
   // Start processing
   requestAnimationFrame(processNextBatch);
-  
-  document.documentElement.setAttribute("data-udr-mode", "dom-walker");
 }
+
+/**
+ * OPTIMIZATION 5: Smarter MutationObserver
+ * 
+ * Key changes:
+ * 1. Debounce rapid mutations (React reconciliation can trigger 10+ in one frame)
+ * 2. Limit descendant depth (most UI components are shallow)
+ * 3. Skip processing during user interaction (scroll, input)
+ * 4. Use requestIdleCallback for non-urgent processing
+ */
+let pendingMutations: Element[] = [];
+let mutationDebounceTimer: number | null = null;
+let isUserInteracting = false;
+
+// Track user interaction to defer processing
+if (typeof document !== 'undefined') {
+  document.addEventListener('scroll', () => { 
+    isUserInteracting = true;
+    setTimeout(() => { isUserInteracting = false; }, 150);
+  }, { passive: true });
+
+  document.addEventListener('input', () => {
+    isUserInteracting = true;
+    setTimeout(() => { isUserInteracting = false; }, 100);
+  }, { passive: true });
+}
+
+function setupOptimizedMutationObserver(): void {
+  if (mutationObserver) {
+    mutationObserver.disconnect();
+  }
+
+  mutationObserver = new MutationObserver((mutations) => {
+    // Collect new elements with limited descendant depth
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node instanceof HTMLElement) {
+          pendingMutations.push(node);
+          
+          // Limit descendant collection to 2 levels deep (covers most UI patterns)
+          const directChildren = node.children;
+          for (let i = 0; i < directChildren.length && i < 20; i++) {
+            const child = directChildren[i];
+            if (child instanceof HTMLElement) {
+              pendingMutations.push(child);
+              
+              // Second level (grandchildren)
+              const grandchildren = child.children;
+              for (let j = 0; j < grandchildren.length && j < 10; j++) {
+                if (grandchildren[j] instanceof HTMLElement) {
+                  pendingMutations.push(grandchildren[j] as HTMLElement);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Debounce processing
+    if (mutationDebounceTimer !== null) {
+      clearTimeout(mutationDebounceTimer);
+    }
+    
+    mutationDebounceTimer = window.setTimeout(() => {
+      processPendingMutations();
+    }, isUserInteracting ? 100 : 16);  // Longer delay during interaction
+  });
+
+  // Safety check before attaching observer
+  if (document.body) {
+    mutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: false,  // Don't observe attribute changes
+      characterData: false  // Don't observe text changes
+    });
+
+    debugSync('[DOM Walker] Optimized MutationObserver attached to body');
+  } else {
+    debugSync('[DOM Walker] ⚠️ document.body disappeared, cannot attach MutationObserver');
+  }
+}
+
+function processPendingMutations(): void {
+  if (pendingMutations.length === 0) return;
+  
+  const elements = pendingMutations;
+  pendingMutations = [];
+  mutationDebounceTimer = null;
+  
+  // Deduplicate (same element might be added multiple times)
+  const unique = [...new Set(elements)].filter(el => !processedElements.has(el));
+  
+  if (unique.length === 0) return;
+  
+  debugSync('[DOM Walker] Processing', unique.length, 'new elements');
+  
+  // Use requestIdleCallback if available, otherwise requestAnimationFrame
+  const scheduleWork = (window.requestIdleCallback as any) || requestAnimationFrame;
+  
+  scheduleWork(() => {
+    processBatch(unique, 0, unique.length);
+  });
+}
+
