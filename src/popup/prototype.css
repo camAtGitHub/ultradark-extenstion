@@ -164,7 +164,8 @@ body {
 /* Site List Container */
 .site-list-container {
   flex: 1;
-  overflow: auto hidden;
+  min-height: 0;
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.4);
@@ -174,7 +175,7 @@ body {
 }
 
 .site-list-container::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .site-list-container::-webkit-scrollbar-track {
@@ -183,7 +184,7 @@ body {
 
 .site-list-container::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.3);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 .site-list-container::-webkit-scrollbar-thumb:hover {
