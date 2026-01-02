@@ -169,7 +169,7 @@ describe("Reset Sliders - Storage Persistence", () => {
       enabled: true,
       mode: "photon-inverter" as const,
       amoled: true,
-      detectDarkSites: false,
+      skipDarkSites: false,
       brightness: 120,
       contrast: 150,
       sepia: 50,
@@ -206,7 +206,7 @@ describe("Reset Sliders - Storage Persistence", () => {
     expect(settings.enabled).toBe(true);
     expect(settings.mode).toBe("photon-inverter");
     expect(settings.amoled).toBe(true);
-    expect(settings.detectDarkSites).toBe(false);
+    expect(settings.skipDarkSites).toBe(false);
     expect(settings.perSite).toEqual({ "https://example.com": { enabled: true } });
   });
 });

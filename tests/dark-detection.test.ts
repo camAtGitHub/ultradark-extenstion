@@ -11,7 +11,7 @@ import { describe, it, expect } from "vitest";
 
 describe("Dark Detection Integration", () => {
   describe("Settings integration", () => {
-    it("should have detectDarkSites setting in Settings type", () => {
+    it("should have skipDarkSites setting in Settings type", () => {
       // This validates that the TypeScript types are correct
       // The actual type checking happens at compile time
       expect(true).toBe(true);
@@ -24,8 +24,8 @@ describe("Dark Detection Integration", () => {
   });
 
   describe("Feature flags", () => {
-    it("should respect detectDarkSites setting", () => {
-      // When detectDarkSites is true, detection should run
+    it("should respect skipDarkSites setting", () => {
+      // When skipDarkSites is true, detection should run
       // When false, it should be skipped
       // This is tested in the content script integration
       expect(true).toBe(true);
@@ -60,13 +60,13 @@ describe("Dark Detection Integration", () => {
  * 
  * 1. Test on GitHub (dark mode):
  *    - Enable GitHub's dark theme
- *    - With detectDarkSites=true, UltraDark should NOT apply
+ *    - With skipDarkSites=true, UltraDark should NOT apply
  *    - Set forceDarkMode=true for github.com, UltraDark SHOULD apply
  * 
  * 2. Test on YouTube (dark mode):
  *    - Enable YouTube's dark theme
- *    - With detectDarkSites=true, UltraDark should NOT apply
- *    - Disable detectDarkSites, UltraDark SHOULD apply
+ *    - With skipDarkSites=true, UltraDark should NOT apply
+ *    - Disable skipDarkSites, UltraDark SHOULD apply
  * 
  * 3. Test on Reddit (dark mode):
  *    - Enable Reddit's dark theme

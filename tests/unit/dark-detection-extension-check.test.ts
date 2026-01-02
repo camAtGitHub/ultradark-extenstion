@@ -151,8 +151,8 @@ describe("Dark Detection - Extension Style Detection", () => {
  *    - Theme should apply correctly without needing slider adjustment
  * 
  * 4. Test with actually dark site (e.g., GitHub dark mode):
- *    - With detectDarkSites enabled, should skip application
- *    - After disabling detectDarkSites, should apply normally
+ *    - With skipDarkSites enabled, should skip application
+ *    - After disabling skipDarkSites, should apply normally
  * 
  * 5. Test reset sliders:
  *    - Should immediately apply default values
