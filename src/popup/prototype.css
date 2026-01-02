@@ -165,51 +165,30 @@ body {
 .site-list-container {
   flex: 1;
   min-height: 0;
+  overflow: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.4);
   transition:
     opacity 0.2s ease-out,
     visibility 0.2s ease-out;
-  scrollbar-width: none;
 }
 
 .site-list-container::-webkit-scrollbar {
-  display: none;
+  width: 8px;
 }
 
-.scrollbar-wrapper {
-  position: relative;
-  height: 100%;
-  overflow: auto;
+.site-list-container::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.scrollbar-track {
-  position: absolute;
-  right: 4px;
-  top: 4px;
-  bottom: 4px;
-  width: 6px;
-  background: rgba(148, 163, 184, 0.1);
-  border-radius: 3px;
+.site-list-container::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
 }
 
-.scrollbar-thumb {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 3px;
-  cursor: pointer;
-  transition: background 0.12s ease-out;
-}
-
-.scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.6);
-}
-
-.scrollbar-thumb.active {
-  background: var(--accent);
+.site-list-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
 }
 
 /* Hide list, search, empty state when modal is open */
