@@ -174,21 +174,9 @@ body {
     visibility 0.2s ease-out;
 }
 
-.site-list-container::-webkit-scrollbar {
-  width: 8px;
-}
-
-.site-list-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.site-list-container::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.3);
-  border-radius: 4px;
-}
-
-.site-list-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
+.site-list-container {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
 }
 
 /* Hide list, search, empty state when modal is open */
