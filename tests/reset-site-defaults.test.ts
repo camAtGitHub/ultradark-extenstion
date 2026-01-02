@@ -129,7 +129,7 @@ describe("Reset Site to Defaults", () => {
 
   it("should verify that default settings are correct values", () => {
     // Ensure DEFAULTS has expected values for slider settings
-    expect(DEFAULTS.brightness).toBe(90);
+    expect(DEFAULTS.brightness).toBe(100);
     expect(DEFAULTS.contrast).toBe(110);
     expect(DEFAULTS.sepia).toBe(0);
     expect(DEFAULTS.grayscale).toBe(0);
