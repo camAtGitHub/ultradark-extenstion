@@ -11,7 +11,12 @@ export function ensureStyleTag(): HTMLStyleElement {
   return tag;
 }
 
-/** Generates CSS for Static/Dynamic modes + AMOLED & image fixes using CSS variables. */
+/** 
+ * OPTIMIZATION 11: CSS Containment for Style Isolation
+ * 
+ * Generates CSS for Static/Dynamic modes + AMOLED & image fixes using CSS variables.
+ * Includes performance optimizations via CSS containment and GPU compositing hints.
+ */
 export function buildCss(vars: {
   brightness: number; // %
   contrast: number;   // %
@@ -27,10 +32,45 @@ export function buildCss(vars: {
   const filter = invert ? `invert(1) hue-rotate(180deg) ${adjustment}` : adjustment;
   const mediaFilter = invert ? "invert(1) hue-rotate(180deg)" : "none";
 
+  // Performance optimizations via CSS containment
+  const containmentRules = `
+/* Performance: CSS Containment */
+html[udr-applied="true"] {
+  contain: style;  /* Isolate style recalculations */
+}
+
+html[udr-applied="true"] main,
+html[udr-applied="true"] article,
+html[udr-applied="true"] section,
+html[udr-applied="true"] .container,
+html[udr-applied="true"] #app,
+html[udr-applied="true"] #root {
+  contain: layout style;  /* Contain layout and style for main content areas */
+}
+`;
+
+  // Use will-change hint for filter animation (helps GPU compositing)
+  const gpuHints = `
+/* GPU Compositing Hints */
+html[udr-applied="true"] {
+  will-change: filter;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+html[udr-applied="true"] img,
+html[udr-applied="true"] video,
+html[udr-applied="true"] canvas {
+  will-change: filter;
+}
+`;
+
   // AMOLED: force #000 backgrounds
   const amoledCss = amoled
     ? `
-html, body, body *:not(img):not(video):not(canvas):not(svg):not([data-udr-skip]) {
+html[udr-applied="true"], 
+html[udr-applied="true"] body,
+html[udr-applied="true"] *:not(img):not(video):not(canvas):not(svg):not([data-udr-skip]) {
   background-color: #000 !important;
   background-image: none !important;
 }`
@@ -68,11 +108,15 @@ html[udr-applied="true"] *:not(img):not(video):not(canvas):not(svg):not(picture)
     : "";
 
   return `
-/* UltraDark Reader injected CSS */
+/* UltraDark Reader - Optimized CSS */
 :root { --udr-filter: ${filter}; }
+
 html[udr-applied="true"] {
   filter: var(--udr-filter) !important;
 }
+
+${containmentRules}
+${gpuHints}
 ${backgroundFix}
 ${mediaReinvert}
 ${amoledCss}
