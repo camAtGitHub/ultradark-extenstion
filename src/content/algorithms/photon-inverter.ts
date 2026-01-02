@@ -21,35 +21,82 @@ const DATA_FIX_ATTR = "data-photon-fix";
 /**
  * HELPER: The "Bookmarklet" Logic (The Missing Piece)
  * 
+ * OPTIMIZATION 4: Chunked TreeWalker Processing
+ * 
  * The bookmarklet works because it loops through every element
  * and if it's transparent, forces it to WHITE.
  * When we apply invert(1), that White becomes BLACK.
+ * 
+ * Old approach: querySelectorAll("body *") returns ALL descendants (5000+ on large pages)
+ * New approach: TreeWalker with chunked processing to avoid blocking main thread
  */
-function fixTransparentBackgrounds() {
-  const elements = document.querySelectorAll("body *");
-  let fixedCount = 0;
+function fixTransparentBackgrounds(): void {
+  // Skip if CSS-only approach is sufficient (small pages)
+  // The CSS rule handles most cases; JS is only for edge cases
+  if (document.body.children.length < 50) {
+    debugSync('[Photon Inverter] Small page, skipping JS transparency fix');
+    return;
+  }
+
+  const BATCH_SIZE = 200;
+  const SKIP_TAGS = new Set(['IMG', 'VIDEO', 'CANVAS', 'SVG', 'PICTURE', 'IFRAME', 'SCRIPT', 'STYLE', 'NOSCRIPT']);
   
-  elements.forEach((node) => {
-    const el = node as HTMLElement;
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        const el = node as HTMLElement;
+        // Early rejection of non-processable elements
+        if (SKIP_TAGS.has(el.tagName)) return NodeFilter.FILTER_REJECT;
+        if (el.hasAttribute(DATA_FIX_ATTR)) return NodeFilter.FILTER_SKIP;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+
+  let fixedCount = 0;
+  let node: Node | null;
+  
+  function processChunk(): void {
+    let processed = 0;
+    const elementsToFix: HTMLElement[] = [];
     
-    if (el.hasAttribute(DATA_FIX_ATTR)) return;
-    if (el.tagName === 'IMG' || el.tagName === 'VIDEO' || el.tagName === 'CANVAS' || 
-        el.tagName === 'SVG' || el.tagName === 'PICTURE' || el.tagName === 'IFRAME') return;
-    
-    const bg = window.getComputedStyle(el).backgroundColor;
-    
-    if (bg === 'transparent' || 
-        bg === 'rgba(0, 0, 0, 0)' || 
-        (bg.includes('rgba') && bg.endsWith(', 0)'))) {
+    // PHASE 1: Identify elements needing fix (batch style reads)
+    while ((node = walker.nextNode()) && processed < BATCH_SIZE) {
+      const el = node as HTMLElement;
+      processed++;
       
+      // Check computed style
+      const bg = window.getComputedStyle(el).backgroundColor;
+      
+      // Optimized transparency check (avoid string methods where possible)
+      if (bg === 'transparent' || 
+          bg === 'rgba(0, 0, 0, 0)' ||
+          (bg.charCodeAt(bg.length - 2) === 48 && bg.endsWith(')'))) {  // ends with '0)'
+        elementsToFix.push(el);
+      }
+    }
+    
+    // PHASE 2: Apply fixes (batch DOM writes)
+    for (const el of elementsToFix) {
       el.style.backgroundColor = '#ffffff';
       el.setAttribute(DATA_FIX_ATTR, 'true');
       fixedCount++;
     }
-  });
+    
+    // Continue if more elements remain
+    if (node) {
+      requestAnimationFrame(processChunk);
+    } else {
+      debugSync(`[Photon Inverter] Fixed ${fixedCount} transparent backgrounds`);
+    }
+  }
   
-  debugSync(`[Photon Inverter] Fixed ${fixedCount} transparent backgrounds (JS Fallback)`);
+  // Start processing on next frame (don't block initial render)
+  requestAnimationFrame(processChunk);
 }
+
 
 /**
  * Generate CSS using the Bookmarklet's superior filter logic.
