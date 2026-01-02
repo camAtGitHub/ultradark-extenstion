@@ -26,6 +26,7 @@ import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 import { ensureStyleTag } from "../style-template";
+import { getSettings, originFromUrl } from "../../utils/storage";
 
 // ============================================================================
 // CONSTANTS & CONFIGURATION
@@ -1634,13 +1635,28 @@ export function getChromaDiagnostics(): object {
 if (typeof window !== "undefined") {
   try {
     // Add message listener for diagnostic requests
-    window.addEventListener("message", (event) => {
+    window.addEventListener("message", async (event) => {
       if (event.data?.type === "UDR_CHROMA_DIAG_REQUEST") {
+        const origin = originFromUrl(location.href);
+        const settings = await getSettings();
+        const siteSettings = settings.perSite?.[origin];
+
         const diag = {
           version: "2.0",
           url: location.href,
+          origin,
           framework: detectedFramework,
           stats,
+          siteSettings,
+          hasSiteOverride: !!siteSettings,
+          globalSettings: {
+            enabled: settings.enabled,
+            mode: settings.mode,
+            amoled: settings.amoled,
+            brightness: settings.brightness,
+            contrast: settings.contrast,
+            optimizerEnabled: settings.optimizerEnabled,
+          },
           styleTagsPresent: Object.fromEntries(
             Object.entries(STYLE_IDS).map(([k, id]) => [
               k,
