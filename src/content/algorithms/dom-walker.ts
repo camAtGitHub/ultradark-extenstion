@@ -247,60 +247,107 @@ export function applyDomWalker(settings: Settings): void {
 
   const BATCH_SIZE = 500;
   
+  /**
+   * OPTIMIZATION 9: Batch Style Application
+   * 
+   * Strategy: Separate style reads from writes to minimize reflows
+   * - PHASE 1: Read all computed styles (batch reads)
+   * - PHASE 2: Calculate new values (no DOM access)
+   * - PHASE 3: Apply all style changes in batch (single reflow)
+   */
+  interface StyleChange {
+    el: HTMLElement;
+    bg?: string;
+    color?: string;
+    borderColor?: string;
+  }
+  
   // Lazy Streaming Implementation
-  function processNextBatch() {
+  function processNextBatch(): void {
     let processedCount = 0;
-    let node = walker.currentNode; // Start from where we left off
-
+    let node = walker.currentNode;
+    
+    // PHASE 1: Read all computed styles (batch reads)
+    const styleReads: Array<{ node: HTMLElement; computed: CSSStyleDeclaration }> = [];
+    
     while (node && processedCount < BATCH_SIZE) {
       if (node instanceof HTMLElement && !processedElements.has(node)) {
-        
-        const computed = getComputedStyle(node);
-        
-        // 1. Process Background
-        const bgColor = computed.backgroundColor;
-        if (bgColor && !isTransparent(bgColor)) {
-          const rgb = parseRgb(bgColor);
-          if (rgb) node.style.backgroundColor = invertLightness(rgb, true);
-        } else if (isTransparent(bgColor)) {
-          const parentBg = findOpaqueParentBg(node);
-          if (parentBg) {
-             const rgb = parseRgb(parentBg);
-             if (rgb) node.style.backgroundColor = invertLightness(rgb, true);
-          }
-        }
-
-        // 2. Process Text
-        const textColor = computed.color;
-        if (textColor) {
-          const rgb = parseRgb(textColor);
-          if (rgb) node.style.color = invertLightness(rgb, false);
-        }
-
-        // 3. Process Borders
-        const borderColor = computed.borderColor;
-        if (borderColor && !isTransparent(borderColor)) {
-            const rgb = parseRgb(borderColor);
-            if (rgb) node.style.borderColor = invertLightness(rgb, false);
-        }
-        
-        processedElements.add(node);
+        styleReads.push({
+          node,
+          computed: getComputedStyle(node)
+        });
         processedCount++;
       }
-      
-      // Advance the walker
       node = walker.nextNode();
     }
-
-    debugSync('[DOM Walker] Streamed batch:', processedCount);
-
+    
+    // PHASE 2: Calculate new values (no DOM access)
+    const changes: StyleChange[] = [];
+    
+    for (const { node, computed } of styleReads) {
+      const change: StyleChange = { el: node };
+      let hasChanges = false;
+      
+      // Background
+      const bgColor = computed.backgroundColor;
+      if (bgColor && !isTransparentFast(bgColor)) {
+        const rgb = parseRgbFast(bgColor);
+        if (rgb) {
+          change.bg = invertLightness(rgb, true);
+          hasChanges = true;
+        }
+      } else if (isTransparentFast(bgColor)) {
+        const parentBg = findOpaqueParentBg(node);
+        if (parentBg) {
+          const rgb = parseRgbFast(parentBg);
+          if (rgb) {
+            change.bg = invertLightness(rgb, true);
+            hasChanges = true;
+          }
+        }
+      }
+      
+      // Text color
+      const textColor = computed.color;
+      if (textColor) {
+        const rgb = parseRgbFast(textColor);
+        if (rgb) {
+          change.color = invertLightness(rgb, false);
+          hasChanges = true;
+        }
+      }
+      
+      // Border
+      const borderColor = computed.borderColor;
+      if (borderColor && !isTransparentFast(borderColor)) {
+        const rgb = parseRgbFast(borderColor);
+        if (rgb) {
+          change.borderColor = invertLightness(rgb, false);
+          hasChanges = true;
+        }
+      }
+      
+      if (hasChanges) {
+        changes.push(change);
+      }
+      
+      processedElements.add(node);
+    }
+    
+    // PHASE 3: Apply all style changes in batch (single reflow)
+    for (const change of changes) {
+      if (change.bg) change.el.style.backgroundColor = change.bg;
+      if (change.color) change.el.style.color = change.color;
+      if (change.borderColor) change.el.style.borderColor = change.borderColor;
+    }
+    
+    debugSync('[DOM Walker] Processed batch:', styleReads.length, 'elements,', changes.length, 'style changes');
+    
+    // Continue if more elements remain
     if (node) {
-      // If node exists, we aren't done. Request next frame.
       requestAnimationFrame(processNextBatch);
     } else {
       debugSync('[DOM Walker] DOM traversal complete');
-      
-      // Set up MutationObserver for dynamic content
       setupOptimizedMutationObserver();
     }
   }
