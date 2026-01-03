@@ -2,7 +2,7 @@
 
 /**
  * Algorithm 2: "DOM Walker" (Intermediate / Style Parsing)
- * 
+ *
  * Strategy: Recursive DOM Traversal & Computed Style Replacement
  * Complexity: O(n) where n is DOM nodes
  * Use Case: Standard websites, blogs, documentation where readability is key
@@ -38,20 +38,27 @@ function rgbToHsl(r: number, g: number, b: number): HSL {
   r /= 255;
   g /= 255;
   b /= 255;
-  
+
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  let h = 0, s = 0;
+  let h = 0,
+    s = 0;
   const l = (max + min) / 2;
 
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    
+
     switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-      case g: h = ((b - r) / d + 2) / 6; break;
-      case b: h = ((r - g) / d + 4) / 6; break;
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+        break;
+      case g:
+        h = ((b - r) / d + 2) / 6;
+        break;
+      case b:
+        h = ((r - g) / d + 4) / 6;
+        break;
     }
   }
 
@@ -74,24 +81,24 @@ function hslToRgb(h: number, s: number, l: number): RGB {
     const hue2rgb = (p: number, q: number, t: number) => {
       if (t < 0) t += 1;
       if (t > 1) t -= 1;
-      if (t < 1/6) return p + (q - p) * 6 * t;
-      if (t < 1/2) return q;
-      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
       return p;
     };
 
     const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
     const p = 2 * l - q;
-    
-    r = hue2rgb(p, q, h + 1/3);
+
+    r = hue2rgb(p, q, h + 1 / 3);
     g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1/3);
+    b = hue2rgb(p, q, h - 1 / 3);
   }
 
   return {
     r: Math.round(r * 255),
     g: Math.round(g * 255),
-    b: Math.round(b * 255)
+    b: Math.round(b * 255),
   };
 }
 
@@ -117,14 +124,14 @@ function isTransparent(colorStr: string): boolean {
  */
 function invertLightness(rgb: RGB, isBackground: boolean): string {
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
-  
+
   // Invert lightness based on whether it's background or foreground
   if (isBackground && hsl.l > 50) {
     hsl.l = 100 - hsl.l;
   } else if (!isBackground && hsl.l < 50) {
     hsl.l = 100 - hsl.l;
   }
-  
+
   const newRgb = hslToRgb(hsl.h, hsl.s, hsl.l);
   return `rgb(${newRgb.r}, ${newRgb.g}, ${newRgb.b})`;
 }
@@ -147,7 +154,11 @@ function findOpaqueParentBg(element: Element): string | null {
 /**
  * Process a batch of elements
  */
-function processBatch(elements: Element[], startIndex: number, batchSize: number): number {
+function processBatch(
+  elements: Element[],
+  startIndex: number,
+  batchSize: number,
+): number {
   const endIndex = Math.min(startIndex + batchSize, elements.length);
   let processed = 0;
 
@@ -157,9 +168,9 @@ function processBatch(elements: Element[], startIndex: number, batchSize: number
     // Skip if already processed
     if (!(element instanceof HTMLElement)) continue;
     if (processedElements.has(element)) continue;
-    
+
     const computed = getComputedStyle(element);
-    
+
     // Process background color
     const bgColor = computed.backgroundColor;
     if (bgColor && !isTransparent(bgColor)) {
@@ -179,7 +190,7 @@ function processBatch(elements: Element[], startIndex: number, batchSize: number
         }
       }
     }
-    
+
     // Process text color
     const textColor = computed.color;
     if (textColor) {
@@ -189,7 +200,7 @@ function processBatch(elements: Element[], startIndex: number, batchSize: number
         element.style.color = inverted;
       }
     }
-    
+
     // Process border colors
     const borderColor = computed.borderColor;
     if (borderColor && !isTransparent(borderColor)) {
@@ -199,7 +210,7 @@ function processBatch(elements: Element[], startIndex: number, batchSize: number
         element.style.borderColor = inverted;
       }
     }
-    
+
     processedElements.add(element);
     processed++;
   }
@@ -225,11 +236,13 @@ export function resetDomWalker(): void {
  * Apply the DOM Walker algorithm to the page
  */
 export function applyDomWalker(settings: Settings): void {
-  debugSync('[DOM Walker] Starting DOM traversal');
+  debugSync("[DOM Walker] Starting DOM traversal");
 
   // Safety guard: Check if document.body exists
   if (!document.body) {
-    debugSync('[DOM Walker] ⚠️ document.body not available, falling back to Photon Inverter');
+    debugSync(
+      "[DOM Walker] ⚠️ document.body not available, falling back to Photon Inverter",
+    );
     applyPhotonInverter(settings);
     return;
   }
@@ -240,16 +253,16 @@ export function applyDomWalker(settings: Settings): void {
   const walker = document.createTreeWalker(
     document.body,
     NodeFilter.SHOW_ELEMENT,
-    null
+    null,
   );
 
-  debugSync('[DOM Walker] Starting Lazy Traversal');
+  debugSync("[DOM Walker] Starting Lazy Traversal");
 
   const BATCH_SIZE = 500;
-  
+
   /**
    * OPTIMIZATION 9: Batch Style Application
-   * 
+   *
    * Strategy: Separate style reads from writes to minimize reflows
    * - PHASE 1: Read all computed styles (batch reads)
    * - PHASE 2: Calculate new values (no DOM access)
@@ -261,33 +274,36 @@ export function applyDomWalker(settings: Settings): void {
     color?: string;
     borderColor?: string;
   }
-  
+
   // Lazy Streaming Implementation
   function processNextBatch(): void {
     let processedCount = 0;
     let node = walker.currentNode;
-    
+
     // PHASE 1: Read all computed styles (batch reads)
-    const styleReads: Array<{ node: HTMLElement; computed: CSSStyleDeclaration }> = [];
-    
+    const styleReads: Array<{
+      node: HTMLElement;
+      computed: CSSStyleDeclaration;
+    }> = [];
+
     while (node && processedCount < BATCH_SIZE) {
       if (node instanceof HTMLElement && !processedElements.has(node)) {
         styleReads.push({
           node,
-          computed: getComputedStyle(node)
+          computed: getComputedStyle(node),
         });
         processedCount++;
       }
       node = walker.nextNode();
     }
-    
+
     // PHASE 2: Calculate new values (no DOM access)
     const changes: StyleChange[] = [];
-    
+
     for (const { node, computed } of styleReads) {
       const change: StyleChange = { el: node };
       let hasChanges = false;
-      
+
       // Background
       const bgColor = computed.backgroundColor;
       if (bgColor && !isTransparentFast(bgColor)) {
@@ -306,7 +322,7 @@ export function applyDomWalker(settings: Settings): void {
           }
         }
       }
-      
+
       // Text color
       const textColor = computed.color;
       if (textColor) {
@@ -316,7 +332,7 @@ export function applyDomWalker(settings: Settings): void {
           hasChanges = true;
         }
       }
-      
+
       // Border
       const borderColor = computed.borderColor;
       if (borderColor && !isTransparentFast(borderColor)) {
@@ -326,39 +342,45 @@ export function applyDomWalker(settings: Settings): void {
           hasChanges = true;
         }
       }
-      
+
       if (hasChanges) {
         changes.push(change);
       }
-      
+
       processedElements.add(node);
     }
-    
+
     // PHASE 3: Apply all style changes in batch (single reflow)
     for (const change of changes) {
       if (change.bg) change.el.style.backgroundColor = change.bg;
       if (change.color) change.el.style.color = change.color;
       if (change.borderColor) change.el.style.borderColor = change.borderColor;
     }
-    
-    debugSync('[DOM Walker] Processed batch:', styleReads.length, 'elements,', changes.length, 'style changes');
-    
+
+    debugSync(
+      "[DOM Walker] Processed batch:",
+      styleReads.length,
+      "elements,",
+      changes.length,
+      "style changes",
+    );
+
     // Continue if more elements remain
     if (node) {
       requestAnimationFrame(processNextBatch);
     } else {
-      debugSync('[DOM Walker] DOM traversal complete');
+      debugSync("[DOM Walker] DOM traversal complete");
       setupOptimizedMutationObserver();
     }
   }
-  
+
   // Start processing
   requestAnimationFrame(processNextBatch);
 }
 
 /**
  * OPTIMIZATION 5: Smarter MutationObserver
- * 
+ *
  * Key changes:
  * 1. Debounce rapid mutations (React reconciliation can trigger 10+ in one frame)
  * 2. Limit descendant depth (most UI components are shallow)
@@ -370,16 +392,28 @@ let mutationDebounceTimer: number | null = null;
 let isUserInteracting = false;
 
 // Track user interaction to defer processing
-if (typeof document !== 'undefined') {
-  document.addEventListener('scroll', () => { 
-    isUserInteracting = true;
-    setTimeout(() => { isUserInteracting = false; }, 150);
-  }, { passive: true });
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "scroll",
+    () => {
+      isUserInteracting = true;
+      setTimeout(() => {
+        isUserInteracting = false;
+      }, 150);
+    },
+    { passive: true },
+  );
 
-  document.addEventListener('input', () => {
-    isUserInteracting = true;
-    setTimeout(() => { isUserInteracting = false; }, 100);
-  }, { passive: true });
+  document.addEventListener(
+    "input",
+    () => {
+      isUserInteracting = true;
+      setTimeout(() => {
+        isUserInteracting = false;
+      }, 100);
+    },
+    { passive: true },
+  );
 }
 
 function setupOptimizedMutationObserver(): void {
@@ -393,14 +427,14 @@ function setupOptimizedMutationObserver(): void {
       for (const node of mutation.addedNodes) {
         if (node instanceof HTMLElement) {
           pendingMutations.push(node);
-          
+
           // Limit descendant collection to 2 levels deep (covers most UI patterns)
           const directChildren = node.children;
           for (let i = 0; i < directChildren.length && i < 20; i++) {
             const child = directChildren[i];
             if (child instanceof HTMLElement) {
               pendingMutations.push(child);
-              
+
               // Second level (grandchildren)
               const grandchildren = child.children;
               for (let j = 0; j < grandchildren.length && j < 10; j++) {
@@ -413,15 +447,18 @@ function setupOptimizedMutationObserver(): void {
         }
       }
     }
-    
+
     // Debounce processing
     if (mutationDebounceTimer !== null) {
       clearTimeout(mutationDebounceTimer);
     }
-    
-    mutationDebounceTimer = window.setTimeout(() => {
-      processPendingMutations();
-    }, isUserInteracting ? 100 : 16);  // Longer delay during interaction
+
+    mutationDebounceTimer = window.setTimeout(
+      () => {
+        processPendingMutations();
+      },
+      isUserInteracting ? 100 : 16,
+    ); // Longer delay during interaction
   });
 
   // Safety check before attaching observer
@@ -429,26 +466,30 @@ function setupOptimizedMutationObserver(): void {
     mutationObserver.observe(document.body, {
       childList: true,
       subtree: true,
-      attributes: false,  // Don't observe attribute changes
-      characterData: false  // Don't observe text changes
+      attributes: false, // Don't observe attribute changes
+      characterData: false, // Don't observe text changes
     });
 
-    debugSync('[DOM Walker] Optimized MutationObserver attached to body');
+    debugSync("[DOM Walker] Optimized MutationObserver attached to body");
   } else {
-    debugSync('[DOM Walker] ⚠️ document.body disappeared, cannot attach MutationObserver');
+    debugSync(
+      "[DOM Walker] ⚠️ document.body disappeared, cannot attach MutationObserver",
+    );
   }
 }
 
 function processPendingMutations(): void {
   if (pendingMutations.length === 0) return;
-  
+
   const elements = pendingMutations;
   pendingMutations = [];
   mutationDebounceTimer = null;
-  
+
   // Deduplicate (same element might be added multiple times)
-  const unique = [...new Set(elements)].filter(el => !processedElements.has(el));
-  
+  const unique = [...new Set(elements)].filter(
+    (el) => !processedElements.has(el),
+  );
+
   if (unique.length === 0) return;
 
   debugSync("[DOM Walker] Processing", unique.length, "new elements");
