@@ -1,5 +1,6 @@
 // File: src/utils/dark-detection.ts
 import { debugSync } from "./logger";
+import { parseRgbFast } from "./color-utils";
 
 // Helper: Standard WCAG Luminance calculation
 function getLuminance(r: number, g: number, b: number): number {
@@ -8,42 +9,6 @@ function getLuminance(r: number, g: number, b: number): number {
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
   });
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
-}
-
-// Helper: Parse 'rgb(x, y, z)' or 'rgba(x, y, z, a)' string
-// Returns null if transparent or unparseable
-function parseRGB(str: string): {r:number, g:number, b:number} | null {
-  // Handle rgba(r, g, b, a)
-  const rgbaMatch = str.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/);
-  if (rgbaMatch) {
-    const r = parseInt(rgbaMatch[1], 10);
-    const g = parseInt(rgbaMatch[2], 10);
-    const b = parseInt(rgbaMatch[3], 10);
-    
-    // Check Alpha if present
-    if (rgbaMatch[4]) {
-      const alpha = parseFloat(rgbaMatch[4]);
-      if (alpha <= 0.05) return null; // Treat almost-transparent as transparent
-    }
-    
-    return { r, g, b };
-  }
-
-  // Handle Hex #RGB or #RRGGBB
-  const hexMatch = str.match(/^#([a-f\d]{3}|[a-f\d]{6})$/i);
-  if (hexMatch) {
-    let hex = hexMatch[1];
-    if (hex.length === 3) {
-      hex = hex.split('').map(c => c + c).join('');
-    }
-    return {
-      r: parseInt(hex.substring(0, 2), 16),
-      g: parseInt(hex.substring(2, 4), 16),
-      b: parseInt(hex.substring(4, 6), 16)
-    };
-  }
-  
-  return null;
 }
 
 /**
@@ -103,7 +68,7 @@ export function isAlreadyDarkTheme(): boolean {
   const processElement = (el: Element, source: string, precomputedBg?: string) => {
     // Use precomputed background if provided (batch mode)
     const bg = precomputedBg ?? window.getComputedStyle(el).backgroundColor;
-    const rgb = parseRGB(bg);
+    const rgb = parseRgbFast(bg);
     
     if (!rgb) {
       skippedTransparent++;
