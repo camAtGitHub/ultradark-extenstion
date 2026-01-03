@@ -27,6 +27,7 @@ import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 import { ensureStyleTag } from "../style-template";
 import { getSettings, originFromUrl } from "../../utils/storage";
+import { parseRgbFast, isTransparentFast } from "../../utils/color-utils";
 
 // ============================================================================
 // CONSTANTS & CONFIGURATION
@@ -291,60 +292,6 @@ function getContrastRatio(l1: number, l2: number): number {
 }
 
 /**
- * Parse RGB/RGBA color string to components
- * Returns null for transparent or unparseable colors
- */
-function parseColor(
-  colorStr: string,
-): { r: number; g: number; b: number } | null {
-  if (
-    !colorStr ||
-    colorStr === "transparent" ||
-    colorStr === "rgba(0, 0, 0, 0)"
-  ) {
-    return null;
-  }
-
-  // Try RGB/RGBA format
-  const rgbMatch = colorStr.match(
-    /rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/,
-  );
-  if (rgbMatch) {
-    // Check alpha - treat near-transparent as transparent
-    if (rgbMatch[4] !== undefined && parseFloat(rgbMatch[4]) < 0.1) {
-      return null;
-    }
-    return {
-      r: parseInt(rgbMatch[1], 10),
-      g: parseInt(rgbMatch[2], 10),
-      b: parseInt(rgbMatch[3], 10),
-    };
-  }
-
-  // Try hex format
-  const hexMatch = colorStr.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
-  if (hexMatch) {
-    return {
-      r: parseInt(hexMatch[1], 16),
-      g: parseInt(hexMatch[2], 16),
-      b: parseInt(hexMatch[3], 16),
-    };
-  }
-
-  // Short hex format
-  const shortHexMatch = colorStr.match(/^#?([a-f\d])([a-f\d])([a-f\d])$/i);
-  if (shortHexMatch) {
-    return {
-      r: parseInt(shortHexMatch[1] + shortHexMatch[1], 16),
-      g: parseInt(shortHexMatch[2] + shortHexMatch[2], 16),
-      b: parseInt(shortHexMatch[3] + shortHexMatch[3], 16),
-    };
-  }
-
-  return null;
-}
-
-/**
  * Lighten a color by a percentage to meet contrast requirements
  */
 function lightenColor(
@@ -376,7 +323,7 @@ function lightenColor(
 function applyWarmth(hex: string, warmth: number): string {
   if (warmth === 0) return hex;
 
-  const rgb = parseColor(hex);
+  const rgb = parseRgbFast(hex);
   if (!rgb) return hex;
 
   const shift = Math.round((warmth / 100) * 15);
@@ -414,7 +361,7 @@ function findOpaqueBackground(element: HTMLElement): string | null {
 
   while (current) {
     const bg = getComputedStyle(current).backgroundColor;
-    const parsed = parseColor(bg);
+    const parsed = parseRgbFast(bg);
 
     if (parsed) {
       backgroundCache.set(element, bg);
@@ -634,7 +581,7 @@ function attemptNativeDarkModeActivation(frameworkName: string): boolean {
       if (strategy()) {
         // Verify activation worked by checking if colors changed
         const bodyBg = getComputedStyle(document.body).backgroundColor;
-        const parsed = parseColor(bodyBg);
+        const parsed = parseRgbFast(bodyBg);
 
         if (parsed) {
           const luminance = getRelativeLuminance(parsed.r, parsed.g, parsed.b);
@@ -1014,12 +961,12 @@ function validateAndFixContrast(element: HTMLElement): boolean {
   const computed = getComputedStyle(element);
 
   // Get foreground color
-  const fgColor = parseColor(computed.color);
+  const fgColor = parseRgbFast(computed.color);
   if (!fgColor) return false;
 
   // Get background color (may need to walk up tree)
   const bgColorStr = findOpaqueBackground(element);
-  const bgColor = parseColor(bgColorStr || BACKGROUND_PALETTE[1]);
+  const bgColor = parseRgbFast(bgColorStr || BACKGROUND_PALETTE[1]);
   if (!bgColor) return false;
 
   // Calculate contrast
@@ -1035,14 +982,14 @@ function validateAndFixContrast(element: HTMLElement): boolean {
     // Calculate how much lighter we need to go
     let lightenAmount = 10;
     let newColor = lightenColor(fgColor.r, fgColor.g, fgColor.b, lightenAmount);
-    let newParsed = parseColor(newColor);
+    let newParsed = parseRgbFast(newColor);
     let newContrast = contrast;
 
     // Iteratively lighten until we meet the requirement (max 5 iterations)
     for (let i = 0; i < 5 && newContrast < requiredContrast && newParsed; i++) {
       lightenAmount += 15;
       newColor = lightenColor(fgColor.r, fgColor.g, fgColor.b, lightenAmount);
-      newParsed = parseColor(newColor);
+      newParsed = parseRgbFast(newColor);
 
       if (newParsed) {
         const newLuminance = getRelativeLuminance(
