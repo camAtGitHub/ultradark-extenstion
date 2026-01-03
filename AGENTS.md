@@ -185,6 +185,46 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 
 **Future work:** Could expose cache hit rate in `getChromaDiagnostics()` for debugging performance issues
 
+### Optimization 6C: Optimizer Worker Color Parsing - NOT MIGRATED (Opt-6C)
+**Decision:** Keep `optimizer-worker.ts` using OffscreenCanvas-based color parsing. DO NOT migrate to `parseRgbFast()`.
+
+**Why not migrate:**
+1. **OffscreenCanvas normalization handles more formats**: Current implementation uses `OffscreenCanvas.fillStyle` to normalize ANY CSS color format including:
+   - Named colors: "red", "blue", "ButtonFace", etc.
+   - HSL: "hsl(0, 100%, 50%)"
+   - System colors and CSS variables
+   - Complex rgba/hsla with various formats
+   
+   `parseRgbFast()` only handles: rgb/rgba, hex (#rrggbb, #rgb), and "transparent" literal.
+
+2. **Return type mismatch**: Worker uses `[number, number, number]` tuple, `parseRgbFast()` returns `{r, g, b}` object. Would require refactoring 20+ call sites in contrast calculations.
+
+3. **Minimal performance benefit**: Worker samples max 80 elements once per page load. Even with 62% cache hit rate, savings would be ~1-2ms total. Not worth losing color format flexibility.
+
+4. **Debug logging integration**: Current `parseColor()` has integrated worker-specific debug logging that would need recreation.
+
+5. **Web Worker context**: While `parseRgbFast()` has no DOM dependencies and could work in workers, the effort to adapt it outweighs benefits.
+
+**Performance analysis:**
+- Current uncached: ~2-5ms to parse 80 samples
+- With cache: ~1-3ms (40-60% faster)
+- Net savings: 1-2ms once per page load
+- Trade-off: Loss of OffscreenCanvas normalization (handles 10× more color formats)
+
+**Testing:** Added `tests/unit/optimizer-worker-color-utils.test.ts` with 6 analysis tests documenting:
+- CSS color name handling (parseRgbFast cannot handle "red", "blue", etc.)
+- Return type difference (tuple vs object)
+- Minimal caching benefit for small sample sizes
+- Web Worker compatibility (parseRgbFast is compatible but not beneficial)
+- OffscreenCanvas advantages (handles all CSS colors)
+
+**Alternative optimizations already implemented:**
+- Sample size reduced from 120 → 80 (Opt-3)
+- Deferred initialization via requestIdleCallback (Opt-3)
+- Batched getComputedStyle() calls (Opt-3)
+
+**Conclusion:** The 1-2ms savings don't justify losing OffscreenCanvas's ability to handle arbitrary CSS colors. Current implementation is optimal for the worker's use case.
+
 ### Optimization 2: Regex Compilation Cache (Opt-2)
 **What changed:** `src/utils/regex.ts` now caches compiled RegExp objects instead of recompiling on every `urlExcluded()` call.
 
