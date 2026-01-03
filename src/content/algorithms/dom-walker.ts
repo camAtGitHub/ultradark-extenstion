@@ -450,14 +450,23 @@ function processPendingMutations(): void {
   const unique = [...new Set(elements)].filter(el => !processedElements.has(el));
   
   if (unique.length === 0) return;
-  
-  debugSync('[DOM Walker] Processing', unique.length, 'new elements');
-  
-  // Use requestIdleCallback if available, otherwise requestAnimationFrame
-  const scheduleWork = (window.requestIdleCallback as any) || requestAnimationFrame;
-  
+
+  debugSync("[DOM Walker] Processing", unique.length, "new elements");
+
+  // Use requestIdleCallback if available and callable, otherwise requestAnimationFrame
+  const scheduleWork =
+    typeof window.requestIdleCallback === "function"
+      ? window.requestIdleCallback
+      : requestAnimationFrame;
+
+  debugSync(
+    "[DOM Walker] Scheduling work with:",
+    scheduleWork === window.requestIdleCallback
+      ? "requestIdleCallback"
+      : "requestAnimationFrame",
+  );
+
   scheduleWork(() => {
     processBatch(unique, 0, unique.length);
   });
 }
-
