@@ -14,7 +14,7 @@ function getCompiledRegexList(patterns: string[]): RegExp[] {
   // Create cache key from patterns (fast string join)
   const cacheKey = patterns.join('\x00');  // Null separator unlikely in patterns
   
-  let cached = regexCache.get(cacheKey);
+  const cached = regexCache.get(cacheKey);
   if (cached) return cached;
   
   // Compile and cache

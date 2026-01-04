@@ -16,8 +16,8 @@ describe("Settings Cache (Opt-10)", () => {
   });
 
   it("should return cached settings within TTL", () => {
-    let cachedSettings: any = { enabled: true };
-    let settingsCacheTime = Date.now();
+    const cachedSettings: any = { enabled: true };
+    const settingsCacheTime = Date.now();
     const SETTINGS_CACHE_TTL = 5000;
     
     const getCachedSettings = () => {
@@ -34,8 +34,8 @@ describe("Settings Cache (Opt-10)", () => {
   });
 
   it("should fetch new settings after TTL expires", () => {
-    let cachedSettings: any = { enabled: true };
-    let settingsCacheTime = Date.now() - 6000;  // 6 seconds ago
+    const cachedSettings: any = { enabled: true };
+    const settingsCacheTime = Date.now() - 6000;  // 6 seconds ago
     const SETTINGS_CACHE_TTL = 5000;
     
     const getCachedSettings = () => {
@@ -152,9 +152,9 @@ describe("Settings Cache (Opt-10)", () => {
   });
 
   it("should cleanup resources on early exit", () => {
-    let applied = false;
+    const applied = false;
     let preInjected = true;
-    let shieldActive = false;
+    const shieldActive = false;
     
     const cleanupIfNeeded = () => {
       if (applied) {
