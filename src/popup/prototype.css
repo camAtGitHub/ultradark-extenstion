@@ -172,12 +172,10 @@ body {
   transition:
     opacity 0.2s ease-out,
     visibility 0.2s ease-out;
-}
-
-.site-list-container {
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
 }
+
 
 /* Hide list, search, empty state when modal is open */
 body.modal-open .search-filter,
