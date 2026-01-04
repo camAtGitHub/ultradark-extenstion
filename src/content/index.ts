@@ -355,27 +355,24 @@ async function startOptimizerIfEnabled(s: Settings): Promise<void> {
   if (workerInitPromise) return workerInitPromise;
 
   workerInitPromise = new Promise((resolve) => {
-    // Use requestIdleCallback if available and callable, otherwise use requestAnimationFrame
-    const scheduleInit =
-      typeof window.requestIdleCallback === "function"
-        ? window.requestIdleCallback
-        : requestAnimationFrame;
-
-    debugSync(
-      "[UltraDark][Optimizer] Scheduling worker init with:",
-      scheduleInit === window.requestIdleCallback
-        ? "requestIdleCallback"
-        : "requestAnimationFrame",
-    );
-
-    scheduleInit(
-      () => {
-        initializeOptimizerWorker(s).then(resolve);
-      },
-      typeof window.requestIdleCallback === "function"
-        ? ({ timeout: 2000 } as IdleRequestOptions)
-        : undefined,
-    );
+    // FIX: Call requestIdleCallback directly on window to preserve 'this' context.
+    // In Firefox content scripts, storing a reference to window.requestIdleCallback
+    // and calling it later loses the Window object context, causing TypeError.
+    // This direct-call approach is non-blocking and defers worker init until browser idle.
+    if (typeof window.requestIdleCallback === "function") {
+      debugSync(
+        "[UltraDark][Optimizer] Scheduling worker init with: requestIdleCallback",
+      );
+      window.requestIdleCallback(
+        () => initializeOptimizerWorker(s).then(resolve),
+        { timeout: 2000 },
+      );
+    } else {
+      debugSync(
+        "[UltraDark][Optimizer] Scheduling worker init with: requestAnimationFrame",
+      );
+      requestAnimationFrame(() => initializeOptimizerWorker(s).then(resolve));
+    }
   });
 
   return workerInitPromise;
