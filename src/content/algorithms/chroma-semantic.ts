@@ -82,27 +82,58 @@ const TEXT_PALETTE = {
 /**
  * Framework detection patterns
  * Maps CSS variable prefixes to framework identifiers
+ *
+ * IMPORTANT: Frameworks must use CSS custom properties (CSS variables) to be detected.
+ * SASS/LESS-only frameworks that compile to static CSS cannot be reliably detected.
+ *
+ * Tier 1 frameworks (verified, high market share):
+ * - Tailwind, Bootstrap, Bulma, Primer (GitHub)
+ *
+ * Tier 2 frameworks (verified, niche):
+ * - Material Design, Chakra UI, Radix, Shadcn, Next.js
+ *
+ * Excluded frameworks:
+ * - UIkit: Minimal CSS variable usage (LESS-based, static CSS output)
+ * - Foundation: Legacy versions don't use CSS variables extensively
+ * - Class-less frameworks (MVP.css, Sakura, Simple.css): No CSS variables to hijack
  */
 const FRAMEWORK_PATTERNS: ReadonlyArray<{
   pattern: RegExp;
   name: string;
   darkModeSelector?: string;
 }> = [
+  // Utility-first frameworks
   { pattern: /^--tw-/, name: "tailwind", darkModeSelector: ".dark" },
-  { pattern: /^--mdc-|^--md-/, name: "material" },
+
+  // General purpose frameworks
   {
     pattern: /^--bs-/,
     name: "bootstrap",
     darkModeSelector: '[data-bs-theme="dark"]',
   },
   {
+    pattern: /^--bulma-/,
+    name: "bulma",
+    darkModeSelector: '[data-theme="dark"]',
+  },
+  {
+    pattern: /^--color-|^--primer-/,
+    name: "primer",
+    darkModeSelector: '[data-color-mode="dark"]',
+  },
+
+  // Component libraries & design systems
+  { pattern: /^--mdc-|^--md-/, name: "material" },
+  {
     pattern: /^--chakra-/,
     name: "chakra",
     darkModeSelector: ".chakra-ui-dark",
   },
-  { pattern: /^--next-/, name: "nextjs" },
   { pattern: /^--radix-/, name: "radix" },
   { pattern: /^--shadcn-/, name: "shadcn" },
+
+  // Meta-frameworks
+  { pattern: /^--next-/, name: "nextjs" },
 ];
 
 /**
