@@ -27,7 +27,12 @@ import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 import { ensureStyleTag } from "../style-template";
 import { getSettings, originFromUrl } from "../../utils/storage";
-import { parseRgbFast, isTransparentFast } from "../../utils/color-utils";
+import {
+  parseRgbFast,
+  isTransparentFast,
+  getRelativeLuminance,
+  getContrastRatio,
+} from "../../utils/color-utils";
 
 // ============================================================================
 // CONSTANTS & CONFIGURATION
@@ -266,29 +271,6 @@ let detectedFramework: FrameworkInfo | null = null;
  */
 function isOverBudget(startTime: number, budget: number): boolean {
   return performance.now() - startTime > budget;
-}
-
-/**
- * Calculate relative luminance for contrast checking
- * Uses standard sRGB formula (WCAG 2.1 definition)
- */
-function getRelativeLuminance(r: number, g: number, b: number): number {
-  const [rs, gs, bs] = [r, g, b].map((c) => {
-    const normalized = c / 255;
-    return normalized <= 0.03928
-      ? normalized / 12.92
-      : Math.pow((normalized + 0.055) / 1.055, 2.4);
-  });
-  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
-}
-
-/**
- * Calculate WCAG contrast ratio between two luminance values
- */
-function getContrastRatio(l1: number, l2: number): number {
-  const lighter = Math.max(l1, l2);
-  const darker = Math.min(l1, l2);
-  return (lighter + 0.05) / (darker + 0.05);
 }
 
 /**
