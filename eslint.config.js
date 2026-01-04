@@ -7,6 +7,8 @@ export default [
   eslintJs.configs.recommended,
   ...tseslint.configs.recommended,
   eslintConfigPrettier,
+
+  /* ---------- base settings ---------- */
   {
     languageOptions: {
       globals: {
@@ -29,6 +31,17 @@ export default [
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     },
   },
+
+  /* ---------- test-folder overrides ---------- */
+  {
+    files: ['tests/**/*.{ts,tsx}'],   // or just 'tests/**/*'
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+
+  /* ---------- ignored paths ---------- */
   {
     ignores: [
       'dist/**',
@@ -39,3 +52,4 @@ export default [
     ],
   },
 ];
+
