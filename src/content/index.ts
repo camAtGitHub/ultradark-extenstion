@@ -31,21 +31,21 @@ let shieldActive = false;
 
 /**
  * OPTIMIZATION 10: Eliminate Double Settings Fetch
- * 
+ *
  * Cache settings in memory with TTL to avoid redundant storage access.
  * Invalidate cache on settings updates via message listener.
  */
 let cachedSettings: Settings | null = null;
 let settingsCacheTime = 0;
-const SETTINGS_CACHE_TTL = 5000;  // 5 seconds
+const SETTINGS_CACHE_TTL = 5000; // 5 seconds
 let debugCacheInitialized = false;
 
 async function getCachedSettings(): Promise<Settings> {
   const now = Date.now();
-  if (cachedSettings && (now - settingsCacheTime) < SETTINGS_CACHE_TTL) {
+  if (cachedSettings && now - settingsCacheTime < SETTINGS_CACHE_TTL) {
     return cachedSettings;
   }
-  
+
   cachedSettings = await getSettings();
   settingsCacheTime = now;
   return cachedSettings;
@@ -109,7 +109,7 @@ function applyShield() {
 
 /**
  * OPTIMIZATION 7: Reduce Shield Flash Duration
- * 
+ *
  * Use CSS transition for smooth handoff instead of hard removal with setTimeout.
  * This eliminates 50ms blocking delay and reduces perceived flicker by ~70%.
  */
@@ -119,17 +119,21 @@ function removeShield(): void {
     shieldActive = false;
     return;
   }
-  
+
   // Use CSS transition for smooth handoff instead of hard removal
-  shield.style.opacity = '0';
-  shield.style.transition = 'opacity 50ms ease-out';
-  
+  shield.style.opacity = "0";
+  shield.style.transition = "opacity 50ms ease-out";
+
   // Remove after transition completes (non-blocking)
-  shield.addEventListener('transitionend', () => {
-    shield.remove();
-    shieldActive = false;
-  }, { once: true });
-  
+  shield.addEventListener(
+    "transitionend",
+    () => {
+      shield.remove();
+      shieldActive = false;
+    },
+    { once: true },
+  );
+
   // Fallback removal if transition doesn't fire
   setTimeout(() => {
     if (shield.isConnected) {
@@ -138,7 +142,6 @@ function removeShield(): void {
     }
   }, 100);
 }
-
 
 function applyPassiveMode() {
   console.log("[UltraDark] Native dark theme detected. Engaging Passive Mode.");
@@ -337,7 +340,7 @@ function startObserverForSpa() {
 
 /**
  * OPTIMIZATION 3: Defer Worker Initialization
- * 
+ *
  * Use requestIdleCallback to defer optimizer worker sampling to after initial paint.
  * This prevents blocking the main thread during critical rendering time.
  */
@@ -348,17 +351,30 @@ async function startOptimizerIfEnabled(s: Settings): Promise<void> {
     console.log("[UltraDark][Optimizer] Disabled");
     return;
   }
-  
+
   if (workerInitPromise) return workerInitPromise;
 
   workerInitPromise = new Promise((resolve) => {
-    // Defer worker init to after paint using requestIdleCallback
-    const scheduleInit = window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 0));
+    // Use requestIdleCallback if available and callable, otherwise use requestAnimationFrame
+    const scheduleInit =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback
+        : requestAnimationFrame;
+
+    debugSync(
+      "[UltraDark][Optimizer] Scheduling worker init with:",
+      scheduleInit === window.requestIdleCallback
+        ? "requestIdleCallback"
+        : "requestAnimationFrame",
+    );
+
     scheduleInit(
       () => {
         initializeOptimizerWorker(s).then(resolve);
       },
-      { timeout: 2000 } as IdleRequestOptions // Max 2s delay
+      typeof window.requestIdleCallback === "function"
+        ? ({ timeout: 2000 } as IdleRequestOptions)
+        : undefined,
     );
   });
 
@@ -370,7 +386,7 @@ async function initializeOptimizerWorker(s: Settings): Promise<void> {
 
   try {
     worker = new Worker(WorkerUrl);
-    
+
     worker.onmessage = (ev) => {
       const data = ev.data as {
         type?: string;
@@ -411,10 +427,7 @@ async function initializeOptimizerWorker(s: Settings): Promise<void> {
                 }
                 await setSettings(currentSettings);
               } catch (error) {
-                console.error(
-                  "[UltraDark] Failed to update settings:",
-                  error,
-                );
+                console.error("[UltraDark] Failed to update settings:", error);
               }
             })();
           }
@@ -443,69 +456,70 @@ function collectContrastSamples(): Promise<Array<{ fg: string; bg: string }>> {
   return new Promise((resolve) => {
     requestAnimationFrame(() => {
       const samples: Array<{ fg: string; bg: string }> = [];
-      const MAX = 80;  // Reduced from 120 - 80 provides sufficient statistical accuracy
-      const sel = "p,span,li,a,td,th,h1,h2,h3";  // Reduced selector set (removed dd,dt,small,code,pre,h4,h5,h6)
-      
+      const MAX = 80; // Reduced from 120 - 80 provides sufficient statistical accuracy
+      const sel = "p,span,li,a,td,th,h1,h2,h3"; // Reduced selector set (removed dd,dt,small,code,pre,h4,h5,h6)
+
       const elements = document.querySelectorAll(sel);
       const elemArray = Array.from(elements).slice(0, MAX);
-      
+
       // Batch read phase (all style reads together)
       const styleData: Array<{ fg: string; bg: string }> = [];
       for (const el of elemArray) {
         const cs = getComputedStyle(el);
         styleData.push({
           fg: cs.color,
-          bg: cs.backgroundColor
+          bg: cs.backgroundColor,
         });
       }
-      
+
       // Process phase (no layout impact, fill in missing backgrounds)
       const bodyBg = getComputedStyle(document.body).backgroundColor; // Single read, cached by browser
       for (const data of styleData) {
-        if (data.bg === 'rgba(0, 0, 0, 0)' || data.bg === 'transparent' || !data.bg) {
+        if (
+          data.bg === "rgba(0, 0, 0, 0)" ||
+          data.bg === "transparent" ||
+          !data.bg
+        ) {
           // Use body background as fallback
           data.bg = bodyBg;
         }
         samples.push(data);
       }
-      
+
       resolve(samples);
     });
   });
 }
 
 async function tick(): Promise<void> {
-  debugSync('[UltraDark] ========== TICK START ==========');
+  debugSync("[UltraDark] ========== TICK START ==========");
 
   // OPTIMIZATION 10: Fast path with cached settings
   const s = await getCachedSettings();
-  
+
   // Quick exclusion check before heavy processing
   const url = location.href;
   const origin = new URL(url).origin;
   const per = s.perSite[origin] || {};
-  
+
   // Early exit if disabled (avoid unnecessary work)
   if (!s.enabled || per.exclude === true || urlExcluded(url, s.excludeRegex)) {
-    debugSync('[UltraDark] Skipping: Disabled or Excluded');
+    debugSync("[UltraDark] Skipping: Disabled or Excluded");
     cleanupIfNeeded();
     return;
   }
-  
+
   // Compute effective settings (synchronous, no extra storage access)
   const use: Settings = {
     ...s,
     ...(per.override || {}),
   };
-  
+
   if (typeof per.enabled === "boolean") {
     use.enabled = per.enabled;
   }
 
-  debugSync(
-    "[UltraDark] Settings Loaded. Enabled:",
-    use.enabled,
-  );
+  debugSync("[UltraDark] Settings Loaded. Enabled:", use.enabled);
 
   // Initialize debug cache only if needed (lazy)
   if (!debugCacheInitialized) {
@@ -582,7 +596,7 @@ function cleanupIfNeeded(): void {
 browser.runtime.onMessage.addListener((msg) => {
   if (msg?.type === "udr:settings-updated") {
     console.log("[UltraDark] Settings updated message received");
-    invalidateSettingsCache();  // OPTIMIZATION 10: Clear cache on update
+    invalidateSettingsCache(); // OPTIMIZATION 10: Clear cache on update
     tick();
   } else if (msg?.type === "udr:debug-mode-changed") {
     updateDebugCache(msg.enabled);
