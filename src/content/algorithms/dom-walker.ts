@@ -494,20 +494,19 @@ function processPendingMutations(): void {
 
   debugSync("[DOM Walker] Processing", unique.length, "new elements");
 
-  // Use requestIdleCallback if available and callable, otherwise requestAnimationFrame
-  const scheduleWork =
-    typeof window.requestIdleCallback === "function"
-      ? window.requestIdleCallback
-      : requestAnimationFrame;
-
-  debugSync(
-    "[DOM Walker] Scheduling work with:",
-    scheduleWork === window.requestIdleCallback
-      ? "requestIdleCallback"
-      : "requestAnimationFrame",
-  );
-
-  scheduleWork(() => {
-    processBatch(unique, 0, unique.length);
-  });
+  // FIX: Call requestIdleCallback directly on window to preserve 'this' context.
+  // In Firefox content scripts, storing a reference to window.requestIdleCallback
+  // and calling it later loses the Window object context, causing TypeError.
+  // This direct-call approach is non-blocking and defers mutation processing until browser idle.
+  if (typeof window.requestIdleCallback === "function") {
+    debugSync("[DOM Walker] Scheduling work with: requestIdleCallback");
+    window.requestIdleCallback(() => {
+      processBatch(unique, 0, unique.length);
+    });
+  } else {
+    debugSync("[DOM Walker] Scheduling work with: requestAnimationFrame");
+    requestAnimationFrame(() => {
+      processBatch(unique, 0, unique.length);
+    });
+  }
 }
