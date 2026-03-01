@@ -16,6 +16,8 @@ import {
   resetChromaSemantic,
 } from "./algorithms/chroma-semantic";
 import { applyDomWalker, resetDomWalker } from "./algorithms/dom-walker";
+import { applyOklchCascade, resetOklchCascade } from "./algorithms/oklch-cascade";
+import { applyPerceptualRemap, resetPerceptualRemap } from "./algorithms/perceptual-remap";
 import { buildCss, ensureStyleTag } from "./style-template";
 import {
   waitForDocumentReady,
@@ -198,6 +200,17 @@ function hueRotateFromBlueShift(blueShift: number): number {
   return Math.round((blueShift / 100) * 180);
 }
 
+/**
+ * Apply the user's slider preferences as a CSS filter chain on <html>.
+ *
+ * This covers brightness, contrast, sepia, grayscale, and blueShift for
+ * ALL modes. The CSS-based algorithms (oklch-cascade, perceptual-remap,
+ * chroma-semantic) intentionally do NOT re-apply these values internally —
+ * this function is the single source of truth for user filter preferences.
+ *
+ * For photon-inverter: invert:true adds the full inversion chain.
+ * For all others:      invert:false applies adjustments only.
+ */
 function applyFilterCss(settings: Settings) {
   console.log("[UltraDark] Applying Global Filter Sliders...");
   const tag = ensureStyleTag();
@@ -214,6 +227,10 @@ function applyFilterCss(settings: Settings) {
   tag.textContent = css;
 }
 
+/**
+ * Reset whichever algorithm is currently active.
+ * Each algorithm has its own unique reset function.
+ */
 function resetModeArtifacts() {
   if (currentMode === "photon-inverter") {
     removePhotonInverter();
@@ -221,37 +238,61 @@ function resetModeArtifacts() {
     resetDomWalker();
   } else if (currentMode === "chroma-semantic") {
     resetChromaSemantic();
+  } else if (currentMode === "oklch-cascade") {
+    resetOklchCascade();
+  } else if (currentMode === "perceptual-remap") {
+    resetPerceptualRemap();
   }
   currentMode = null;
 }
 
+/**
+ * Route to the correct algorithm based on settings.mode.
+ *
+ * Algorithm contract:
+ *   - photon-inverter: manages its own complete CSS (inversion + adjustments).
+ *     applyFilterCss() is NOT called first because photon-inverter embeds
+ *     the inversion chain directly. The pre-inject CSS must also be removed
+ *     so original colours invert correctly.
+ *
+ *   - dom-walker, chroma-semantic, oklch-cascade, perceptual-remap:
+ *     applyFilterCss() is called FIRST to apply the user's slider preferences
+ *     (brightness, contrast, sepia, grayscale, blueShift) as a CSS filter on
+ *     <html>. The algorithm then runs and must NOT re-apply those values.
+ */
 function applyCss(s: Settings) {
   console.log("[UltraDark] Applying CSS with mode:", s.mode);
 
   resetModeArtifacts();
 
-  // CRITICAL FIX FOR PHOTON INVERTER:
-  // Photon Inverter requires the ORIGINAL text color (usually Black) to invert to White.
-  // Pre-Inject forces text to Light Grey (#e0e0e0). When inverted, this becomes Dark Grey (#1f1f1f).
-  // We must remove Pre-Inject styles to allow correct inversion via removePreInjectCss().
-
   if (s.mode === "photon-inverter") {
-    console.log(
-      "[UltraDark] Removing Pre-Inject styles for Photon Inverter to ensure correct text color inversion.",
-    );
+    // CRITICAL: remove pre-inject so original text colours invert correctly.
+    // Pre-inject forces text to #e0e0e0; when inverted that becomes dark grey
+    // instead of the expected near-white. Photon inverter manages its own CSS.
+    console.log("[UltraDark] Removing Pre-Inject styles for Photon Inverter.");
     removePreInjectCss();
     applyPhotonInverter(s);
+
   } else if (s.mode === "dom-walker") {
     applyFilterCss(s);
     applyDomWalker(s);
+
   } else if (s.mode === "chroma-semantic") {
     applyFilterCss(s);
     applyChromaSemantic(s);
+
+  } else if (s.mode === "oklch-cascade") {
+    // applyFilterCss runs first — oklch-cascade must not re-apply slider values
+    applyFilterCss(s);
+    applyOklchCascade(s);
+
+  } else if (s.mode === "perceptual-remap") {
+    // applyFilterCss runs first — perceptual-remap must not re-apply slider values
+    applyFilterCss(s);
+    applyPerceptualRemap(s);
+
   } else {
     console.log("[UltraDark] Unknown mode, falling back to photon-inverter");
-    console.log(
-      "[UltraDark] Removing Pre-Inject styles for Photon Inverter to ensure correct text color inversion.",
-    );
     removePreInjectCss();
     applyPhotonInverter(s);
   }
@@ -310,11 +351,7 @@ function removeCss() {
   }
 
   if (document.documentElement) {
-    document.documentElement.style.setProperty(
-      "background-color",
-      "",
-      "important",
-    );
+    document.documentElement.style.setProperty("background-color", "", "important");
     document.documentElement.style.setProperty("color", "", "important");
   }
   if (document.body) {
@@ -360,17 +397,13 @@ async function startOptimizerIfEnabled(s: Settings): Promise<void> {
     // and calling it later loses the Window object context, causing TypeError.
     // This direct-call approach is non-blocking and defers worker init until browser idle.
     if (typeof window.requestIdleCallback === "function") {
-      debugSync(
-        "[UltraDark][Optimizer] Scheduling worker init with: requestIdleCallback",
-      );
+      debugSync("[UltraDark][Optimizer] Scheduling worker init with: requestIdleCallback");
       window.requestIdleCallback(
         () => initializeOptimizerWorker(s).then(resolve),
         { timeout: 2000 },
       );
     } else {
-      debugSync(
-        "[UltraDark][Optimizer] Scheduling worker init with: requestAnimationFrame",
-      );
+      debugSync("[UltraDark][Optimizer] Scheduling worker init with: requestAnimationFrame");
       requestAnimationFrame(() => initializeOptimizerWorker(s).then(resolve));
     }
   });
@@ -398,10 +431,7 @@ async function initializeOptimizerWorker(s: Settings): Promise<void> {
 
       const { suggestedContrast } = data;
       if (typeof suggestedContrast === "number") {
-        console.log(
-          "[UltraDark][Optimizer] Suggestion:",
-          suggestedContrast + "%",
-        );
+        console.log("[UltraDark][Optimizer] Suggestion:", suggestedContrast + "%");
         const tag = document.getElementById("udr-style");
         if (tag) {
           const bounded = Math.min(200, Math.max(50, suggestedContrast));
@@ -463,10 +493,7 @@ function collectContrastSamples(): Promise<Array<{ fg: string; bg: string }>> {
       const styleData: Array<{ fg: string; bg: string }> = [];
       for (const el of elemArray) {
         const cs = getComputedStyle(el);
-        styleData.push({
-          fg: cs.color,
-          bg: cs.backgroundColor,
-        });
+        styleData.push({ fg: cs.color, bg: cs.backgroundColor });
       }
 
       // Process phase (no layout impact, fill in missing backgrounds)
@@ -531,9 +558,7 @@ async function tick(): Promise<void> {
   if (shouldDetectDark && isDocumentBodyReady()) {
     console.log("[UltraDark] Running Early Detection (Body Ready)...");
     if (isAlreadyDarkTheme()) {
-      console.log(
-        "[UltraDark] Early Detection: Dark Theme Found. Applying Passive Mode.",
-      );
+      console.log("[UltraDark] Early Detection: Dark Theme Found. Applying Passive Mode.");
       applyPassiveMode();
       return;
     } else {
@@ -555,19 +580,14 @@ async function tick(): Promise<void> {
   if (shouldDetectDark && !applied && !preInjected) {
     console.log("[UltraDark] Running Post-Detection (DOM Ready)...");
     if (isAlreadyDarkTheme()) {
-      console.log(
-        "[UltraDark] Post-Detection: Dark Theme Found. Switching to Passive Mode.",
-      );
-      removeShield(); // Remove the temporary shield
+      console.log("[UltraDark] Post-Detection: Dark Theme Found. Switching to Passive Mode.");
+      removeShield(); // Remove temp shield
       applyPassiveMode();
       return;
     }
   }
 
-  console.log(
-    "[UltraDark] Proceeding with Dark Mode Application. Mode:",
-    use.mode,
-  );
+  console.log("[UltraDark] Proceeding with Dark Mode Application. Mode:", use.mode);
   ensurePreInjectCss();
   applyCss(use);
 

@@ -1,5 +1,11 @@
 // File: src/types/settings.d.ts
-export type Mode = "photon-inverter" | "dom-walker" | "chroma-semantic";
+export type Mode =
+  | "photon-inverter"
+  | "dom-walker"
+  | "chroma-semantic"
+  | "oklch-cascade"
+  | "perceptual-remap";
+
 export interface Schedule {
   enabled: boolean;
   start: string; // "22:00"
@@ -17,7 +23,7 @@ export interface Settings {
   amoled: boolean;
   brightness: number; // 0..100 (%)
   contrast: number;   // 50..200 (%)
-  sepia: number;      // 0..100 (%)
+  sepia: number;      // 0..100 (%) -> applied as CSS sepia() filter via buildCss
   grayscale: number;  // 0..100 (%)
   blueShift: number;  // 0..100 (%) -> hue rotation scaled internally
   optimizerEnabled: boolean;
