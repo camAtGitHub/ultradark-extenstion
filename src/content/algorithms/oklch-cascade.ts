@@ -683,9 +683,9 @@ ${S} [role="dialog"],
 ${S} [role="alertdialog"],
 ${S} [class*="modal"],
 ${S} [class*="dialog"],
-${S} [class*="overlay"],
 ${S} [class*="popup"],
 ${S} [class*="drawer"] {
+/* NOTE: [class*="overlay"] intentionally removed — too broad, matches image overlays/hover layers */
   background-color: ${L5} !important;
   color: ${TP} !important;
 }

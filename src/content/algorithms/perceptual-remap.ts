@@ -617,7 +617,8 @@ ${S} input::placeholder, ${S} textarea::placeholder {
 /* ── Modals ──────────────────────────────────────────────────────────── */
 ${S} dialog, ${S} [aria-modal="true"], ${S} [role="dialog"],
 ${S} [class*="modal"], ${S} [class*="dialog"],
-${S} [class*="overlay"], ${S} [class*="drawer"] {
+${S} [class*="drawer"] {
+/* NOTE: [class*="overlay"] intentionally removed — too broad, matches image overlays/hover layers */
   background-color: var(--udr-modal-bg) !important;
   color: var(--udr-text-primary) !important;
 }

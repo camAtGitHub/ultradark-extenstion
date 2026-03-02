@@ -179,17 +179,8 @@ function processBatch(
         const inverted = invertLightness(rgb, true);
         element.style.backgroundColor = inverted;
       }
-    } else if (isTransparent(bgColor)) {
-      // For transparent backgrounds, check parent
-      const parentBg = findOpaqueParentBg(element);
-      if (parentBg) {
-        const rgb = parseRgb(parentBg);
-        if (rgb) {
-          const inverted = invertLightness(rgb, true);
-          element.style.backgroundColor = inverted;
-        }
-      }
     }
+    // Transparent elements left as-is — overlay divs over images must stay transparent.
 
     // Process text color
     const textColor = computed.color;
@@ -312,16 +303,10 @@ export function applyDomWalker(settings: Settings): void {
           change.bg = invertLightness(rgb, true);
           hasChanges = true;
         }
-      } else if (isTransparentFast(bgColor)) {
-        const parentBg = findOpaqueParentBg(node);
-        if (parentBg) {
-          const rgb = parseRgbFast(parentBg);
-          if (rgb) {
-            change.bg = invertLightness(rgb, true);
-            hasChanges = true;
-          }
-        }
       }
+      // Note: transparent elements are intentionally left transparent.
+      // Applying an inherited parent colour makes overlay/decorative divs
+      // opaque, which covers images sitting beneath them.
 
       // Text color
       const textColor = computed.color;

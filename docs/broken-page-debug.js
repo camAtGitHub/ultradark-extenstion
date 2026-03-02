@@ -233,7 +233,69 @@
     return (i.filter.match(/brightness/g) || []).length > 1;
   });
 
-  // ── 6. BACKGROUND IMAGES ──────────────────────────────────────────────────
+  // ── 6. MODAL-SELECTOR FALSE POSITIVES ─────────────────────────────────────
+  // Detects elements that match broad modal selectors ([class*="overlay"] etc.)
+  // but are likely image covers or decorative layers — the #1 cause of images
+  // being painted over with a dark background.
+
+  const MODAL_SELECTORS = [
+    '[class*="overlay"]',
+    '[class*="modal"]',
+    '[class*="dialog"]',
+    '[class*="drawer"]',
+    '[class*="popup"]',
+    '[aria-modal="true"]',
+    '[role="dialog"]',
+  ];
+
+  const modalFalsePositives = [];
+
+  for (const sel of MODAL_SELECTORS) {
+    let matched;
+    try { matched = Array.from(document.querySelectorAll(sel)).slice(0, 30); }
+    catch { continue; }
+
+    for (const el of matched) {
+      const cs = getComputedStyle(el);
+      const pos = cs.position;
+      const bg  = cs.backgroundColor;
+      const bgRgb = parseRgb(bg);
+      const isModal = el.matches('dialog,[aria-modal="true"],[role="dialog"],[role="alertdialog"]');
+
+      // Skip true modals (they're supposed to be dark)
+      if (isModal) continue;
+
+      // A false-positive overlay candidate: positioned, dark bg, sitting near an img
+      const isPositioned = pos === 'absolute' || pos === 'fixed';
+      const hasDarkBg    = bgRgb && !isLight(bgRgb);
+      const zIndex       = parseInt(cs.zIndex) || 0;
+
+      // Check if any img/video is a sibling or child-of-sibling
+      const parent = el.parentElement;
+      const siblingHasMedia = parent &&
+        Array.from(parent.querySelectorAll('img,video,picture')).length > 0;
+      const selfHasMedia = el.querySelectorAll('img,video,picture').length > 0;
+
+      if (isPositioned && hasDarkBg && (siblingHasMedia || selfHasMedia)) {
+        modalFalsePositives.push({
+          matchedSelector: sel,
+          tag: el.tagName.toLowerCase(),
+          id: el.id || null,
+          classes: typeof el.className === 'string'
+            ? el.className.split(' ').filter(Boolean).join(' ')
+            : null,
+          position: pos,
+          zIndex,
+          computedBg: bg,
+          mediaInParent: siblingHasMedia,
+          mediaAsChild: selfHasMedia,
+          diagnosis: `"${sel}" is matching a positioned layer over media — likely covering images`,
+        });
+      }
+    }
+  }
+
+  // ── 7. BACKGROUND IMAGES ──────────────────────────────────────────────────
 
   const bgImageEls = reads.filter(r => r.hasBackgroundImage).slice(0, 20).map(r => ({
     tag: r.tag,
@@ -243,7 +305,7 @@
     filter: r.filter,
   }));
 
-  // ── 7. INLINE STYLE OFFENDERS ─────────────────────────────────────────────
+  // ── 8. INLINE STYLE OFFENDERS ─────────────────────────────────────────────
 
   const inlineOffenders = reads
     .filter(r => r.hasInlineBg || r.hasInlineColor)
@@ -259,7 +321,7 @@
       isLightBg: r.hasInlineBg ? isLight(parseRgb(r.bgRaw)) : null,
     }));
 
-  // ── 8. SUMMARISE ──────────────────────────────────────────────────────────
+  // ── 9. SUMMARISE ──────────────────────────────────────────────────────────
 
   const lightBgProblems  = problems.filter(p => p.issue.includes('LIGHT BACKGROUND'));
   const contrastProblems = problems.filter(p => p.issue.includes('LOW CONTRAST'));
@@ -307,12 +369,20 @@
       detail: inlineOffenders,
     },
 
+    '🎭 MODAL-SELECTOR FALSE POSITIVES': {
+      total: modalFalsePositives.length,
+      detail: modalFalsePositives.slice(0, 20),
+    },
+
     '🖼️ BACKGROUND IMAGE ELEMENTS': {
       total: bgImageEls.length,
       detail: bgImageEls,
     },
 
     '💡 DIAGNOSIS HINTS': {
+      'Modal selectors covering images': modalFalsePositives.length > 0
+        ? `🚨 ${modalFalsePositives.length} element(s) matched by broad modal selectors (e.g. [class*="overlay"]) are positioned over media — they are being painted dark and covering images. Fix: narrow or remove [class*="overlay"] from modal CSS rules.`
+        : '✅ OK',
       'Many transparent-bg problems': transparentLightProblems.length > 10
         ? '⚠️ Engine is not walking DOM to find effective backgrounds — transparent elements pass through to unmodified ancestor'
         : '✅ OK',
