@@ -1,0 +1,346 @@
+(async function udrDeepScan() {
+
+  const SAMPLE_LIMIT = 300;
+  const CONTRAST_FAIL_THRESHOLD = 3.0; // WCAG AA is 4.5, we flag below 3 as broken
+
+  // ── Utilities ──────────────────────────────────────────────────────────────
+
+  function parseRgb(str) {
+    if (!str) return null;
+    const m = str.match(/rgba?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
+    if (!m) return null;
+    const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+    if (a < 0.05) return null; // treat near-transparent as null
+    return { r: +m[1], g: +m[2], b: +m[3], a };
+  }
+
+  function luminance(r, g, b) {
+    const s = [r, g, b].map(c => {
+      c /= 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2];
+  }
+
+  function contrast(rgb1, rgb2) {
+    if (!rgb1 || !rgb2) return null;
+    const l1 = luminance(rgb1.r, rgb1.g, rgb1.b);
+    const l2 = luminance(rgb2.r, rgb2.g, rgb2.b);
+    const lighter = Math.max(l1, l2);
+    const darker  = Math.min(l1, l2);
+    return +((lighter + 0.05) / (darker + 0.05)).toFixed(2);
+  }
+
+  function isLight(rgb) {
+    if (!rgb) return null;
+    return luminance(rgb.r, rgb.g, rgb.b) > 0.4;
+  }
+
+  function isDark(rgb) {
+    if (!rgb) return null;
+    return luminance(rgb.r, rgb.g, rgb.b) < 0.15;
+  }
+
+  /**
+   * Walk up the DOM to find the first non-transparent background.
+   * This is what parseRgbFast misses entirely — transparent elements
+   * inherit their visual background from an ancestor.
+   */
+  function effectiveBg(el) {
+    let node = el;
+    while (node && node !== document.documentElement) {
+      const bg = getComputedStyle(node).backgroundColor;
+      const rgb = parseRgb(bg);
+      if (rgb) return { color: bg, rgb, foundOn: node.tagName + (node.id ? '#'+node.id : '') };
+      node = node.parentElement;
+    }
+    // Fall back to html background
+    const htmlBg = getComputedStyle(document.documentElement).backgroundColor;
+    const rgb = parseRgb(htmlBg);
+    return { color: htmlBg, rgb, foundOn: 'html' };
+  }
+
+  // ── 1. ENVIRONMENT ─────────────────────────────────────────────────────────
+
+  const env = {
+    url: location.href,
+    udrMode:    document.documentElement.getAttribute('data-udr-mode'),
+    udrApplied: document.documentElement.getAttribute('udr-applied'),
+    colorScheme: getComputedStyle(document.documentElement).colorScheme,
+    bodyBgComputed: getComputedStyle(document.body).backgroundColor,
+    htmlBgComputed: getComputedStyle(document.documentElement).backgroundColor,
+    bodyBgInline:   document.body.style.backgroundColor || '(none)',
+    htmlBgInline:   document.documentElement.style.backgroundColor || '(none)',
+    styleTagsPresent: [
+      'udr-style','udr-shield','udr-preinject','udr-passive-style',
+      'udr-oklch-scheme','udr-oklch-variables','udr-oklch-semantic','udr-oklch-special',
+      'udr-premap-scheme','udr-premap-rules','udr-premap-hijack','udr-premap-special',
+      'udr-chroma-variables','udr-chroma-base','udr-chroma-semantic',
+    ].reduce((acc, id) => {
+      const el = document.getElementById(id);
+      if (el) acc[id] = (el.textContent || '').slice(0, 120).replace(/\s+/g,' ').trim() + '…';
+      return acc;
+    }, {}),
+  };
+
+  // ── 2. CSS VARIABLES AT :ROOT ──────────────────────────────────────────────
+
+  const rootStyle = getComputedStyle(document.documentElement);
+  const cssVars = {};
+  try {
+    for (const sheet of document.styleSheets) {
+      try {
+        for (const rule of sheet.cssRules) {
+          if (rule instanceof CSSStyleRule && (rule.selectorText === ':root' || rule.selectorText === 'html')) {
+            for (const prop of rule.style) {
+              if (prop.startsWith('--')) {
+                cssVars[prop] = rootStyle.getPropertyValue(prop).trim();
+              }
+            }
+          }
+        }
+      } catch { /* CORS */ }
+    }
+  } catch {}
+
+  const cssVarCount = Object.keys(cssVars).length;
+  // Flag any vars that look like background/color but are still light
+  const suspectVars = Object.entries(cssVars).filter(([k, v]) => {
+    if (!/(bg|background|surface|canvas|color|text|fg|foreground)/i.test(k)) return false;
+    const rgb = parseRgb(v);
+    return rgb && isLight(rgb);
+  }).map(([k, v]) => ({ var: k, value: v }));
+
+  // ── 3. ELEMENT SWEEP ───────────────────────────────────────────────────────
+
+  const sel = 'body,main,article,section,aside,nav,header,footer,' +
+    'div,p,span,a,h1,h2,h3,h4,h5,h6,li,td,th,button,input,textarea,select,' +
+    '[class*="card"],[class*="panel"],[class*="modal"],[class*="container"],[class*="wrapper"],' +
+    '[role="main"],[role="navigation"],[role="dialog"],[role="banner"],[role="contentinfo"]';
+
+  const elements = Array.from(document.querySelectorAll(sel)).slice(0, SAMPLE_LIMIT);
+
+  // Batch ALL reads
+  const reads = elements.map(el => {
+    const cs = getComputedStyle(el);
+    return {
+      el,
+      tag:       el.tagName.toLowerCase(),
+      id:        el.id || null,
+      classes:   el.className && typeof el.className === 'string'
+                   ? el.className.split(' ').filter(Boolean).slice(0, 4).join(' ')
+                   : null,
+      bgRaw:     cs.backgroundColor,
+      colorRaw:  cs.color,
+      hasInlineBg:    !!el.style.backgroundColor,
+      hasInlineColor: !!el.style.color,
+      hasBackgroundImage: cs.backgroundImage !== 'none',
+      filter:    cs.filter !== 'none' ? cs.filter : null,
+      opacity:   parseFloat(cs.opacity),
+    };
+  });
+
+  // ── 4. ANALYSE EACH ELEMENT ────────────────────────────────────────────────
+
+  const problems = [];
+  const transparentCount = { bg: 0, color: 0 };
+  const colourDistrib = { lightBg: 0, darkBg: 0, transparentBg: 0, lightFg: 0, darkFg: 0 };
+
+  for (const r of reads) {
+    const bgRgb    = parseRgb(r.bgRaw);
+    const colorRgb = parseRgb(r.colorRaw);
+
+    if (!bgRgb) {
+      transparentCount.bg++;
+      colourDistrib.transparentBg++;
+    } else if (isLight(bgRgb)) {
+      colourDistrib.lightBg++;
+    } else {
+      colourDistrib.darkBg++;
+    }
+
+    if (!colorRgb) transparentCount.color++;
+    else if (isLight(colorRgb)) colourDistrib.lightFg++;
+    else colourDistrib.darkFg++;
+
+    // Problem: light background remaining after dark mode
+    if (bgRgb && isLight(bgRgb)) {
+      const eff = effectiveBg(r.el);
+      problems.push({
+        issue: '🔆 LIGHT BACKGROUND',
+        tag: r.tag,
+        id: r.id,
+        classes: r.classes,
+        computedBg: r.bgRaw,
+        computedColor: r.colorRaw,
+        hasInlineBg: r.hasInlineBg,
+        effectiveBgFoundOn: eff.foundOn,
+        contrastRatio: contrast(bgRgb, colorRgb),
+      });
+    }
+
+    // Problem: dark text on dark background = unreadable
+    if (bgRgb && !isLight(bgRgb) && colorRgb && isDark(colorRgb)) {
+      const cr = contrast(bgRgb, colorRgb);
+      if (cr !== null && cr < CONTRAST_FAIL_THRESHOLD) {
+        problems.push({
+          issue: '🔴 LOW CONTRAST (dark text on dark bg)',
+          tag: r.tag,
+          id: r.id,
+          classes: r.classes,
+          computedBg: r.bgRaw,
+          computedColor: r.colorRaw,
+          contrastRatio: cr,
+        });
+      }
+    }
+
+    // Problem: transparent background — effective bg might be light
+    if (!bgRgb && r.tag !== 'body' && r.tag !== 'html') {
+      const eff = effectiveBg(r.el);
+      if (eff.rgb && isLight(eff.rgb)) {
+        problems.push({
+          issue: '⚠️ TRANSPARENT BG — EFFECTIVE BG IS LIGHT',
+          tag: r.tag,
+          id: r.id,
+          classes: r.classes,
+          computedBg: r.bgRaw,
+          effectiveBg: eff.color,
+          effectiveBgFoundOn: eff.foundOn,
+          computedColor: r.colorRaw,
+        });
+      }
+    }
+  }
+
+  // ── 5. IMAGE ANALYSIS ─────────────────────────────────────────────────────
+
+  const images = Array.from(document.querySelectorAll('img,video,canvas,picture')).slice(0, 50);
+  const imgReads = images.map(el => {
+    const cs = getComputedStyle(el);
+    return {
+      tag: el.tagName.toLowerCase(),
+      src: el.src ? el.src.slice(0, 60) : null,
+      filter: cs.filter !== 'none' ? cs.filter : null,
+      opacity: parseFloat(cs.opacity),
+      hasInlineFilter: !!el.style.filter,
+    };
+  });
+  const imagesWithFilter = imgReads.filter(i => i.filter);
+  const imagesWithDoubleFilter = imgReads.filter(i => {
+    if (!i.filter) return false;
+    // Two brightness() calls = double-applied
+    return (i.filter.match(/brightness/g) || []).length > 1;
+  });
+
+  // ── 6. BACKGROUND IMAGES ──────────────────────────────────────────────────
+
+  const bgImageEls = reads.filter(r => r.hasBackgroundImage).slice(0, 20).map(r => ({
+    tag: r.tag,
+    id: r.id,
+    classes: r.classes,
+    bg: r.bgRaw,
+    filter: r.filter,
+  }));
+
+  // ── 7. INLINE STYLE OFFENDERS ─────────────────────────────────────────────
+
+  const inlineOffenders = reads
+    .filter(r => r.hasInlineBg || r.hasInlineColor)
+    .slice(0, 30)
+    .map(r => ({
+      tag: r.tag,
+      id: r.id,
+      classes: r.classes,
+      inlineBg: r.hasInlineBg ? r.el.style.backgroundColor : null,
+      inlineColor: r.hasInlineColor ? r.el.style.color : null,
+      computedBg: r.bgRaw,
+      computedColor: r.colorRaw,
+      isLightBg: r.hasInlineBg ? isLight(parseRgb(r.bgRaw)) : null,
+    }));
+
+  // ── 8. SUMMARISE ──────────────────────────────────────────────────────────
+
+  const lightBgProblems  = problems.filter(p => p.issue.includes('LIGHT BACKGROUND'));
+  const contrastProblems = problems.filter(p => p.issue.includes('LOW CONTRAST'));
+  const transparentLightProblems = problems.filter(p => p.issue.includes('TRANSPARENT'));
+
+  const report = {
+    '📋 ENVIRONMENT': env,
+
+    '🎨 CSS VARIABLES': {
+      totalFound: cssVarCount,
+      suspectLightVarsStillLight: suspectVars.length,
+      suspectVars: suspectVars.slice(0, 20),
+    },
+
+    '📊 COLOUR DISTRIBUTION (across sampled elements)': {
+      sampledElements: reads.length,
+      backgrounds: {
+        dark:        colourDistrib.darkBg,
+        light:       colourDistrib.lightBg,    // ← should be 0 in good dark mode
+        transparent: colourDistrib.transparentBg,
+      },
+      foregrounds: {
+        light: colourDistrib.lightFg,
+        dark:  colourDistrib.darkFg,           // ← dark fg on dark bg = problem
+      },
+    },
+
+    '🚨 PROBLEMS FOUND': {
+      total: problems.length,
+      lightBackgroundsRemaining: lightBgProblems.length,
+      lowContrastPairs: contrastProblems.length,
+      transparentWithLightEffectiveBg: transparentLightProblems.length,
+      detail: problems.slice(0, 40),
+    },
+
+    '🖼️ IMAGES': {
+      total: images.length,
+      withFilter: imagesWithFilter.length,
+      withDoubleFilter: imagesWithDoubleFilter.length,  // ← double brightness = bug
+      detail: imagesWithFilter.slice(0, 15),
+    },
+
+    '📌 INLINE STYLE OFFENDERS': {
+      total: inlineOffenders.length,
+      detail: inlineOffenders,
+    },
+
+    '🖼️ BACKGROUND IMAGE ELEMENTS': {
+      total: bgImageEls.length,
+      detail: bgImageEls,
+    },
+
+    '💡 DIAGNOSIS HINTS': {
+      'Many transparent-bg problems': transparentLightProblems.length > 10
+        ? '⚠️ Engine is not walking DOM to find effective backgrounds — transparent elements pass through to unmodified ancestor'
+        : '✅ OK',
+      'Sparse palette (<10 colors found in PR)': env.udrMode === 'perceptual-remap' && reads.length > 0
+        ? '⚠️ Check palette size — if very low, transparent bg stripping is losing most colours'
+        : 'N/A',
+      'CSS vars not hijacked': cssVarCount > 0 && suspectVars.length > 5
+        ? `⚠️ ${suspectVars.length} light vars still active — hijack may not be matching names`
+        : '✅ OK',
+      'Double filter on images': imagesWithDoubleFilter.length > 0
+        ? `⚠️ ${imagesWithDoubleFilter.length} images have double brightness filter`
+        : '✅ OK',
+    },
+  };
+
+  console.log('%c UDR Deep Scan Report ', 'background:#1a1a2e;color:#e0e0ff;font-size:14px;padding:4px 8px;border-radius:4px;');
+  console.log(JSON.stringify(report, null, 2));
+
+  // Also surface the top problems directly for quick reading
+  console.log('%c TOP ISSUES ', 'background:#c0392b;color:white;font-size:12px;padding:2px 6px');
+  console.table(problems.slice(0, 20).map(p => ({
+    issue: p.issue,
+    element: `${p.tag}${p.id ? '#'+p.id : ''}`,
+    classes: p.classes,
+    bg: p.computedBg,
+    color: p.computedColor,
+    contrast: p.contrastRatio,
+  })));
+
+  return report;
+})();
