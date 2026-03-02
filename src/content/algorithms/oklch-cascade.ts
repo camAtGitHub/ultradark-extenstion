@@ -592,8 +592,12 @@ function generateSemanticCSS(settings: Settings, useOklch: boolean): string {
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Catch-all: force dark on everything not media ──────────────────── */
-${S} *:not(img):not(video):not(canvas):not(svg):not(picture):not(iframe) {
+/* color is set here so generic divs/spans (e.g. Material Design rgba(0,0,0,0.87)
+   text on a dark bg) don't slip through. Semantic rules below override with
+   their own !important values for links, buttons, headings etc. */
+${S} *:not(img):not(video):not(canvas):not(svg):not(picture):not(iframe):not(a):not(button) {
   background-color: ${L1} !important;
+  color: ${TP} !important;
 }
 
 /* ── L1: Page Canvas ────────────────────────────────────────────────── */

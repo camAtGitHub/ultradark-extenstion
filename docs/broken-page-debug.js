@@ -7,11 +7,35 @@
 
   function parseRgb(str) {
     if (!str) return null;
-    const m = str.match(/rgba?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
-    if (!m) return null;
-    const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
-    if (a < 0.05) return null; // treat near-transparent as null
-    return { r: +m[1], g: +m[2], b: +m[3], a };
+
+    // ── rgb() / rgba() ──────────────────────────────────────────────────────
+    const mRgb = str.match(/rgba?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
+    if (mRgb) {
+      const a = mRgb[4] !== undefined ? parseFloat(mRgb[4]) : 1;
+      if (a < 0.05) return null;
+      return { r: +mRgb[1], g: +mRgb[2], b: +mRgb[3], a };
+    }
+
+    // ── oklch(L C H) / oklch(L C H / A) ────────────────────────────────────
+    // Used by oklch-cascade engine. L is perceptual lightness 0-1.
+    // We convert to approximate greyscale RGB so luminance/isLight/isDark work.
+    // For grey (C=0): OKLab L = cbrt(Y_linear), so Y_linear = L^3.
+    // For coloured oklch (C>0) this underestimates saturation but lightness
+    // detection (all we need here) remains accurate.
+    const mOklch = str.match(/oklch\(\s*([\d.]+)\s+[\d.]+\s+[\d.]+(?:\s*\/\s*([\d.]+))?\s*\)/);
+    if (mOklch) {
+      const L     = parseFloat(mOklch[1]);
+      const alpha = mOklch[2] !== undefined ? parseFloat(mOklch[2]) : 1;
+      if (alpha < 0.05) return null;
+      const Ylin  = Math.pow(Math.max(0, L), 3);
+      const srgb  = Ylin <= 0.0031308
+        ? Ylin * 12.92
+        : 1.055 * Math.pow(Ylin, 1 / 2.4) - 0.055;
+      const v = Math.round(Math.max(0, Math.min(1, srgb)) * 255);
+      return { r: v, g: v, b: v, a: alpha, _oklchL: L };
+    }
+
+    return null;
   }
 
   function luminance(r, g, b) {
@@ -327,7 +351,29 @@
   const contrastProblems = problems.filter(p => p.issue.includes('LOW CONTRAST'));
   const transparentLightProblems = problems.filter(p => p.issue.includes('TRANSPARENT'));
 
-  const report = {
+  // ── PHOTON-INVERTER MODE CHECK ────────────────────────────────────────────
+  // Photon-inverter works by applying filter:invert() to <html> and counter-
+  // inverting images. getComputedStyle() returns pre-filter values, so the
+  // standard colour distribution analysis is meaningless in this mode.
+  // We check the things that actually matter for this engine instead.
+  const photonChecks = (() => {
+    if (env.udrMode !== 'photon-inverter') return null;
+    const htmlFilter = getComputedStyle(document.documentElement).filter;
+    const hasInvert  = htmlFilter && htmlFilter.includes('invert');
+    const imgsMissingCounterInvert = Array.from(document.querySelectorAll('img,video,picture,canvas'))
+      .filter(el => {
+        const f = getComputedStyle(el).filter;
+        return !f || !f.includes('invert');
+      }).length;
+    const whiteFilledOverlays = Array.from(document.querySelectorAll('[data-photon-fix]'))
+      .filter(el => {
+        const pos = getComputedStyle(el).position;
+        return pos === 'absolute' || pos === 'fixed';
+      }).length;
+    return { hasInvert, htmlFilter, imgsMissingCounterInvert, whiteFilledOverlays };
+  })();
+
+    const report = {
     '📋 ENVIRONMENT': env,
 
     '🎨 CSS VARIABLES': {
@@ -374,6 +420,8 @@
       detail: modalFalsePositives.slice(0, 20),
     },
 
+    '🔦 PHOTON-INVERTER CHECKS': photonChecks || 'N/A — not photon-inverter mode',
+
     '🖼️ BACKGROUND IMAGE ELEMENTS': {
       total: bgImageEls.length,
       detail: bgImageEls,
@@ -395,6 +443,26 @@
       'Double filter on images': imagesWithDoubleFilter.length > 0
         ? `⚠️ ${imagesWithDoubleFilter.length} images have double brightness filter`
         : '✅ OK',
+      'Colour distribution accuracy': (() => {
+        if (env.udrMode === 'oklch-cascade') {
+          const allTransparent = colourDistrib.transparentBg === reads.length;
+          return allTransparent
+            ? '⚠️ All elements showing as transparent — likely a parseRgb format mismatch (oklch values not parsed). Update debug script.'
+            : '✅ oklch values parsed correctly';
+        }
+        if (env.udrMode === 'photon-inverter') {
+          return '⚠️ Colour distribution is meaningless in photon-inverter mode — getComputedStyle() returns pre-filter values. See 🔦 PHOTON-INVERTER CHECKS instead.';
+        }
+        return '✅ OK';
+      })(),
+      'Photon-inverter health': (() => {
+        if (!photonChecks) return 'N/A';
+        const issues = [];
+        if (!photonChecks.hasInvert) issues.push('html filter:invert() not detected — engine may not have applied');
+        if (photonChecks.imgsMissingCounterInvert > 0) issues.push(`${photonChecks.imgsMissingCounterInvert} images missing counter-invert filter — will appear colour-inverted`);
+        if (photonChecks.whiteFilledOverlays > 0) issues.push(`${photonChecks.whiteFilledOverlays} positioned overlays got JS white-fill — may cover images after inversion`);
+        return issues.length ? '🚨 ' + issues.join('; ') : '✅ OK';
+      })(),
     },
   };
 
@@ -403,14 +471,19 @@
 
   // Also surface the top problems directly for quick reading
   console.log('%c TOP ISSUES ', 'background:#c0392b;color:white;font-size:12px;padding:2px 6px');
-  console.table(problems.slice(0, 20).map(p => ({
-    issue: p.issue,
-    element: `${p.tag}${p.id ? '#'+p.id : ''}`,
-    classes: p.classes,
-    bg: p.computedBg,
-    color: p.computedColor,
-    contrast: p.contrastRatio,
-  })));
+  if (env.udrMode === 'photon-inverter') {
+    console.log('%c ⚠️ photon-inverter mode: colour problems above are pre-filter values and are all false positives. See 🔦 PHOTON-INVERTER CHECKS in the report above. ', 'background:#7a4f00;color:#ffe;font-size:11px;padding:2px 6px');
+    if (photonChecks) console.table(photonChecks);
+  } else {
+    console.table(problems.slice(0, 20).map(p => ({
+      issue: p.issue,
+      element: `${p.tag}${p.id ? '#'+p.id : ''}`,
+      classes: p.classes,
+      bg: p.computedBg,
+      color: p.computedColor,
+      contrast: p.contrastRatio,
+    })));
+  }
 
   return report;
 })();
