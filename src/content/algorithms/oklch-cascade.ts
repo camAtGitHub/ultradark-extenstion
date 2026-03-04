@@ -592,12 +592,8 @@ function generateSemanticCSS(settings: Settings, useOklch: boolean): string {
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ── Catch-all: force dark on everything not media ──────────────────── */
-/* color is set here so generic divs/spans (e.g. Material Design rgba(0,0,0,0.87)
-   text on a dark bg) don't slip through. Semantic rules below override with
-   their own !important values for links, buttons, headings etc. */
-${S} *:not(img):not(video):not(canvas):not(svg):not(picture):not(iframe):not(a):not(button) {
+${S} *:not(img):not(video):not(canvas):not(svg):not(picture):not(iframe) {
   background-color: ${L1} !important;
-  color: ${TP} !important;
 }
 
 /* ── L1: Page Canvas ────────────────────────────────────────────────── */
@@ -687,9 +683,9 @@ ${S} [role="dialog"],
 ${S} [role="alertdialog"],
 ${S} [class*="modal"],
 ${S} [class*="dialog"],
+${S} [class*="overlay"],
 ${S} [class*="popup"],
 ${S} [class*="drawer"] {
-/* NOTE: [class*="overlay"] intentionally removed — too broad, matches image overlays/hover layers */
   background-color: ${L5} !important;
   color: ${TP} !important;
 }
@@ -854,16 +850,6 @@ ${S} iframe {
 ${S} [style*="background-image"]:not(img):not(video):not(picture) {
   background-blend-mode: saturation;
   background-color: rgba(0, 0, 0, 0.65) !important;
-}
-
-/* CSS containment to reduce style recalc scope */
-${S} main,
-${S} article,
-${S} section,
-${S} .container,
-${S} #app,
-${S} #root {
-  contain: layout style;
 }
 `;
 }

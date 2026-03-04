@@ -68,14 +68,7 @@ function fixTransparentBackgrounds(): void {
       processed++;
       
       // Check computed style
-      const cs = window.getComputedStyle(el);
-      const bg = cs.backgroundColor;
-
-      // Skip positioned elements (absolute/fixed) — these are overlay/decorative
-      // layers whose transparency is intentional. Forcing them to white causes
-      // the global invert() to paint them black, covering any <img> beneath them.
-      const pos = cs.position;
-      if (pos === 'absolute' || pos === 'fixed') continue;
+      const bg = window.getComputedStyle(el).backgroundColor;
       
       // Optimized transparency check (avoid string methods where possible)
       if (bg === 'transparent' || 
@@ -161,6 +154,15 @@ html, body {
 
     ${backgroundFix}
     ${amoledCss}
+
+    /* Scrollbar styling (Firefox-native) — colors are pre-inverted since
+       html filter: invert(100%) will flip them to the desired dark palette */
+    html {
+      scrollbar-color: #d5d5d5 #ededed;
+    }
+    html * {
+      scrollbar-color: #d5d5d5 transparent;
+    }
   `;
 }
 

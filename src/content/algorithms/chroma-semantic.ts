@@ -1129,23 +1129,12 @@ function handleSpecialElements(settings: Settings): void {
       filter: brightness(1.1);
     }
 
-    /* Scrollbar styling */
-    html[udr-applied="true"][data-udr-mode="chroma-semantic"] ::-webkit-scrollbar {
-      width: 12px;
-      height: 12px;
+    /* Scrollbar styling (Firefox-native, no -webkit needed) */
+    html[udr-applied="true"][data-udr-mode="chroma-semantic"] {
+      scrollbar-color: ${BACKGROUND_PALETTE[4]} ${BACKGROUND_PALETTE[1]};
     }
-
-    html[udr-applied="true"][data-udr-mode="chroma-semantic"] ::-webkit-scrollbar-track {
-      background: ${BACKGROUND_PALETTE[1]};
-    }
-
-    html[udr-applied="true"][data-udr-mode="chroma-semantic"] ::-webkit-scrollbar-thumb {
-      background: ${BACKGROUND_PALETTE[4]};
-      border-radius: 6px;
-    }
-
-    html[udr-applied="true"][data-udr-mode="chroma-semantic"] ::-webkit-scrollbar-thumb:hover {
-      background: ${BACKGROUND_PALETTE[5]};
+    html[udr-applied="true"][data-udr-mode="chroma-semantic"] * {
+      scrollbar-color: ${BACKGROUND_PALETTE[4]} transparent;
     }
 
     /* Grayscale overlay if enabled */

@@ -38,15 +38,6 @@ export function buildCss(vars: {
 html[udr-applied="true"] {
   contain: style;  /* Isolate style recalculations */
 }
-
-html[udr-applied="true"] main,
-html[udr-applied="true"] article,
-html[udr-applied="true"] section,
-html[udr-applied="true"] .container,
-html[udr-applied="true"] #app,
-html[udr-applied="true"] #root {
-  contain: layout style;  /* Contain layout and style for main content areas */
-}
 `;
 
   // Use will-change hint for filter animation (helps GPU compositing)
@@ -126,6 +117,17 @@ html[udr-applied="true"] iframe,
 html[udr-applied="true"] embed,
 html[udr-applied="true"] object {
   background: transparent !important;
+}
+
+/* Scrollbar styling (Firefox-native) — dark-themed scrollbars.
+   Only set scrollbar-color; do NOT override scrollbar-width because
+   SPAs often use scrollbar-width:none on html/body to hide the browser
+   scrollbar in favour of a custom scroll container. */
+html[udr-applied="true"] {
+  scrollbar-color: #2a2a2a #121212;
+}
+html[udr-applied="true"] * {
+  scrollbar-color: #2a2a2a transparent;
 }
 `;
 }
