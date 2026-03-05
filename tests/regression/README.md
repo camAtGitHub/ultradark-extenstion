@@ -207,3 +207,23 @@ npx vitest run tests/unit/ tests/algorithms.test.ts
 3. **For visual changes:** Run `visual --update` to set new baselines, then commit the `perf-history.jsonl`
 4. **In PR review:** Check the regression report output for any flagged metrics
 5. **Periodically:** Run `history` to spot gradual drift across commits
+
+
+## Example of Benchmark Results
+The tiers are based upon a sampling of websites the author accessed on a typical work day.
+
+Summary of what the benchmarks reveal:
+
+**Scaling behavior across the new tiers** (µs/node — lower is better):
+
+| Algorithm | small (400) | medium (2K) | large (5K) | heavy (12K) | extreme (85K) | Pattern |
+|---|---|---|---|---|---|---|
+| oklch-cascade | 231.2 | 4.5 | 1.8 | 2.2 | 1.7 | Flat after warmup — **O(1) per-node** |
+| photon-inverter | 69.9 | 18.2 | 3.9 | 2.1 | 1.9 | Flat after warmup — **O(1) per-node** |
+| chroma-semantic | 449.1 | 43.5 | 17.6 | 14.8 | 10.8 | Decreasing — **CSS-only, amortized** |
+| perceptual-remap | 50.1 | 46.9 | 54.7 | 48.5 | 43.6 | Stable — **linear O(n)** |
+| dom-walker | 478.9 | 142.7 | 67.1 | 68.9 | 60.2 | Stable at scale — **linear O(n)** |
+
+**no algorithm shows O(n²) behavior** — the extreme tier at 85K nodes was the key test for that, and every algorithm's per-node cost is flat or decreasing. Dom-walker is the slowest in wall-clock (5.1s at extreme) but still linear. Oklch-cascade dominates at scale with sub-2µs/node.
+
+The small tier's inflated µs/node values (231µs for oklch-cascade vs 1.7µs at extreme) confirm exactly why we skip timing regression on that tier — it's all fixed-cost overhead being divided by a tiny node count.

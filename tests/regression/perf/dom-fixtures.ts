@@ -78,7 +78,8 @@ export interface DomFixture {
 }
 
 export function buildFixture(tier: DomTier, seed = 42): DomFixture {
-  const { nodes: targetNodes, depth: maxDepth } = DOM_TIERS[tier];
+  const tierConfig = DOM_TIERS[tier];
+  const { nodes: targetNodes, depth: maxDepth, spaLike } = tierConfig;
   const rng = mulberry32(seed);
 
   const dom = new JSDOM(`<!DOCTYPE html><html><head></head><body></body></html>`);
@@ -87,10 +88,81 @@ export function buildFixture(tier: DomTier, seed = 42): DomFixture {
 
   let created = 0;
 
+  /** Create a single element with styles and optional SPA traits */
+  function makeElement(tag: string): HTMLElement {
+    const el = doc.createElement(tag);
+    created++;
+
+    // Assign simulated styles
+    const bg = LIGHT_BGS[Math.floor(rng() * LIGHT_BGS.length)];
+    const fg = LIGHT_FGS[Math.floor(rng() * LIGHT_FGS.length)];
+    styleMap.set(el, { backgroundColor: bg, color: fg });
+
+    // SPA-like tiers get obfuscated classes
+    if (spaLike) {
+      el.className = SPA_CLASSES[Math.floor(rng() * SPA_CLASSES.length)];
+    }
+
+    // Add text content to text-bearing elements
+    if (TEXT_TAGS.includes(tag) || INLINE_TAGS.includes(tag)) {
+      el.textContent = `Sample text node ${created}`;
+    }
+
+    // Media elements get src attributes
+    if (tag === "img") {
+      el.setAttribute("src", "data:image/gif;base64,R0lGODlhAQABAAAAACw=");
+      el.setAttribute("alt", `img-${created}`);
+    }
+
+    return el;
+  }
+
+  // ── Phase 1: Build a guaranteed-depth spine ─────────────────────────────────
+  // This ensures at least one path from body reaches maxDepth,
+  // which is critical for testing algorithms with depth limits
+  // (e.g. chroma-semantic's MAX_DEPTH=15).
+  //
+  // Budget: reserve ~5% of nodes for the spine (min 1 per level).
+  const spineBudget = Math.max(maxDepth, Math.floor(targetNodes * 0.05));
+  let spineLeaf: Element = doc.body;
+
+  for (let d = 0; d < maxDepth && created < spineBudget; d++) {
+    const tag = BLOCK_TAGS[Math.floor(rng() * BLOCK_TAGS.length)];
+    const el = makeElement(tag);
+
+    // SPA-like tiers: randomly inject wrapper divs along the spine
+    if (spaLike && rng() < 0.3 && created < spineBudget) {
+      const wrapper = doc.createElement("div");
+      wrapper.className = SPA_CLASSES[Math.floor(rng() * SPA_CLASSES.length)];
+      styleMap.set(wrapper, { backgroundColor: "rgba(0, 0, 0, 0)", color: "rgb(0, 0, 0)" });
+      created++;
+      spineLeaf.appendChild(wrapper);
+      wrapper.appendChild(el);
+    } else {
+      spineLeaf.appendChild(el);
+    }
+
+    spineLeaf = el;
+  }
+
+  // ── Phase 2: Fill remaining node budget with breadth-first branching ────────
+  // Collect all existing elements as candidate parents, then attach children
+  // to random parents (biased toward shallower ones to mimic real pages).
+
+  function getNodeDepth(el: Element): number {
+    let depth = 0;
+    let node: Element | null = el;
+    while (node && node !== doc.body) {
+      depth++;
+      node = node.parentElement;
+    }
+    return depth;
+  }
+
   function buildSubtree(parent: Element, currentDepth: number): void {
     if (created >= targetNodes) return;
 
-    // Scale children to fill remaining budget — wide at top, narrowing with depth
+    // Scale children: wide at top, narrowing with depth
     const remaining = targetNodes - created;
     const depthRatio = 1 - currentDepth / maxDepth;
     const baseChildren = Math.max(2, Math.ceil(8 * depthRatio));
@@ -101,46 +173,25 @@ export function buildFixture(tier: DomTier, seed = 42): DomFixture {
 
     for (let i = 0; i < childCount && created < targetNodes; i++) {
       const tag = randomTag(rng);
-      const el = doc.createElement(tag);
-      created++;
+      const el = makeElement(tag);
 
-      // Assign simulated styles
-      const bg = LIGHT_BGS[Math.floor(rng() * LIGHT_BGS.length)];
-      const fg = LIGHT_FGS[Math.floor(rng() * LIGHT_FGS.length)];
-      styleMap.set(el, { backgroundColor: bg, color: fg });
-
-      // SPA tier gets obfuscated classes and deeper nesting
-      if (tier === "spa") {
-        el.className = SPA_CLASSES[Math.floor(rng() * SPA_CLASSES.length)];
-        // SPAs have lots of wrapper divs
-        if (rng() < 0.3 && currentDepth < maxDepth) {
-          const wrapper = doc.createElement("div");
-          wrapper.className = SPA_CLASSES[Math.floor(rng() * SPA_CLASSES.length)];
-          styleMap.set(wrapper, { backgroundColor: "rgba(0, 0, 0, 0)", color: fg });
-          parent.appendChild(wrapper);
-          wrapper.appendChild(el);
-          created++;
-          if (currentDepth + 1 < maxDepth) {
-            buildSubtree(el, currentDepth + 2);
-          }
-          continue;
+      // SPA-like tiers: wrapper divs for deep nesting
+      if (spaLike && rng() < 0.25 && currentDepth < maxDepth && created < targetNodes) {
+        const wrapper = doc.createElement("div");
+        wrapper.className = SPA_CLASSES[Math.floor(rng() * SPA_CLASSES.length)];
+        styleMap.set(wrapper, { backgroundColor: "rgba(0, 0, 0, 0)", color: "rgb(0, 0, 0)" });
+        created++;
+        parent.appendChild(wrapper);
+        wrapper.appendChild(el);
+        if (currentDepth + 2 < maxDepth) {
+          buildSubtree(el, currentDepth + 2);
         }
-      }
-
-      // Add text content to text-bearing elements
-      if (TEXT_TAGS.includes(tag) || INLINE_TAGS.includes(tag)) {
-        el.textContent = `Sample text node ${created}`;
-      }
-
-      // Media elements get src attributes
-      if (tag === "img") {
-        el.setAttribute("src", "data:image/gif;base64,R0lGODlhAQABAAAAACw=");
-        el.setAttribute("alt", `img-${created}`);
+        continue;
       }
 
       parent.appendChild(el);
 
-      // Recurse deeper — recurse on block tags always, others sometimes
+      // Recurse deeper — block tags always, others sometimes
       if (currentDepth + 1 < maxDepth && created < targetNodes) {
         if (BLOCK_TAGS.includes(tag) || rng() < 0.3) {
           buildSubtree(el, currentDepth + 1);
@@ -149,7 +200,51 @@ export function buildFixture(tier: DomTier, seed = 42): DomFixture {
     }
   }
 
-  buildSubtree(doc.body, 0);
+  // Attach breadth from the spine nodes and body, spreading load
+  const spineNodes: Element[] = [];
+  let cursor: Element | null = doc.body.firstElementChild;
+  while (cursor) {
+    spineNodes.push(cursor);
+    cursor = cursor.firstElementChild;
+  }
+
+  // Distribute remaining budget across spine nodes (weighted toward shallower)
+  if (created < targetNodes) {
+    // Start from body and spine nodes at various depths
+    const attachPoints = [doc.body, ...spineNodes];
+    let pointIndex = 0;
+
+    while (created < targetNodes) {
+      const parent = attachPoints[pointIndex % attachPoints.length];
+      const depth = getNodeDepth(parent);
+
+      // Build a subtree rooted at this attachment point
+      const batchBudget = Math.min(
+        targetNodes - created,
+        Math.max(50, Math.floor((targetNodes - created) / (attachPoints.length - pointIndex))),
+      );
+      const startCount = created;
+
+      buildSubtree(parent, depth);
+
+      // If this point produced nothing (at max depth), skip it
+      if (created === startCount) {
+        pointIndex++;
+        if (pointIndex >= attachPoints.length * 2) break; // safety valve
+        continue;
+      }
+
+      // Collect new block elements as future attachment points
+      const newElements = parent.querySelectorAll("div, section, article, main, aside, nav");
+      for (let i = 0; i < Math.min(newElements.length, 20); i++) {
+        if (!attachPoints.includes(newElements[i])) {
+          attachPoints.push(newElements[i]);
+        }
+      }
+
+      pointIndex++;
+    }
+  }
 
   return {
     dom,

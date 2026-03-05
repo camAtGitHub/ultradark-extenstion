@@ -275,7 +275,8 @@ describe("Tier 2: Algorithm Execution Benchmarks", () => {
 
           // Sanity assertions (these catch catastrophic regressions)
           if (applyTime >= 0) {
-            expect(applyTime).toBeLessThan(BENCH_CONFIG.timeoutMs);
+            const tierTimeout = BENCH_CONFIG.tierTimeoutMs[tier] ?? BENCH_CONFIG.timeoutMs;
+            expect(applyTime).toBeLessThan(tierTimeout);
           }
         });
       }
@@ -326,7 +327,12 @@ describe("Tier 2: Algorithm Execution Benchmarks", () => {
 
       for (const result of allResults) {
         const baseline = getBaseline(result.algorithm, result.tier);
-        const report = compareToBaseline(result, baseline);
+
+        // Small tier: skip timing-based regression checks (jitter dominates at low node counts)
+        const skipMetrics: MetricName[] = BENCH_CONFIG.skipTimingRegression.includes(result.tier)
+          ? ["applyTimeMs", "resetTimeMs", "perNodeApplyUs"]
+          : [];
+        const report = compareToBaseline(result, baseline, skipMetrics);
 
         reports.push(report.summary);
         if (report.hasRegression) anyRegression = true;

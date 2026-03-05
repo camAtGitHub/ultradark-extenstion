@@ -38,13 +38,31 @@ export function settingsForMode(mode: Mode): Settings {
 }
 
 // ── DOM fixture sizes ─────────────────────────────────────────────────────────
-// Each tier defines a synthetic DOM complexity level.
+// Each tier defines a synthetic DOM complexity level, calibrated against
+// real-world DOM measurements (March 2026):
+//
+//   366/10   lightweight text page        →  small
+//   892/14   docs site                    ┐
+//   1474/19  blog                         ├─ medium
+//   1787/36  deep-nested blog             ┘
+//   2552/37  mid-weight SPA               ┐
+//   2985/21  news site                    ├─ large
+//   3460/62  Google Search (extreme depth)│
+//   4146/37  heavy page                   ┘
+//   5133/43  GitHub                       ┐
+//   6083/22  documentation                ├─ heavy
+//   6457/26  OS project docs              ┘
+//   82735/38 YouTube (multi-nav)          →  extreme
+//
+// Depth is intentionally set to exceed chroma-semantic's MAX_DEPTH=15
+// from the medium tier onwards, exposing missed deep subtrees.
 
 export const DOM_TIERS = {
-  small:  { nodes: 50,   depth: 3,  description: "Simple page (blog post)" },
-  medium: { nodes: 500,  depth: 6,  description: "Typical page (news site)" },
-  large:  { nodes: 2000, depth: 10, description: "Heavy page (dashboard)" },
-  spa:    { nodes: 3000, depth: 15, description: "SPA (React/Uber Eats-like)" },
+  small:   { nodes: 400,   depth: 10, spaLike: false, description: "Lightweight page (text blog, docs)" },
+  medium:  { nodes: 2000,  depth: 22, spaLike: false, description: "Typical page (news site, Uber Eats-class)" },
+  large:   { nodes: 5000,  depth: 37, spaLike: false, description: "Heavy page (IMDB, Register, deep Google-class)" },
+  heavy:   { nodes: 12000, depth: 43, spaLike: true,  description: "Post-scroll SPA (GitHub, IMDB after lazy-load)" },
+  extreme: { nodes: 85000, depth: 40, spaLike: true,  description: "Stress test (YouTube after multi-page navigation)" },
 } as const;
 
 export type DomTier = keyof typeof DOM_TIERS;
@@ -71,8 +89,18 @@ export const BENCH_CONFIG = {
   warmupRuns:   3,
   /** Measured runs (median is taken) */
   measuredRuns: 10,
-  /** Max time (ms) for a single algorithm apply before aborting */
+  /** Default max time (ms) for a single algorithm apply before aborting */
   timeoutMs:    5000,
+  /** Per-tier timeout overrides (extreme tier needs much more headroom) */
+  tierTimeoutMs: {
+    small:   2000,
+    medium:  5000,
+    large:   10000,
+    heavy:   30000,
+    extreme: 120000,
+  } as Record<DomTier, number>,
+  /** Tiers where timing-based regression comparison is skipped (jitter-dominated) */
+  skipTimingRegression: ["small"] as DomTier[],
 };
 
 // ── Test sites for visual regression (Playwright) ─────────────────────────────

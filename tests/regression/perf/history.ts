@@ -96,6 +96,7 @@ const METRIC_KEYS: MetricName[] = [
 export function compareToBaseline(
   current: NormalizedMetrics,
   baseline: NormalizedMetrics | null,
+  skipMetrics?: MetricName[],
 ): ComparisonReport {
   if (!baseline) {
     return {
@@ -122,7 +123,7 @@ export function compareToBaseline(
       ? (cVal > 0 ? 1.0 : 0)
       : (cVal - bVal) / bVal;
 
-    const regressed = changePercent > threshold;
+    const regressed = changePercent > threshold && !(skipMetrics?.includes(metric));
     if (regressed) hasRegression = true;
 
     results.push({
