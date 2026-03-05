@@ -159,6 +159,11 @@ html, body {
       filter: invert(100%) hue-rotate(180deg) !important;
     }
 
+    /* Cancel for media nested inside media — parent already counter-inverted */
+    :is(picture, svg, video, canvas, iframe) :is(img, video, picture, canvas, svg) {
+      filter: none !important;
+    }
+
     ${backgroundFix}
     ${amoledCss}
   `;

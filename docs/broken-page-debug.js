@@ -356,21 +356,75 @@
   // inverting images. getComputedStyle() returns pre-filter values, so the
   // standard colour distribution analysis is meaningless in this mode.
   // We check the things that actually matter for this engine instead.
+  const MEDIA_TAGS = new Set(['PICTURE','SVG','VIDEO','CANVAS','IFRAME']);
   const photonChecks = (() => {
     if (env.udrMode !== 'photon-inverter') return null;
     const htmlFilter = getComputedStyle(document.documentElement).filter;
     const hasInvert  = htmlFilter && htmlFilter.includes('invert');
-    const imgsMissingCounterInvert = Array.from(document.querySelectorAll('img,video,picture,canvas'))
+
+    // Check top-level media elements (not nested inside other media) for missing counter-invert
+    const allMedia = Array.from(document.querySelectorAll('img,video,picture,canvas,svg,iframe'));
+    const isNestedMedia = (el) => {
+      let parent = el.parentElement;
+      while (parent && parent !== document.documentElement) {
+        if (MEDIA_TAGS.has(parent.tagName)) return true;
+        parent = parent.parentElement;
+      }
+      return false;
+    };
+
+    const topLevelMedia = allMedia.filter(el => !isNestedMedia(el));
+    const nestedMedia   = allMedia.filter(el => isNestedMedia(el));
+
+    const imgsMissingCounterInvert = topLevelMedia
       .filter(el => {
         const f = getComputedStyle(el).filter;
         return !f || !f.includes('invert');
       }).length;
+
+    // Nested media should have filter:none — if they still have invert, filters are stacking
+    const nestedWithStaleInvert = nestedMedia
+      .filter(el => {
+        const f = getComputedStyle(el).filter;
+        return f && f.includes('invert');
+      });
+
+    // Elements with computed background-image (via stylesheet, not inline) missing counter-invert
+    const bgImageEls = Array.from(document.querySelectorAll('div,span,a,section,header,footer'))
+      .slice(0, 500)
+      .filter(el => {
+        const cs = getComputedStyle(el);
+        return cs.backgroundImage !== 'none' && !cs.filter.includes('invert');
+      });
+
     const whiteFilledOverlays = Array.from(document.querySelectorAll('[data-photon-fix]'))
       .filter(el => {
         const pos = getComputedStyle(el).position;
         return pos === 'absolute' || pos === 'fixed';
       }).length;
-    return { hasInvert, htmlFilter, imgsMissingCounterInvert, whiteFilledOverlays };
+
+    return {
+      hasInvert,
+      htmlFilter,
+      imgsMissingCounterInvert,
+      nestedMediaWithStackedInvert: nestedWithStaleInvert.length,
+      nestedMediaDetail: nestedWithStaleInvert.slice(0, 10).map(el => ({
+        tag: el.tagName.toLowerCase(),
+        parent: el.parentElement?.tagName.toLowerCase(),
+        src: el.src ? el.src.slice(0, 80) : null,
+        filter: getComputedStyle(el).filter,
+      })),
+      bgImagesMissingCounterInvert: bgImageEls.length,
+      bgImageDetail: bgImageEls.slice(0, 10).map(el => ({
+        tag: el.tagName.toLowerCase(),
+        id: el.id || null,
+        classes: typeof el.className === 'string'
+          ? el.className.split(' ').filter(Boolean).slice(0, 4).join(' ')
+          : null,
+        backgroundImage: getComputedStyle(el).backgroundImage.slice(0, 80),
+      })),
+      whiteFilledOverlays,
+    };
   })();
 
     const report = {
@@ -459,7 +513,9 @@
         if (!photonChecks) return 'N/A';
         const issues = [];
         if (!photonChecks.hasInvert) issues.push('html filter:invert() not detected — engine may not have applied');
-        if (photonChecks.imgsMissingCounterInvert > 0) issues.push(`${photonChecks.imgsMissingCounterInvert} images missing counter-invert filter — will appear colour-inverted`);
+        if (photonChecks.imgsMissingCounterInvert > 0) issues.push(`${photonChecks.imgsMissingCounterInvert} top-level media missing counter-invert filter — will appear colour-inverted`);
+        if (photonChecks.nestedMediaWithStackedInvert > 0) issues.push(`${photonChecks.nestedMediaWithStackedInvert} nested media still have invert filter — triple-inversion bug (e.g. picture>img both counter-inverting)`);
+        if (photonChecks.bgImagesMissingCounterInvert > 0) issues.push(`${photonChecks.bgImagesMissingCounterInvert} elements with CSS background-image lack counter-invert — hero/banner images will appear inverted`);
         if (photonChecks.whiteFilledOverlays > 0) issues.push(`${photonChecks.whiteFilledOverlays} positioned overlays got JS white-fill — may cover images after inversion`);
         return issues.length ? '🚨 ' + issues.join('; ') : '✅ OK';
       })(),
@@ -473,7 +529,24 @@
   console.log('%c TOP ISSUES ', 'background:#c0392b;color:white;font-size:12px;padding:2px 6px');
   if (env.udrMode === 'photon-inverter') {
     console.log('%c ⚠️ photon-inverter mode: colour problems above are pre-filter values and are all false positives. See 🔦 PHOTON-INVERTER CHECKS in the report above. ', 'background:#7a4f00;color:#ffe;font-size:11px;padding:2px 6px');
-    if (photonChecks) console.table(photonChecks);
+    if (photonChecks) {
+      console.table({
+        hasInvert: photonChecks.hasInvert,
+        htmlFilter: photonChecks.htmlFilter,
+        imgsMissingCounterInvert: photonChecks.imgsMissingCounterInvert,
+        nestedMediaWithStackedInvert: photonChecks.nestedMediaWithStackedInvert,
+        bgImagesMissingCounterInvert: photonChecks.bgImagesMissingCounterInvert,
+        whiteFilledOverlays: photonChecks.whiteFilledOverlays,
+      });
+      if (photonChecks.nestedMediaDetail.length > 0) {
+        console.log('%c Nested media with stacked invert (triple-inversion bug): ', 'color:#ff6b6b');
+        console.table(photonChecks.nestedMediaDetail);
+      }
+      if (photonChecks.bgImageDetail.length > 0) {
+        console.log('%c CSS background-image elements missing counter-invert: ', 'color:#ff6b6b');
+        console.table(photonChecks.bgImageDetail);
+      }
+    }
   } else {
     console.table(problems.slice(0, 20).map(p => ({
       issue: p.issue,

@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "UltraDark Reader",
-  "version": "1.0.0",
+  "version": "2026.03.052110",
   "description": "High-quality dark mode extension",
   "browser_action": {
     "default_title": "UltraDark",
