@@ -354,7 +354,7 @@ function getElementDepth(element: HTMLElement): number {
   let depth = 0;
   let current: HTMLElement | null = element;
 
-  while (current && current !== document.body && depth < 20) {
+  while (current && current !== document.body && depth < 100) {
     current = current.parentElement;
     depth++;
   }
@@ -1390,7 +1390,6 @@ export function applyChromaSemantic(settings: Settings): void {
 
   const stack: StackItem[] = [{ element: document.body, depth: 0 }];
   const BATCH_SIZE = 200;
-  const MAX_DEPTH = 15;
 
   function processNextBatch(): void {
     // Check performance budget
@@ -1422,17 +1421,15 @@ export function applyChromaSemantic(settings: Settings): void {
       }
       processedInBatch++;
 
-      // Add children to stack (if not too deep)
-      if (depth < MAX_DEPTH) {
-        const children = element.children;
+      // Add children to stack
+      const children = element.children;
 
-        // Add in reverse order so we process in document order
-        for (let i = children.length - 1; i >= 0; i--) {
-          const child = children[i];
+      // Add in reverse order so we process in document order
+      for (let i = children.length - 1; i >= 0; i--) {
+        const child = children[i];
 
-          if (child instanceof HTMLElement && !processedElements.has(child)) {
-            stack.push({ element: child, depth: depth + 1 });
-          }
+        if (child instanceof HTMLElement && !processedElements.has(child)) {
+          stack.push({ element: child, depth: depth + 1 });
         }
       }
     }
@@ -1715,3 +1712,4 @@ export function resetChromaSemantic(): void {
 
   debugSync("[Chroma v2] Reset complete");
 }
+
