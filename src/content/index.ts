@@ -31,6 +31,7 @@ let preInjected = false;
 let preInjectTag: HTMLStyleElement | null = null;
 let currentMode: Settings["mode"] | null = null;
 let shieldActive = false;
+let darkRecheckScheduled = false;
 let spaObserver: MutationObserver | null = null;
 
 /**
