@@ -36,11 +36,6 @@ browser.runtime.onInstalled.addListener(() => {
     title: "UltraDark: Test schedule (debug)",
     contexts: ["browser_action"],
   });
-  browser.contextMenus.create({
-    id: "udr-exclude-site",
-    title: "UltraDark: Exclude this site",
-    contexts: ["page", "browser_action"],
-  });
 
   // Alarm to check schedule every minute
   browser.alarms.create("udr-schedule", { periodInMinutes: 1 });

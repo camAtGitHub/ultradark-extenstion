@@ -210,6 +210,7 @@ function processBatch(
 }
 
 export function resetDomWalker(): void {
+  pruneDetachedElements();
   processedElements.forEach((el) => {
     el.style.backgroundColor = "";
     el.style.color = "";
@@ -220,6 +221,20 @@ export function resetDomWalker(): void {
   if (mutationObserver) {
     mutationObserver.disconnect();
     mutationObserver = null;
+  }
+
+  if (mutationDebounceTimer !== null) {
+    clearTimeout(mutationDebounceTimer);
+    mutationDebounceTimer = null;
+  }
+
+  if (scrollHandler) {
+    document.removeEventListener("scroll", scrollHandler);
+    scrollHandler = null;
+  }
+  if (inputHandler) {
+    document.removeEventListener("input", inputHandler);
+    inputHandler = null;
   }
 }
 
@@ -375,30 +390,18 @@ export function applyDomWalker(settings: Settings): void {
 let pendingMutations: Element[] = [];
 let mutationDebounceTimer: number | null = null;
 let isUserInteracting = false;
+let scrollHandler: (() => void) | null = null;
+let inputHandler: (() => void) | null = null;
 
-// Track user interaction to defer processing
-if (typeof document !== "undefined") {
-  document.addEventListener(
-    "scroll",
-    () => {
-      isUserInteracting = true;
-      setTimeout(() => {
-        isUserInteracting = false;
-      }, 150);
-    },
-    { passive: true },
-  );
+/** Maximum number of elements queued in pendingMutations; excess is silently dropped */
+const MAX_PENDING_MUTATIONS = 2000;
 
-  document.addEventListener(
-    "input",
-    () => {
-      isUserInteracting = true;
-      setTimeout(() => {
-        isUserInteracting = false;
-      }, 100);
-    },
-    { passive: true },
-  );
+function pruneDetachedElements(): void {
+  for (const el of processedElements) {
+    if (!el.isConnected) {
+      processedElements.delete(el);
+    }
+  }
 }
 
 function setupOptimizedMutationObserver(): void {
@@ -406,11 +409,24 @@ function setupOptimizedMutationObserver(): void {
     mutationObserver.disconnect();
   }
 
+  // Register interaction listeners (stored for later removal in resetDomWalker)
+  scrollHandler = () => {
+    isUserInteracting = true;
+    setTimeout(() => { isUserInteracting = false; }, 150);
+  };
+  inputHandler = () => {
+    isUserInteracting = true;
+    setTimeout(() => { isUserInteracting = false; }, 100);
+  };
+  document.addEventListener("scroll", scrollHandler, { passive: true });
+  document.addEventListener("input", inputHandler, { passive: true });
+
   mutationObserver = new MutationObserver((mutations) => {
     // Collect new elements with limited descendant depth
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (node instanceof HTMLElement) {
+          if (pendingMutations.length >= MAX_PENDING_MUTATIONS) continue;
           pendingMutations.push(node);
 
           // Limit descendant collection to 2 levels deep (covers most UI patterns)
@@ -418,11 +434,13 @@ function setupOptimizedMutationObserver(): void {
           for (let i = 0; i < directChildren.length && i < 20; i++) {
             const child = directChildren[i];
             if (child instanceof HTMLElement) {
+              if (pendingMutations.length >= MAX_PENDING_MUTATIONS) break;
               pendingMutations.push(child);
 
               // Second level (grandchildren)
               const grandchildren = child.children;
               for (let j = 0; j < grandchildren.length && j < 10; j++) {
+                if (pendingMutations.length >= MAX_PENDING_MUTATIONS) break;
                 if (grandchildren[j] instanceof HTMLElement) {
                   pendingMutations.push(grandchildren[j] as HTMLElement);
                 }
@@ -469,6 +487,8 @@ function processPendingMutations(): void {
   const elements = pendingMutations;
   pendingMutations = [];
   mutationDebounceTimer = null;
+
+  pruneDetachedElements(); // idle — safe to prune here
 
   // Deduplicate (same element might be added multiple times)
   const unique = [...new Set(elements)].filter(

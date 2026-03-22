@@ -80,6 +80,9 @@ const STYLE_IDS = {
   specialElements:"udr-oklch-special",
 } as const;
 
+/** Diagnostic bridge script ID — separate from STYLE_IDS (script, not style tag) */
+const DIAG_SCRIPT_ID = "udr-oklch-diag-bridge" as const;
+
 /** Mode attribute value written to <html data-udr-mode="..."> */
 const ENGINE_MODE = "oklch-cascade" as const;
 
@@ -1183,6 +1186,9 @@ export function resetOklchCascade(): void {
 
   html.style.removeProperty("color-scheme");
 
+  // Remove diagnostic bridge script
+  document.getElementById(DIAG_SCRIPT_ID)?.remove();
+
   debugSync("[OKLCH Cascade] Reset complete");
 }
 
@@ -1258,8 +1264,10 @@ if (typeof window !== "undefined") {
       }
     });
 
-    const script = document.createElement("script");
-    script.textContent = `
+    if (!document.getElementById(DIAG_SCRIPT_ID)) {
+      const script = document.createElement("script");
+      script.id = DIAG_SCRIPT_ID;
+      script.textContent = `
       window.__oklchDiag = function() {
         return new Promise(function(resolve) {
           window.postMessage({ type: "UDR_OKLCH_DIAG_REQUEST" }, "*");
@@ -1278,6 +1286,7 @@ if (typeof window !== "undefined") {
         });
       };
     `;
-    (document.head || document.documentElement).appendChild(script);
+      (document.head || document.documentElement).appendChild(script);
+    }
   } catch { /* non-critical */ }
 }

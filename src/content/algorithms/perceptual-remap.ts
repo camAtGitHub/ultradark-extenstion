@@ -66,6 +66,9 @@ const STYLE_IDS = {
   specialRules:   "udr-premap-special",
 } as const;
 
+/** Diagnostic bridge script ID — separate from STYLE_IDS (script, not style tag) */
+const DIAG_SCRIPT_ID = "udr-premap-diag-bridge" as const;
+
 const ENGINE_MODE = "perceptual-remap" as const;
 
 /**
@@ -1118,6 +1121,9 @@ export function resetPerceptualRemap(): void {
 
   html.style.removeProperty("color-scheme");
 
+  // Remove diagnostic bridge script
+  document.getElementById(DIAG_SCRIPT_ID)?.remove();
+
   debugSync("[Perceptual Remap] Reset complete");
 }
 
@@ -1208,8 +1214,10 @@ if (typeof window !== "undefined") {
       }
     });
 
-    const script = document.createElement("script");
-    script.textContent = `
+    if (!document.getElementById(DIAG_SCRIPT_ID)) {
+      const script = document.createElement("script");
+      script.id = DIAG_SCRIPT_ID;
+      script.textContent = `
       window.__premapDiag = function() {
         return new Promise(function(resolve) {
           window.postMessage({ type: "UDR_PREMAP_DIAG_REQUEST" }, "*");
@@ -1228,6 +1236,7 @@ if (typeof window !== "undefined") {
         });
       };
     `;
-    (document.head || document.documentElement).appendChild(script);
+      (document.head || document.documentElement).appendChild(script);
+    }
   } catch { /* non-critical */ }
 }

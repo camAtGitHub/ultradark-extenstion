@@ -53,6 +53,9 @@ const STYLE_IDS = {
   semanticStyles: "udr-chroma-semantic",
 } as const;
 
+/** Diagnostic bridge script ID — separate from STYLE_IDS (script, not style tag) */
+const DIAG_SCRIPT_ID = "udr-chroma-diag-bridge" as const;
+
 /**
  * Dark background palette by elevation level
  * Level 0 = deepest (canvas), Level 6 = highest (tooltips)
@@ -279,7 +282,9 @@ interface ProcessingStats {
 // ============================================================================
 
 /** WeakSet to track processed elements - prevents memory leaks */
-const processedElements = new WeakSet<HTMLElement>();
+// Note: declared as `let` (not `const`) so resetChromaSemantic() can reassign it.
+// WeakSet has no `.clear()` method, so reassignment is the only way to drop all references.
+let processedElements = new WeakSet<HTMLElement>();
 
 /** MutationObserver instance for dynamic content */
 let mutationObserver: MutationObserver | null = null;
@@ -1633,8 +1638,10 @@ if (typeof window !== "undefined") {
     });
 
     // Inject function that uses message passing
-    const script = document.createElement("script");
-    script.textContent = `
+    if (!document.getElementById(DIAG_SCRIPT_ID)) {
+      const script = document.createElement("script");
+      script.id = DIAG_SCRIPT_ID;
+      script.textContent = `
       window.__chromaDiag = function() {
         return new Promise(function(resolve) {
           window.postMessage({ type: "UDR_CHROMA_DIAG_REQUEST" }, "*");
@@ -1653,7 +1660,8 @@ if (typeof window !== "undefined") {
         });
       };
     `;
-    (document.head || document.documentElement).appendChild(script);
+      (document.head || document.documentElement).appendChild(script);
+    }
   } catch {
     // Silent fail - diagnostics are non-critical
   }
@@ -1681,9 +1689,10 @@ export function resetChromaSemantic(): void {
 
   // Clear caches
   backgroundCache = new WeakMap();
+  processedElements = new WeakSet();
 
-  // Note: processedElements (WeakSet) will be garbage collected naturally
-  // We cannot clear a WeakSet, but creating a new one is fine for reset
+  // Remove diagnostic bridge script
+  document.getElementById(DIAG_SCRIPT_ID)?.remove();
 
   // Clear stats
   stats = null;

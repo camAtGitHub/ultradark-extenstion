@@ -30,6 +30,7 @@ let preInjected = false;
 let preInjectTag: HTMLStyleElement | null = null;
 let currentMode: Settings["mode"] | null = null;
 let shieldActive = false;
+let spaObserver: MutationObserver | null = null;
 
 /**
  * OPTIMIZATION 10: Eliminate Double Settings Fetch
@@ -194,6 +195,7 @@ function removePreInjectCss() {
     preInjectTag.parentNode.removeChild(preInjectTag);
   }
   preInjected = false;
+  preInjectTag = null;
 }
 
 function hueRotateFromBlueShift(blueShift: number): number {
@@ -363,16 +365,22 @@ function removeCss() {
 }
 
 function startObserverForSpa() {
-  const ob = new MutationObserver(() => {
+  if (spaObserver) return;
+  spaObserver = new MutationObserver(() => {
     if (applied) {
       // nothing extra
     }
   });
-  ob.observe(document.documentElement, {
+  spaObserver.observe(document.documentElement, {
     childList: true,
     subtree: true,
     attributes: false,
   });
+}
+
+function stopObserverForSpa(): void {
+  spaObserver?.disconnect();
+  spaObserver = null;
 }
 
 /**
@@ -608,6 +616,10 @@ function cleanupIfNeeded(): void {
   } else if (shieldActive) {
     removeShield();
   }
+  stopObserverForSpa();
+  worker?.terminate();
+  worker = null;
+  workerInitPromise = null;
 }
 
 browser.runtime.onMessage.addListener((msg) => {
