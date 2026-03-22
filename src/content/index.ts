@@ -660,9 +660,19 @@ async function tick(): Promise<void> {
 
   if (shouldDetectDark && !applied && !preInjected) {
     console.log("[UltraDark] Running Post-Detection (DOM Ready)...");
-    if (isAlreadyDarkTheme()) {
+    // Temporarily hide the shield's ID so isAlreadyDarkTheme()'s guard
+    // doesn't abort. The <style> element stays in the DOM — the inversion
+    // filter keeps rendering — only getElementById("udr-shield") returns null.
+    // CSS filters don't affect getComputedStyle readings, so luminance
+    // sampling sees the site's real colours, not the inverted ones.
+    const shield = document.getElementById("udr-shield");
+    if (shield) shield.id = "_udr-shield-detection";
+    const detectedDark = isAlreadyDarkTheme();
+    if (shield) shield.id = "udr-shield";
+
+    if (detectedDark) {
       console.log("[UltraDark] Post-Detection: Dark Theme Found. Switching to Passive Mode.");
-      removeShield(); // Remove temp shield
+      removeShield();
       applyPassiveMode();
       return;
     }
