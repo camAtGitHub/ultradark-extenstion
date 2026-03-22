@@ -21,6 +21,7 @@ import { applyPerceptualRemap, resetPerceptualRemap } from "./algorithms/percept
 import { buildCss, ensureStyleTag } from "./style-template";
 import {
   waitForDocumentReady,
+  waitForWindowLoad,
   isDocumentBodyReady,
 } from "../utils/document-ready";
 
@@ -30,6 +31,7 @@ let preInjected = false;
 let preInjectTag: HTMLStyleElement | null = null;
 let currentMode: Settings["mode"] | null = null;
 let shieldActive = false;
+let darkRecheckScheduled = false;
 
 /**
  * OPTIMIZATION 10: Eliminate Double Settings Fetch
@@ -515,6 +517,70 @@ function collectContrastSamples(): Promise<Array<{ fg: string; bg: string }>> {
   });
 }
 
+/**
+ * DEFERRED DARK RE-CHECK
+ *
+ * On first page load, dark detection runs at DOMContentLoaded when external
+ * stylesheets may not be loaded yet. getComputedStyle returns
+ * incomplete/default values → false negative → UltraDark applies to an
+ * already-dark site.
+ *
+ * On the second page load (clicking a link), cached stylesheets load
+ * instantly so detection succeeds — explaining why users see detection
+ * "work on the second page but not the first".
+ *
+ * Fix: after applying dark mode, wait for window.onload (all stylesheets
+ * loaded) then re-run detection. If the site turns out to be dark, strip
+ * UltraDark and switch to passive mode.
+ */
+function scheduleDarkRecheck(): void {
+  if (darkRecheckScheduled) return;
+  darkRecheckScheduled = true;
+
+  console.log("[UltraDark][Recheck] Scheduling deferred dark detection re-check...");
+
+  waitForWindowLoad(3000).then(() => {
+    // Guard: if user/SPA navigation already removed styles, skip
+    if (!applied) {
+      console.log("[UltraDark][Recheck] Styles already removed, skipping re-check.");
+      darkRecheckScheduled = false;
+      return;
+    }
+
+    // Temporarily hide our own markers so detection doesn't short-circuit
+    const html = document.documentElement;
+    const udrApplied = html.getAttribute("udr-applied");
+    html.removeAttribute("udr-applied");
+
+    // Hide extension style tags from the guard check
+    const udrStyle = document.getElementById("udr-style");
+    const udrPreinject = document.getElementById("udr-preinject");
+    const udrShield = document.getElementById("udr-shield");
+    if (udrStyle) udrStyle.id = "_udr-style-hidden";
+    if (udrPreinject) udrPreinject.id = "_udr-preinject-hidden";
+    if (udrShield) udrShield.id = "_udr-shield-hidden";
+
+    console.log("[UltraDark][Recheck] Running post-load dark detection...");
+    const isDarkNow = isAlreadyDarkTheme();
+
+    // Restore markers
+    if (udrApplied) html.setAttribute("udr-applied", udrApplied);
+    if (udrStyle) udrStyle.id = "udr-style";
+    if (udrPreinject) udrPreinject.id = "udr-preinject";
+    if (udrShield) udrShield.id = "udr-shield";
+
+    if (isDarkNow) {
+      console.log("[UltraDark][Recheck] ✅ Site IS dark after full load. Switching to Passive Mode.");
+      removeCss();
+      applyPassiveMode();
+    } else {
+      console.log("[UltraDark][Recheck] Site is light after full load. Keeping UltraDark active.");
+    }
+
+    darkRecheckScheduled = false;
+  });
+}
+
 async function tick(): Promise<void> {
   debugSync("[UltraDark] ========== TICK START ==========");
 
@@ -553,8 +619,6 @@ async function tick(): Promise<void> {
 
   const shouldDetectDark = use.skipDarkSites && !per.forceDarkMode;
 
-  const isDark = false;
-
   if (shouldDetectDark && isDocumentBodyReady()) {
     console.log("[UltraDark] Running Early Detection (Body Ready)...");
     if (isAlreadyDarkTheme()) {
@@ -577,6 +641,15 @@ async function tick(): Promise<void> {
     console.warn("[UltraDark] Timeout waiting for document ready", error);
   }
 
+  // APPROACH A: If dark detection is needed, give stylesheets a short window
+  // to finish loading before running post-detection. DOMContentLoaded only
+  // guarantees the DOM is parsed — external stylesheets may still be pending,
+  // causing getComputedStyle to return incomplete values.
+  if (shouldDetectDark && document.readyState !== 'complete') {
+    console.log("[UltraDark] Waiting briefly for stylesheets before post-detection...");
+    await waitForWindowLoad(500);
+  }
+
   if (shouldDetectDark && !applied && !preInjected) {
     console.log("[UltraDark] Running Post-Detection (DOM Ready)...");
     if (isAlreadyDarkTheme()) {
@@ -590,6 +663,14 @@ async function tick(): Promise<void> {
   console.log("[UltraDark] Proceeding with Dark Mode Application. Mode:", use.mode);
   ensurePreInjectCss();
   applyCss(use);
+
+  // APPROACH B: Schedule a deferred re-check at window.onload as a safety net.
+  // If the 500ms wait above wasn't enough (slow connection, large stylesheets),
+  // this catches it once everything is fully loaded and gracefully transitions
+  // to passive mode if the site turns out to be dark.
+  if (shouldDetectDark) {
+    scheduleDarkRecheck();
+  }
 
   if (use.optimizerEnabled) {
     try {

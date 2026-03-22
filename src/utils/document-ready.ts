@@ -17,7 +17,7 @@ export async function waitForDocumentReady(): Promise<void> {
       const POLL_INTERVAL = 50; // 50ms to reduce CPU usage
       const TIMEOUT = 5000; // 5 second timeout to prevent infinite polling
       const startTime = Date.now();
-      
+
       const checkBody = setInterval(() => {
         try {
           // Check for timeout
@@ -26,7 +26,7 @@ export async function waitForDocumentReady(): Promise<void> {
             reject(new Error('Timeout waiting for document.body to be available'));
             return;
           }
-          
+
           if (document.body) {
             clearInterval(checkBody);
             // Still wait for interactive state
@@ -45,6 +45,34 @@ export async function waitForDocumentReady(): Promise<void> {
       // Body exists, just wait for DOMContentLoaded
       document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
     }
+  });
+}
+
+/**
+ * Wait for window.onload (all stylesheets, images, subresources loaded).
+ * This is when getComputedStyle returns truthful values for dark detection.
+ * Resolves immediately if already complete, otherwise waits with a timeout.
+ */
+export function waitForWindowLoad(timeoutMs = 3000): Promise<void> {
+  if (document.readyState === 'complete') {
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    let resolved = false;
+
+    const done = () => {
+      if (!resolved) {
+        resolved = true;
+        resolve();
+      }
+    };
+
+    window.addEventListener('load', done, { once: true });
+
+    // Safety timeout — don't block forever if load event already fired
+    // or if a resource stalls indefinitely
+    setTimeout(done, timeoutMs);
   });
 }
 
