@@ -96,8 +96,8 @@ function applyShield() {
   shield.id = "udr-shield";
   // OPTIMIZATION 7: Use CSS containment to isolate shield styles
   shield.textContent = `
-    html { 
-      filter: invert(1) hue-rotate(180deg) !important; 
+    html {
+      filter: invert(1) hue-rotate(180deg) !important;
       background-color: white !important;
       contain: style;  /* Prevent style leak during transition */
     }
@@ -676,7 +676,18 @@ async function tick(): Promise<void> {
   // If the 500ms wait above wasn't enough (slow connection, large stylesheets),
   // this catches it once everything is fully loaded and gracefully transitions
   // to passive mode if the site turns out to be dark.
-  if (shouldDetectDark) {
+  //
+  // SKIP for oklch-cascade, perceptual-remap, and chroma-semantic — these algos
+  // inject color-scheme: dark / data-theme="dark" as a core mechanism, which
+  // would fool isAlreadyDarkTheme() into thinking the site is natively dark.
+  // They already handle native dark detection internally via detectFramework()
+  // BEFORE injecting anything, with a darkModeActivated early-return path.
+  const modesWithInternalDarkDetection = new Set([
+    "oklch-cascade",
+    "perceptual-remap",
+    "chroma-semantic",
+  ]);
+  if (shouldDetectDark && !modesWithInternalDarkDetection.has(use.mode)) {
     scheduleDarkRecheck();
   }
 
