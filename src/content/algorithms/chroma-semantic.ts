@@ -25,11 +25,9 @@
 import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
-import { ensureStyleTag } from "../style-template";
 import { getSettings, originFromUrl } from "../../utils/storage";
 import {
   parseRgbFast,
-  isTransparentFast,
   getRelativeLuminance,
   getContrastRatio,
 } from "../../utils/color-utils";
@@ -650,6 +648,7 @@ function hijackCSSVariables(settings: Settings): boolean {
   const adjustedBg = applyWarmth(baseBg, warmth);
   const adjustedSurface = applyWarmth(BACKGROUND_PALETTE[2], warmth);
   const adjustedCard = applyWarmth(BACKGROUND_PALETTE[3], warmth);
+  const cardLikePattern = /card|panel|tile|modal|dialog|popover|dropdown/i;
 
   // First pass: Check common known variable names directly (fast path)
   const rootStyle = getComputedStyle(document.documentElement);
@@ -701,7 +700,10 @@ function hijackCSSVariables(settings: Settings): boolean {
   for (const varName of commonBgVars) {
     const value = rootStyle.getPropertyValue(varName).trim();
     if (value && !processedVars.has(varName)) {
-      overrides.push(`${varName}: ${adjustedBg} !important;`);
+      const mappedColor = cardLikePattern.test(varName)
+        ? adjustedCard
+        : adjustedBg;
+      overrides.push(`${varName}: ${mappedColor} !important;`);
       processedVars.add(varName);
       hijackCount++;
     }
@@ -753,7 +755,10 @@ function hijackCSSVariables(settings: Settings): boolean {
                 if (prop.startsWith("--") && !processedVars.has(prop)) {
                   // Categorize and override based on naming pattern
                   if (VARIABLE_PATTERNS.background.test(prop)) {
-                    overrides.push(`${prop}: ${adjustedSurface} !important;`);
+                    const mappedColor = cardLikePattern.test(prop)
+                      ? adjustedCard
+                      : adjustedSurface;
+                    overrides.push(`${prop}: ${mappedColor} !important;`);
                     processedVars.add(prop);
                     hijackCount++;
                   } else if (VARIABLE_PATTERNS.foreground.test(prop)) {
@@ -829,7 +834,6 @@ function hijackCSSVariables(settings: Settings): boolean {
  * Classify an element's semantic role
  */
 function classifyElement(element: HTMLElement): SemanticRole {
-  const tagName = element.tagName.toLowerCase();
   const ariaRole = element.getAttribute("role");
 
   // Check each role definition in priority order
@@ -1255,8 +1259,8 @@ function setupMutationObserver(settings: Settings): void {
       processingScheduled = true;
 
       // Use requestIdleCallback if available, otherwise requestAnimationFrame
-      if ("requestIdleCallback" in window) {
-        (window as any).requestIdleCallback(processPendingElements, {
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(() => processPendingElements(), {
           timeout: 100,
         });
       } else {
@@ -1721,4 +1725,3 @@ export function resetChromaSemantic(): void {
 
   debugSync("[Chroma v2] Reset complete");
 }
-

@@ -513,7 +513,7 @@ function computeRemappings(
 
 function generateRemapStylesheet(
   colorMap: Map<string, ColorMapping>,
-  settings: Settings,
+  _settings: Settings,
 ): string {
   const S = `html[udr-applied="true"][data-udr-mode="${ENGINE_MODE}"]`;
 
@@ -695,7 +695,7 @@ ${S} [class*="popover"], ${S} [class*="dropdown-menu"] {
 // PHASE 5: CSS VARIABLE HIJACKING
 // ============================================================================
 
-function hijackCSSVariables(settings: Settings): number {
+function hijackCSSVariables(_settings: Settings): number {
   debugSync("[Perceptual Remap] Phase 5: CSS Variable Hijacking");
 
   const overrides: string[] = [];
@@ -794,7 +794,7 @@ function hijackCSSVariables(settings: Settings): number {
 // PHASE 6: INLINE STYLE SWEEP + SPECIAL ELEMENTS
 // ============================================================================
 
-function sweepInlineStyles(settings: Settings): void {
+function sweepInlineStyles(_settings: Settings): void {
   requestAnimationFrame(() => {
     const styled = document.querySelectorAll("[style]");
     const limit = Math.min(styled.length, 500);
@@ -845,7 +845,7 @@ function sweepInlineStyles(settings: Settings): void {
   });
 }
 
-function generateSpecialCSS(settings: Settings): string {
+function generateSpecialCSS(_settings: Settings): string {
   const S = `html[udr-applied="true"][data-udr-mode="${ENGINE_MODE}"]`;
 
   /**
@@ -888,7 +888,7 @@ ${S} main, ${S} article, ${S} section, ${S} .container, ${S} #app, ${S} #root {
 // PHASE 7: MUTATION OBSERVER
 // ============================================================================
 
-function setupMutationObserver(settings: Settings): void {
+function setupMutationObserver(_settings: Settings): void {
   debugSync("[Perceptual Remap] Phase 7: MutationObserver");
 
   if (mutationObserver) mutationObserver.disconnect();
@@ -941,8 +941,8 @@ function setupMutationObserver(settings: Settings): void {
 
     if (pending.length > 0 && !scheduled) {
       scheduled = true;
-      if ("requestIdleCallback" in window) {
-        (window as any).requestIdleCallback(flush, { timeout: 100 });
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(() => flush(), { timeout: 100 });
       } else {
         requestAnimationFrame(flush);
       }
@@ -1175,7 +1175,10 @@ if (typeof window !== "undefined") {
         const settings = await getSettings();
         const siteSettings = settings.perSite?.[origin];
 
-        const paletteSnapshot: Record<string, any> = {};
+        const paletteSnapshot: Record<
+          string,
+          { original: string; darkBg: string; darkFg: string; count: number }
+        > = {};
         activeColorMap.forEach((mapping, key) => {
           paletteSnapshot[key] = {
             original: mapping.original, darkBg: mapping.darkBg,

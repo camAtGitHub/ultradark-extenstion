@@ -123,14 +123,18 @@ export function isTransparentFast(colorStr: string): boolean {
   if (colorStr === "transparent") return true;
   if (colorStr === "rgba(0, 0, 0, 0)") return true;
 
-  // Check for zero alpha in rgba format
-  const len = colorStr.length;
-  if (len > 10 && colorStr.charCodeAt(len - 2) === 48) {
-    // '0'
-    return colorStr.endsWith(", 0)") || colorStr.endsWith(",0)");
+  // Only rgba() can have alpha transparency.
+  if (!colorStr.startsWith("rgba(")) {
+    return false;
   }
 
-  return false;
+  // Check for near-zero alpha in rgba format.
+  const alphaMatch = colorStr.match(/,\s*([\d.]+)\s*\)$/);
+  if (!alphaMatch) {
+    return false;
+  }
+
+  return Number(alphaMatch[1]) <= 0.05;
 }
 
 /**

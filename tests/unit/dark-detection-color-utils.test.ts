@@ -170,4 +170,32 @@ describe("Dark Detection - Color Utils Migration (Opt-6A)", () => {
     // Should detect as dark
     expect(result).toBe(true);
   });
+
+  it("should resolve transparent containers from dark parent background", async () => {
+    const { isAlreadyDarkTheme } = await import("../../src/utils/dark-detection");
+
+    document.body.innerHTML = `
+      <main id="shell" style="background: rgb(20, 20, 20); min-height: 100px;">
+        <section style="background: transparent;">
+          <div style="background: rgba(0, 0, 0, 0);">Content</div>
+        </section>
+      </main>
+    `;
+
+    const result = isAlreadyDarkTheme();
+    expect(result).toBe(true);
+  });
+
+  it("should detect dark root canvas even when some sampled children are light", async () => {
+    const { isAlreadyDarkTheme } = await import("../../src/utils/dark-detection");
+
+    document.body.style.backgroundColor = "rgb(18, 18, 18)";
+    document.body.innerHTML = `
+      <main style="background-color: rgb(22, 22, 22); min-height: 200px;">Dark App Shell</main>
+      <div class="card" style="background-color: rgb(250, 250, 250); width: 40px; height: 40px;">Badge</div>
+    `;
+
+    const result = isAlreadyDarkTheme();
+    expect(result).toBe(true);
+  });
 });

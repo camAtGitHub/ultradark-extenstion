@@ -1,5 +1,6 @@
 // tests/unit/photon-inverter-performance.test.ts
 import { describe, it, expect } from "vitest";
+import { isTransparentFast } from "../../src/utils/color-utils";
 
 /**
  * OPTIMIZATION 4: Eliminate Redundant DOM Queries in Photon Inverter
@@ -44,21 +45,21 @@ describe("Photon Inverter - TreeWalker Optimization (Opt-4)", () => {
     expect(BATCH_SIZE).toBeLessThan(500);
   });
 
-  it("should optimize transparency check with charCodeAt", () => {
-    // Test optimized transparency detection
+  it("should not misclassify opaque rgb colors as transparent", () => {
+    // Regression test: rgb(0, 0, 0) must stay opaque.
     const testCases = [
       { bg: 'transparent', expected: true },
       { bg: 'rgba(0, 0, 0, 0)', expected: true },
-      { bg: 'rgba(255, 255, 255, 0)', expected: true },  // ends with '0)'
+      { bg: 'rgba(255, 255, 255, 0)', expected: true },
+      { bg: 'rgb(0, 0, 0)', expected: false },
       { bg: 'rgb(255, 255, 255)', expected: false },
-      { bg: 'rgba(255, 255, 255, 0.5)', expected: false }  // doesn't end with '0)'
+      { bg: 'rgba(255, 255, 255, 0.5)', expected: false }
     ];
     
     for (const { bg, expected } of testCases) {
       const isTransparent = 
         bg === 'transparent' || 
-        bg === 'rgba(0, 0, 0, 0)' ||
-        (bg.charCodeAt(bg.length - 2) === 48 && bg.endsWith(')'));
+        isTransparentFast(bg);
       
       expect(isTransparent).toBe(expected);
     }
