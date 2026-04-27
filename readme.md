@@ -27,12 +27,12 @@ npm run build
 
 # 4) Zip for AMO upload
 npm run zip
-````
+```
 
 ### Load in Firefox
 
-* Go to `about:debugging` → "This Firefox" → "Load Temporary Add-on"
-* Select `dist/manifest.json`
+- Go to `about:debugging` → "This Firefox" → "Load Temporary Add-on"
+- Select `dist/manifest.json`
 
 > Tip: For Android (Fenix/Nightly with debug extensions), use `about:debugging` remote setup.
 
@@ -40,42 +40,42 @@ npm run zip
 
 ## Features
 
-* **Global toggle** in popup
-* **Modes**: Dynamic (with optimizer) or Static
-* **AMOLED**: true black backgrounds
-* **Per-site**: context menu → "UltraDark: Toggle on this site" / "Exclude this site"
-* **Regex exclusions**: `Options → Regex Exclusions`, supports `/pattern/flags` or plain text
-* **Schedule**: Night window (local time) toggles automatically
-* **Privacy**: no remote calls, persists only to `browser.storage.sync`
+- **Global toggle** in popup
+- **Modes**: Dynamic (with optimizer) or Static
+- **AMOLED**: true black backgrounds
+- **Per-site**: context menu → "UltraDark: Toggle on this site" / "Exclude this site"
+- **Regex exclusions**: `Options → Regex Exclusions`, supports `/pattern/flags` or plain text
+- **Schedule**: Night window (local time) toggles automatically
+- **Privacy**: no remote calls, persists only to `browser.storage.sync`
 
 ---
 
 ## Permissions
 
-* `storage` for settings
-* `tabs`, `activeTab` for applying changes to the current tab
-* `scripting` for content script interactions
-* `alarms` for schedule polling
-* `contextMenus` for per-site actions
-* `host_permissions: "<all_urls>"` to operate everywhere (respected by regex/per-site exclusions)
+- `storage` for settings
+- `tabs`, `activeTab` for applying changes to the current tab
+- `scripting` for content script interactions
+- `alarms` for schedule polling
+- `contextMenus` for per-site actions
+- `host_permissions: "<all_urls>"` to operate everywhere (respected by regex/per-site exclusions)
 
 ---
 
 ## Architecture
 
-* **MV3** service worker background: menus, schedule, messaging
-* **Content script**: CSS injection, media inversion, SPA robustness, optimizer trigger
-* **Worker**: computes contrast ratios & suggests contrast % (keeps main thread responsive)
-* **Options**: scheduling, regex editor, per-site overview
-* **Popup**: quick controls & sliders
+- **MV3** service worker background: menus, schedule, messaging
+- **Content script**: CSS injection, media inversion, SPA robustness, optimizer trigger
+- **Worker**: computes contrast ratios & suggests contrast % (keeps main thread responsive)
+- **Options**: scheduling, regex editor, per-site overview
+- **Popup**: quick controls & sliders
 
 ---
 
 ## Known Limitations / Edge Cases
 
-* Extremely custom sites may require site-specific CSS overrides (future “Advanced CSS” field).
-* PDFs in the browser’s viewer are not modified.
-* Cross-origin iframes may not be fully stylable due to isolation.
+- Extremely custom sites may require site-specific CSS overrides (future “Advanced CSS” field).
+- PDFs in the browser’s viewer are not modified.
+- Cross-origin iframes may not be fully stylable due to isolation.
 
 ---
 
@@ -83,16 +83,16 @@ npm run zip
 
 This repository includes a GitHub Actions workflow (`.github/workflows/ci.yml`) that automatically:
 
-* **Runs on**: Pushes to `main`/`master`, pull requests, and version tags (`v*.*.*`)
-* **Build steps**:
+- **Runs on**: Pushes to `main`/`master`, pull requests, and version tags (`v*.*.*`)
+- **Build steps**:
   1. Installs dependencies via `npm ci`
   2. Runs linter (`npm run lint`)
   3. Runs test suite (`npm run test`)
   4. Builds the extension (`npm run build`)
   5. Verifies critical files exist in `dist/`
   6. Packages the extension into a ZIP file (`npm run zip`)
-* **Artifacts**: Uploads both the ZIP file and the full `dist/` folder as workflow artifacts
-* **Releases**: When a tag matching `v*.*.*` is pushed, automatically creates a GitHub release with the extension ZIP attached
+- **Artifacts**: Uploads both the ZIP file and the full `dist/` folder as workflow artifacts
+- **Releases**: When a tag matching `v*.*.*` is pushed, automatically creates a GitHub release with the extension ZIP attached
 
 ### Retrieving Built Extension
 
@@ -103,6 +103,7 @@ This repository includes a GitHub Actions workflow (`.github/workflows/ci.yml`) 
 ### Creating a Release
 
 To trigger an automated release:
+
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
@@ -114,6 +115,6 @@ The CI will build, test, and create a GitHub release with the packaged extension
 
 ## Contributing
 
-* Code style: ESLint + Prettier
-* Tests: `vitest` → `npm test`
-* PRs welcome.
+- Code style: ESLint + Prettier
+- Tests: `vitest` → `npm test`
+- PRs welcome.

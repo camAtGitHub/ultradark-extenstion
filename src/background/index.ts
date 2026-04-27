@@ -1,11 +1,6 @@
 // src/background/index.ts
 /// <reference types="web-ext-types" />
-import {
-  getSettings,
-  setSettings,
-  updateSettings,
-  originFromUrl,
-} from "../utils/storage";
+import { getSettings, setSettings, updateSettings, originFromUrl } from "../utils/storage";
 import { applyScheduleTick } from "./scheduler";
 import { debugSync, initDebugCache, info } from "../utils/logger";
 
@@ -67,10 +62,7 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
     s.perSite[origin].exclude = !(s.perSite[origin].exclude ?? false);
   }
   await setSettings(s);
-  if (tab.id)
-    browser.tabs
-      .sendMessage(tab.id, { type: "udr:settings-updated" })
-      .catch(() => {});
+  if (tab.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
 });
 
 browser.runtime.onMessage.addListener(async (msg, sender) => {
@@ -82,18 +74,14 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     await setSettings(msg.payload);
     // Inform active tab to re-apply
     if (sender?.tab?.id) {
-      browser.tabs
-        .sendMessage(sender.tab.id, { type: "udr:settings-updated" })
-        .catch(() => {});
+      browser.tabs.sendMessage(sender.tab.id, { type: "udr:settings-updated" }).catch(() => {});
     }
   }
   if (msg?.type === "udr:update-settings") {
     debugSync("Settings patched via message");
     await updateSettings(msg.payload);
     if (sender?.tab?.id) {
-      browser.tabs
-        .sendMessage(sender.tab.id, { type: "udr:settings-updated" })
-        .catch(() => {});
+      browser.tabs.sendMessage(sender.tab.id, { type: "udr:settings-updated" }).catch(() => {});
     }
   }
   if (msg?.type === "udr:debug-mode-changed") {

@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 
 /**
  * Tests for dark site detection functionality
- * 
+ *
  * Note: Full integration tests for dark detection require a DOM environment
  * which would be tested manually or in E2E tests. These are unit tests for
  * the core logic and integration points.
@@ -57,27 +57,26 @@ describe("Dark Detection Integration", () => {
 
 /**
  * Manual QA Test Cases (to be performed in browser):
- * 
+ *
  * 1. Test on GitHub (dark mode):
  *    - Enable GitHub's dark theme
  *    - With skipDarkSites=true, UltraDark should NOT apply
  *    - Set forceDarkMode=true for github.com, UltraDark SHOULD apply
- * 
+ *
  * 2. Test on YouTube (dark mode):
  *    - Enable YouTube's dark theme
  *    - With skipDarkSites=true, UltraDark should NOT apply
  *    - Disable skipDarkSites, UltraDark SHOULD apply
- * 
+ *
  * 3. Test on Reddit (dark mode):
  *    - Enable Reddit's dark theme
  *    - Verify UltraDark skips it by default
- * 
+ *
  * 4. Test on Wikipedia (light mode):
  *    - Wikipedia is light themed
  *    - UltraDark SHOULD apply normally
- * 
+ *
  * 5. Test on Google (light mode):
  *    - Google is light themed
  *    - UltraDark SHOULD apply normally
  */
-

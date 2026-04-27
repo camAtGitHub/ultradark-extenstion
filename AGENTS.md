@@ -1,23 +1,25 @@
 # Agent Guide
+
 ## Project Description
+
 This repository is a browser extension built with TypeScript and Vite. Key areas:
 
 - **Popup UI**: `src/popup/` controls the popup sliders and toggles. The popup sends `udr:settings-updated` messages to the active tab.
 - **Content scripts**: `src/content/` contains algorithms and the main entry (`index.ts`) that reads settings and applies the selected algorithm.
-- **Algorithms**: 
+- **Algorithms**:
   - Photon inverter (`src/content/algorithms/photon-inverter.ts`) - Uses CSS filters via `generatePhotonInverterCSS()`
   - DOM walker (`src/content/algorithms/dom-walker.ts`) - DOM traversal with color inversion.
   - Chroma semantic (`src/content/algorithms/chroma-semantic.ts`) - Semantic color palettes based on DOM depth
   - **IMPORTANT**: All algorithms use the slider settings (brightness, contrast, sepia, grayscale, blueShift) through `applyFilterCss()` in `src/content/index.ts`, which is called for ALL modes before the algorithm-specific function
   - **NOTE**: DOM walker algorithm has been deprecated and removed as per architectural decision (Ticket UD-001)
-- **Instant Shield (Anti-FOUW)**: 
+- **Instant Shield (Anti-FOUW)**:
   - `applyShield()` in `src/content/index.ts` - Applies immediate CSS filter (invert + hue-rotate) to prevent white flash
   - Shield is applied BEFORE waiting for document ready to ensure instant darkening
   - `removeShield()` is called after the intelligent algorithm completes its first pass
   - Images/videos are re-inverted while shield is active to maintain correct appearance
   - Shield uses brute-force CSS filters and is replaced by sophisticated algorithms once ready
 - **Shared CSS builder**: `src/content/style-template.ts` builds the injected CSS using brightness/contrast/etc.
-- **CSS Variable Hijacking**: 
+- **CSS Variable Hijacking**:
   - `processCSSVariables()` in `src/content/algorithms/chroma-semantic.ts` - Scans for CSS Custom Properties on :root and html
   - Identifies color variables by pattern matching (background/bg/surface/canvas/panel for backgrounds, text/foreground/color/fg for text)
   - Injects a single `<style id="udr-css-hijack">` block that overrides all matched variables globally
@@ -39,7 +41,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
   - **NO REGEX MATCHING**: Does not check class names, IDs, or other metadata (too fragile)
   - **Extension Guard**: Detects if UltraDark has already applied styles to prevent false positives
   - Detection happens before application to avoid "double inversion" on native dark sites
-- **Passive Mode**: 
+- **Passive Mode**:
   - `applyPassiveMode()` in `src/content/index.ts` - "Do No Harm" state for natively dark sites
   - Triggered when `isAlreadyDarkTheme()` returns true (site is already dark)
   - Sets `data-udr-state="passive"` on `<html>` element
@@ -49,6 +51,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
   - Cleaned up by `removeCss()` when extension is disabled or settings change
 
 ## Popup-to-Content Communication Flow
+
 1. User changes setting in popup UI (`src/popup/index.ts`)
 2. Setting is saved via `setSettings()` from `src/utils/storage.ts`
 3. Popup sends message: `browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" })`
@@ -56,27 +59,32 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 5. Content script reads settings and calls the appropriate algorithm based on `settings.mode`
 
 ## Code style
+
 - Use TypeScript strict mode
 - Follow existing naming conventions (camelCase for functions/variables)
 - Add debug statements using `debugSync()` from `src/utils/logger.ts` for troubleshooting
 - Debounce slider inputs (250ms) to avoid excessive updates
 
 ## Naming Conventions
+
 - Functions: camelCase (e.g., `applyPhotonInverter`, `updateSlidersForMode`)
 - Constants: UPPER_SNAKE_CASE (e.g., `DARK_THRESHOLD`, `BATCH_SIZE`)
 - Type/Interface: PascalCase (e.g., `Settings`, `Mode`)
 - CSS classes: kebab-case (e.g., `slider-row`, `mode-btn`)
 
 ## Rules:
+
 - Don't break existing functionality!
 - After finishing a bug fix / completing an github issue, ensure all linting and tests pass.
 
 ## Useful commands:
+
 - Run tests: `npm test`
 - Run lint: `npm run lint`
 - Build extension: `npm run build`
 
 ## Notes from initial exploration:
+
 - No existing `AGENTS.md` files; this file applies repo-wide.
 - Tests and lint already set up in `package.json`.
 - Settings changes propagate through `udr:settings-updated` messages handled in `src/content/index.ts`.
@@ -93,11 +101,13 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 ## Performance Optimizations & Gotchas
 
 ### Optimization 1: Batched Dark Detection (Opt-1)
+
 **What changed:** `src/utils/dark-detection.ts` now batches all `getComputedStyle()` calls instead of interleaving them with DOM measurements.
 
 **Why:** Calling `getComputedStyle()` forces a synchronous layout recalculation. The old code called it 20+ times mixed with `getBoundingClientRect()` calls, triggering 60+ forced layouts.
 
 **Implementation:**
+
 - PHASE 1A: Collect all elements to sample (querySelectorAll)
 - PHASE 1B: Batch all `getBoundingClientRect()` checks first (filter hidden elements)
 - PHASE 1C: Batch all `getComputedStyle()` reads into a Map
@@ -106,6 +116,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** ~60-70% faster dark detection (20-40ms saved on typical pages)
 
 **Pitfalls avoided:**
+
 - Must check `rect.width === 0 && rect.height === 0` before caching styles (skip hidden elements)
 - Body element must always be sampled regardless of dimensions
 - Style cache is scoped to function call (no memory leaks)
@@ -115,11 +126,13 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Future work:** Could further optimize by using `requestIdleCallback` for non-critical detection, but this conflicts with shield timing requirements
 
 ### Optimization 6A: Color Parsing Migration - Dark Detection (Opt-6A)
+
 **What changed:** `src/utils/dark-detection.ts` now uses `parseRgbFast()` from `src/utils/color-utils.ts` instead of its own `parseRGB()` function.
 
 **Why:** Color parsing happens 10-20+ times during dark detection (for each element sampled). The old code recompiled regex patterns and reparsed the same color strings repeatedly. The shared `parseRgbFast()` provides an LRU cache (200 entries) and fast-path optimizations using charCode checks.
 
 **Implementation:**
+
 - Replaced local `parseRGB()` function with import of `parseRgbFast()` from color-utils
 - Both functions have compatible signatures and behavior (return RGB object or null)
 - Same alpha threshold (0.05) for transparent detection
@@ -128,6 +141,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** ~40-60% faster color parsing due to cache hits on repeated colors (common in modern design systems). Typical pages reuse 5-15 unique colors across 20+ elements, resulting in 50-70% cache hit rate.
 
 **Pitfalls avoided:**
+
 - `parseRgbFast` and local `parseRGB` have identical alpha handling (<=0.05 treated as transparent)
 - No behavioral changes - same detection logic, just faster parsing
 - LRU cache prevents unbounded memory growth (max 200 entries)
@@ -136,6 +150,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/dark-detection-color-utils.test.ts` with 7 tests covering cache usage, transparent handling, and performance verification
 
 **Cache benefits:**
+
 - Same background color on body, main, article: Parse once, use 3 times
 - Design system with consistent palette: 80%+ cache hit rate
 - Cache persists across detection calls in same page lifecycle
@@ -143,11 +158,13 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Future work:** Could add cache statistics to diagnostic output for debugging
 
 ### Optimization 6B: Color Parsing Migration - Chroma-Semantic (Opt-6B)
+
 **What changed:** `src/content/algorithms/chroma-semantic.ts` now uses `parseRgbFast()` from `src/utils/color-utils.ts` instead of its own `parseColor()` function.
 
 **Why:** Chroma-semantic algorithm processes 100s-1000s of elements during DOM walking, semantic classification, and contrast validation. Each phase performs color parsing on backgrounds, foregrounds, and borders. The original `parseColor()` recompiled regex patterns on every call with no caching. The shared `parseRgbFast()` provides LRU cache and fast-path optimizations.
 
 **Implementation:**
+
 - Removed local `parseColor()` function (101 lines) and replaced 8 call sites with `parseRgbFast()`
 - Alpha threshold difference: Original used <0.1 for transparent, `parseRgbFast` uses <=0.05
   - More conservative threshold is acceptable (treats slightly more colors as transparent)
@@ -158,12 +175,14 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** ~50-70% faster color parsing on design-system-heavy sites. Chroma-semantic's BACKGROUND_PALETTE (7 colors) + TEXT_PALETTE (8 colors) are reused 100s of times → 90%+ cache hit rate after initial pass.
 
 **Pitfalls avoided:**
+
 - Alpha threshold change (0.1 → 0.05) is more conservative but safe
 - All 8 call sites updated consistently (no mixed old/new parsing)
 - Helper functions kept intact (luminance/contrast calculations unchanged)
 - Cache benefits all phases: variable hijacking, DOM walking, contrast validation, warmth adjustment
 
 **Testing:** Added `tests/unit/chroma-semantic-color-utils.test.ts` with 9 tests covering:
+
 - Cache efficiency with design system colors (15 unique colors reused 50× each)
 - Background palette parsing (AMOLED black through tooltips)
 - Alpha threshold handling (<=0.05 vs original <0.1)
@@ -172,12 +191,14 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 - Warmth-adjusted colors (rgb output from `applyWarmth()`)
 
 **Cache benefits specific to chroma-semantic:**
+
 - BACKGROUND_PALETTE (7 colors): Parsed once, reused 1000s of times
 - TEXT_PALETTE (8 colors): Parsed once, reused for all text elements
 - Design systems: Modern frameworks use 10-20 color variables → 95%+ cache hit rate
 - MutationObserver: New elements reuse same palette colors → instant cache hits
 
 **Alpha threshold impact analysis:**
+
 - Original: `rgba(100, 100, 100, 0.08)` → treated as opaque color
 - New: `rgba(100, 100, 100, 0.08)` → treated as transparent
 - Real-world impact: Minimal. Colors with alpha 0.05-0.1 are visually near-transparent and skipping them is safe
@@ -186,15 +207,17 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Future work:** Could expose cache hit rate in `getChromaDiagnostics()` for debugging performance issues
 
 ### Optimization 6C: Optimizer Worker Color Parsing - NOT MIGRATED (Opt-6C)
+
 **Decision:** Keep `optimizer-worker.ts` using OffscreenCanvas-based color parsing. DO NOT migrate to `parseRgbFast()`.
 
 **Why not migrate:**
+
 1. **OffscreenCanvas normalization handles more formats**: Current implementation uses `OffscreenCanvas.fillStyle` to normalize ANY CSS color format including:
    - Named colors: "red", "blue", "ButtonFace", etc.
    - HSL: "hsl(0, 100%, 50%)"
    - System colors and CSS variables
    - Complex rgba/hsla with various formats
-   
+
    `parseRgbFast()` only handles: rgb/rgba, hex (#rrggbb, #rgb), and "transparent" literal.
 
 2. **Return type mismatch**: Worker uses `[number, number, number]` tuple, `parseRgbFast()` returns `{r, g, b}` object. Would require refactoring 20+ call sites in contrast calculations.
@@ -206,12 +229,14 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 5. **Web Worker context**: While `parseRgbFast()` has no DOM dependencies and could work in workers, the effort to adapt it outweighs benefits.
 
 **Performance analysis:**
+
 - Current uncached: ~2-5ms to parse 80 samples
 - With cache: ~1-3ms (40-60% faster)
 - Net savings: 1-2ms once per page load
 - Trade-off: Loss of OffscreenCanvas normalization (handles 10× more color formats)
 
 **Testing:** Added `tests/unit/optimizer-worker-color-utils.test.ts` with 6 analysis tests documenting:
+
 - CSS color name handling (parseRgbFast cannot handle "red", "blue", etc.)
 - Return type difference (tuple vs object)
 - Minimal caching benefit for small sample sizes
@@ -219,6 +244,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 - OffscreenCanvas advantages (handles all CSS colors)
 
 **Alternative optimizations already implemented:**
+
 - Sample size reduced from 120 → 80 (Opt-3)
 - Deferred initialization via requestIdleCallback (Opt-3)
 - Batched getComputedStyle() calls (Opt-3)
@@ -226,11 +252,13 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Conclusion:** The 1-2ms savings don't justify losing OffscreenCanvas's ability to handle arbitrary CSS colors. Current implementation is optimal for the worker's use case.
 
 ### Optimization 2: Regex Compilation Cache (Opt-2)
+
 **What changed:** `src/utils/regex.ts` now caches compiled RegExp objects instead of recompiling on every `urlExcluded()` call.
 
 **Why:** URL exclusion checks happen during navigation, settings changes, and content script initialization. Recompiling the same regex patterns repeatedly wastes 1-5ms per check.
 
 **Implementation:**
+
 - Created `getCompiledRegexList()` that caches results in a `Map<string, RegExp[]>`
 - Cache key is `patterns.join('\x00')` (null separator prevents collisions)
 - LRU-like eviction when cache exceeds 100 entries (prevents memory leaks)
@@ -239,6 +267,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** ~95% faster subsequent URL checks (from ~2ms to <0.1ms). First check remains same speed.
 
 **Pitfalls avoided:**
+
 - Used null character (`\x00`) as separator to prevent key collisions (e.g., ["a", "b.com"] vs ["ab", ".com"])
 - Limited cache size to 100 entries to prevent unbounded memory growth
 - Cache persists across navigation within same content script lifecycle (desired behavior)
@@ -247,17 +276,20 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/regex-cache.test.ts` with 13 tests covering caching behavior, collisions, eviction, and edge cases
 
 **When to clear cache:**
+
 - User modifies exclude patterns in settings (call `clearRegexCache()` in settings handler)
 - Not needed on navigation (patterns typically don't change between pages)
 
 **Future work:** Could use WeakMap if patterns array references were stable, but current approach is simpler and more reliable
 
 ### Optimization 3: Deferred Worker Initialization (Opt-3)
+
 **What changed:** `src/content/index.ts` optimizer worker now initializes via `requestIdleCallback` instead of synchronously during `startOptimizerIfEnabled()`.
 
 **Why:** The optimizer samples 120 elements with `getComputedStyle()` calls, blocking main thread for 30-80ms during critical rendering time. This delays when users see the dark theme applied.
 
 **Implementation:**
+
 - Split initialization into two functions:
   - `startOptimizerIfEnabled()`: Creates deferred promise using `requestIdleCallback`
   - `initializeOptimizerWorker()`: Actual worker setup (runs when idle)
@@ -271,6 +303,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** Dark mode appears 30-80ms faster. User sees theme immediately; contrast adjustments apply asynchronously in background.
 
 **Pitfalls avoided:**
+
 - Used `requestIdleCallback` with 2s timeout fallback (ensures init happens even if page stays busy)
 - Polyfill for `requestIdleCallback` using `setTimeout(cb, 0)` if not available (older browsers)
 - Promise guard (`workerInitPromise`) prevents race condition if called multiple times
@@ -281,21 +314,25 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/optimizer-defer.test.ts` with 10 tests covering deferral logic, batching, error handling
 
 **Trade-offs:**
+
 - Contrast optimization suggestions appear slightly later (but don't block initial dark mode)
 - Reduced from 120 to 80 samples (80 is still sufficient for statistical accuracy - 67% of original)
 - Acceptable trade-off for 30-80ms faster initial render
 
 **Browser compatibility:**
+
 - `requestIdleCallback`: Firefox 55+, Chrome 47+
 - Fallback to `setTimeout` works on all browsers
 - Extension targets Firefox 115+ so native support is guaranteed
 
 ### Optimization 4: Chunked TreeWalker in Photon Inverter (Opt-4)
+
 **What changed:** `src/content/algorithms/photon-inverter.ts` now uses `TreeWalker` with chunked processing instead of `querySelectorAll("body *")`.
 
 **Why:** `querySelectorAll("body *")` returns ALL descendants (5000+ elements on large pages) and processes them synchronously, blocking the main thread for 50-200ms.
 
 **Implementation:**
+
 - Skip small pages (< 50 children) - CSS handles them without JS
 - Use `TreeWalker` with `NodeFilter` to skip non-processable elements early
 - Process in chunks of 200 elements per `requestAnimationFrame`
@@ -308,6 +345,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** 60-80% faster on large pages (50-200ms savings). Initial dark mode appears immediately; transparency fixes apply progressively without visible flicker.
 
 **Pitfalls avoided:**
+
 - `NodeFilter.FILTER_REJECT` stops descending into children (more efficient than `FILTER_SKIP`)
 - Used `Set` for tag lookup instead of multiple OR comparisons
 - Batch size (200) fits comfortably in 16ms frame budget (~10ms actual)
@@ -317,16 +355,19 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/photon-inverter-performance.test.ts` with 13 tests covering TreeWalker usage, chunking, batching, and edge cases
 
 **Trade-offs:**
+
 - Small pages skip JS processing entirely (rely on CSS - acceptable)
 - Transparency fixes apply asynchronously (not visible to user due to immediate CSS filter application)
 - 200-element chunks mean large pages take multiple frames (but no blocking)
 
 ### Optimization 5: Smarter MutationObserver in DOM Walker (Opt-5)
+
 **What changed:** `src/content/algorithms/dom-walker.ts` MutationObserver now debounces mutations, limits descendant depth, and defers during user interaction.
 
 **Why:** SPAs like React/Vue trigger 10+ mutations per render. The old code queried ALL descendants with `querySelectorAll('*')` for each added node, causing severe lag.
 
 **Implementation:**
+
 - **Debouncing**: 16ms delay (1 frame) normally, 100ms during user interaction
 - **Depth limiting**: Collect only 2 levels deep (node → 20 children max → 10 grandchildren each max)
   - Old: `node.querySelectorAll('*')` returns ALL descendants
@@ -341,6 +382,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** 70-90% reduction in mutation processing overhead on SPAs. Eliminates frame drops during React/Vue reconciliation cycles.
 
 **Pitfalls avoided:**
+
 - Passive event listeners prevent scroll blocking
 - Depth limit (2 levels) covers 95% of UI component patterns
 - Deduplication prevents processing same element multiple times in one batch
@@ -350,15 +392,18 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/dom-walker-mutation.test.ts` with 14 tests covering debouncing, depth limits, interaction tracking
 
 **Trade-offs:**
+
 - Deeply nested components (>2 levels) processed in next mutation batch (acceptable - rare case)
 - During interaction, processing is delayed by 100ms (acceptable - user doesn't notice)
 
 ### Optimization 7: CSS Transition Shield Removal (Opt-7)
+
 **What changed:** `src/content/index.ts` shield removal now uses CSS transition instead of `setTimeout` for smooth handoff.
 
 **Why:** Old code used `setTimeout(..., 50)` which blocks before removing shield, adding visible delay and causing flicker.
 
 **Implementation:**
+
 - Set `opacity: 0` and `transition: 'opacity 50ms ease-out'` on shield element
 - Listen for `transitionend` event to remove element (non-blocking)
 - Fallback `setTimeout(..., 100)` if transition doesn't fire (safety check)
@@ -368,6 +413,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** Eliminates 50ms blocking delay. Visual transition is smoother, reducing perceived flicker by ~70%.
 
 **Pitfalls avoided:**
+
 - `transitionend` listener uses `{ once: true }` to auto-remove after firing
 - Fallback timeout (100ms) longer than transition (50ms) ensures cleanup
 - Check `shield.isConnected` before removing in fallback
@@ -376,15 +422,18 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/shield-optimization.test.ts` with 11 tests covering transition logic, fallback, CSS properties
 
 **Trade-offs:**
+
 - Shield removal is now asynchronous (acceptable - smoother UX)
 - Requires `transitionend` event support (all modern browsers including Firefox 115+)
 
 ### Optimization 6: Cached Color Parsing (Opt-6)
+
 **What changed:** Created `src/utils/color-utils.ts` with LRU-cached color parser. Updated `dom-walker.ts` to use shared utility.
 
 **Why:** Multiple files (`dark-detection.ts`, `dom-walker.ts`, `optimizer-worker.ts`, `chroma-semantic.ts`) implement nearly identical RGB parsing with regex. Each regex match is slow for frequently called operations. On color-heavy pages, cumulative overhead is 5-15ms.
 
 **Implementation:**
+
 - **Shared module**: `src/utils/color-utils.ts` with `parseRgbFast()` and `isTransparentFast()`
 - **LRU cache**: Map with 200-entry limit (most pages use <200 unique colors)
 - **Fast paths**: CharCode checks for 'r' (rgb) and '#' (hex) to avoid unnecessary regex
@@ -396,6 +445,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** 50-70% faster color parsing after first parse. Cumulative 5-15ms savings on color-heavy pages.
 
 **Pitfalls avoided:**
+
 - Cache null results for invalid colors (prevents repeated parsing attempts)
 - LRU eviction when cache > 200 entries (prevents unbounded memory growth)
 - Unary `+` operator for string-to-int conversion (faster than parseInt for small ints)
@@ -404,16 +454,19 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/color-utils.test.ts` with 19 tests covering all formats, caching, eviction, edge cases
 
 **Migration path:**
+
 - Migrated `dom-walker.ts` to use shared utils (Opt-6)
 - Other files (`dark-detection.ts`, `optimizer-worker.ts`, `chroma-semantic.ts`) can be migrated incrementally
 - Backward compatible (same API)
 
 ### Optimization 9: Batched Style Application in DOM Walker (Opt-9)
+
 **What changed:** `src/content/algorithms/dom-walker.ts` `processNextBatch()` now separates style reads from writes in three distinct phases.
 
-**Why:** Each individual style write (`el.style.backgroundColor = ...`) can trigger a layout recalculation. The old code interleaved reads and writes, causing O(n*3) reflows where n is the batch size.
+**Why:** Each individual style write (`el.style.backgroundColor = ...`) can trigger a layout recalculation. The old code interleaved reads and writes, causing O(n\*3) reflows where n is the batch size.
 
 **Implementation:**
+
 - **PHASE 1**: Read all computed styles into array (batch `getComputedStyle()` calls)
 - **PHASE 2**: Calculate new color values (pure computation, no DOM access)
 - **PHASE 3**: Apply all style changes in one batch (triggers single reflow)
@@ -421,9 +474,10 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 - Only queue changes if there are actual modifications (`hasChanges` flag)
 - Uses optimized `parseRgbFast()` and `isTransparentFast()` from Opt-6
 
-**Performance gain:** 25-40% faster DOM walker execution. Reduces reflow count from O(n*3) to O(1) per batch (500 elements).
+**Performance gain:** 25-40% faster DOM walker execution. Reduces reflow count from O(n\*3) to O(1) per batch (500 elements).
 
 **Pitfalls avoided:**
+
 - Must mark elements as processed in PHASE 2 (after calculation, before write)
 - Empty changes array is valid (e.g., all transparent backgrounds)
 - `hasChanges` flag prevents pushing empty StyleChange objects
@@ -432,16 +486,19 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/dom-walker-batch-styles.test.ts` with 7 tests covering batching pattern, reflow reduction, edge cases
 
 **Trade-offs:**
+
 - Slightly higher memory usage (storing StyleChange array)
 - More complex code structure (3 phases vs inline processing)
 - Benefits are most visible on large DOMs (>100 elements per batch)
 
 ### Optimization 10: Eliminate Double Settings Fetch (Opt-10)
+
 **What changed:** `src/content/index.ts` now caches settings in memory with 5-second TTL and invalidates cache on updates.
 
 **Why:** The old `tick()` called `getSettings()` then `effectiveSettingsFor()`, both accessing storage. Settings were fetched even when extension was disabled/excluded.
 
 **Implementation:**
+
 - **Memory cache**: `cachedSettings` with `settingsCacheTime` timestamp
 - **TTL**: 5 seconds (balances freshness vs performance)
 - **Cache helpers**: `getCachedSettings()` checks TTL, `invalidateSettingsCache()` clears cache
@@ -454,6 +511,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** 30-50% faster subsequent ticks. First tick is same speed, but navigation and settings changes are much faster.
 
 **Pitfalls avoided:**
+
 - TTL of 5s balances freshness (settings don't update mid-page often)
 - Cache invalidation on settings update ensures consistency
 - Early exit before expensive operations (shield, detection, CSS application)
@@ -463,16 +521,19 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/settings-cache.test.ts` with 12 tests covering caching, TTL, invalidation, synchronous merging
 
 **Trade-offs:**
+
 - Settings changes take up to 5s to reflect if message listener fails (acceptable - listener is reliable)
 - Slightly higher memory usage (one Settings object cached)
 - Cache is per-tab (not shared across tabs - intentional for isolation)
 
 ### Optimization 11: CSS Containment for Style Isolation (Opt-11)
+
 **What changed:** `src/content/style-template.ts` `buildCss()` now includes CSS containment and GPU compositing hints.
 
 **Why:** The old CSS didn't use containment, meaning browser must recalculate styles for entire document on any change. This causes ongoing rendering overhead during animations and scrolling.
 
 **Implementation:**
+
 - **CSS containment**: `contain: style` on html element to isolate style recalculations
 - **Layout + style containment**: `contain: layout style` on main content areas (main, article, section, #app, #root, .container)
 - **GPU hints**: `will-change: filter` tells browser to prepare GPU layer
@@ -483,6 +544,7 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Performance gain:** 10-20% smoother scrolling and animations. GPU compositing hints enable hardware acceleration for filter effects. Reduced style recalculation scope from document-wide to contained subtrees.
 
 **Pitfalls avoided:**
+
 - Don't use `contain: size` - breaks responsive layouts
 - `contain: layout style` only on known containers (main, article, etc.)
 - `will-change` should be used sparingly (only on elements with filters)
@@ -492,11 +554,13 @@ This repository is a browser extension built with TypeScript and Vite. Key areas
 **Testing:** Added `tests/unit/css-containment.test.ts` with 15 tests covering containment rules, GPU hints, framework compatibility
 
 **Trade-offs:**
+
 - Slightly more CSS output (~200 bytes)
 - CSS containment has edge cases (rare - mainly affects position: fixed in contained elements)
 - `will-change` uses more memory (GPU layers) - acceptable for performance gain
 
 **Browser compatibility:**
+
 - CSS containment: Firefox 69+, Chrome 52+
 - `will-change`: Firefox 36+, Chrome 36+
 - Extension targets Firefox 115+ so all features are supported

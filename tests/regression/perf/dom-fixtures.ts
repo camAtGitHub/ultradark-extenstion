@@ -10,17 +10,17 @@ import { DOM_TIERS } from "../config";
 
 // ── Tag distribution modelling real pages ─────────────────────────────────────
 
-const BLOCK_TAGS  = ["div", "section", "article", "main", "aside", "nav", "header", "footer"];
+const BLOCK_TAGS = ["div", "section", "article", "main", "aside", "nav", "header", "footer"];
 const INLINE_TAGS = ["span", "a", "strong", "em", "small", "code"];
-const TEXT_TAGS   = ["p", "h1", "h2", "h3", "li", "td", "th", "label"];
-const MEDIA_TAGS  = ["img", "svg", "video", "canvas"];
+const TEXT_TAGS = ["p", "h1", "h2", "h3", "li", "td", "th", "label"];
+const MEDIA_TAGS = ["img", "svg", "video", "canvas"];
 
 // Weighted pick: ~50% block, ~25% text, ~15% inline, ~10% media
 function randomTag(rng: () => number): string {
   const r = rng();
-  if (r < 0.50) return BLOCK_TAGS[Math.floor(rng() * BLOCK_TAGS.length)];
+  if (r < 0.5) return BLOCK_TAGS[Math.floor(rng() * BLOCK_TAGS.length)];
   if (r < 0.75) return TEXT_TAGS[Math.floor(rng() * TEXT_TAGS.length)];
-  if (r < 0.90) return INLINE_TAGS[Math.floor(rng() * INLINE_TAGS.length)];
+  if (r < 0.9) return INLINE_TAGS[Math.floor(rng() * INLINE_TAGS.length)];
   return MEDIA_TAGS[Math.floor(rng() * MEDIA_TAGS.length)];
 }
 
@@ -38,13 +38,13 @@ function mulberry32(seed: number): () => number {
 // ── Inline style palette for realistic getComputedStyle mocking ───────────────
 
 const LIGHT_BGS = [
-  "rgb(255, 255, 255)",       // white
-  "rgb(245, 245, 245)",       // near-white
-  "rgb(250, 250, 250)",       // very light grey
-  "rgba(0, 0, 0, 0)",         // transparent
-  "rgb(240, 240, 240)",       // light grey
-  "rgb(255, 248, 225)",       // warm cream
-  "rgb(232, 245, 253)",       // light blue tint
+  "rgb(255, 255, 255)", // white
+  "rgb(245, 245, 245)", // near-white
+  "rgb(250, 250, 250)", // very light grey
+  "rgba(0, 0, 0, 0)", // transparent
+  "rgb(240, 240, 240)", // light grey
+  "rgb(255, 248, 225)", // warm cream
+  "rgb(232, 245, 253)", // light blue tint
 ];
 
 const LIGHT_FGS = [
@@ -52,16 +52,24 @@ const LIGHT_FGS = [
   "rgb(33, 33, 33)",
   "rgb(51, 51, 51)",
   "rgb(66, 66, 66)",
-  "rgb(0, 102, 204)",         // link blue
-  "rgb(204, 0, 0)",           // error red
+  "rgb(0, 102, 204)", // link blue
+  "rgb(204, 0, 0)", // error red
 ];
 
 // ── SPA-specific patterns (obfuscated classes, deep nesting) ──────────────────
 
 const SPA_CLASSES = [
-  "_a0", "_b1", "_c2", "_d3", "_e4", "_f5",
-  "css-1dbjc4n", "css-r1dszh", "css-901oao",  // React Native Web style
-  "sc-bwzfXH", "sc-bdVTJa",                    // styled-components
+  "_a0",
+  "_b1",
+  "_c2",
+  "_d3",
+  "_e4",
+  "_f5",
+  "css-1dbjc4n",
+  "css-r1dszh",
+  "css-901oao", // React Native Web style
+  "sc-bwzfXH",
+  "sc-bdVTJa", // styled-components
 ];
 
 // ── Fixture builder ───────────────────────────────────────────────────────────
@@ -166,10 +174,7 @@ export function buildFixture(tier: DomTier, seed = 42): DomFixture {
     const remaining = targetNodes - created;
     const depthRatio = 1 - currentDepth / maxDepth;
     const baseChildren = Math.max(2, Math.ceil(8 * depthRatio));
-    const childCount = Math.min(
-      Math.floor(rng() * baseChildren) + 2,
-      remaining,
-    );
+    const childCount = Math.min(Math.floor(rng() * baseChildren) + 2, remaining);
 
     for (let i = 0; i < childCount && created < targetNodes; i++) {
       const tag = randomTag(rng);
@@ -221,7 +226,7 @@ export function buildFixture(tier: DomTier, seed = 42): DomFixture {
       // Build a subtree rooted at this attachment point
       const batchBudget = Math.min(
         targetNodes - created,
-        Math.max(50, Math.floor((targetNodes - created) / (attachPoints.length - pointIndex))),
+        Math.max(50, Math.floor((targetNodes - created) / (attachPoints.length - pointIndex)))
       );
       const startCount = created;
 

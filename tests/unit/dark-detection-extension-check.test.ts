@@ -33,26 +33,28 @@ describe("Dark Detection - Extension Style Detection", () => {
 
     // Mock getComputedStyle for JSDOM (needed by dark detection)
     // Create a more complete mock that returns a proxy to handle any property access
-    (global as { getComputedStyle?: typeof getComputedStyle }).getComputedStyle = (_element: Element) => {
+    (global as { getComputedStyle?: typeof getComputedStyle }).getComputedStyle = (
+      _element: Element
+    ) => {
       const mockStyles = {
-        colorScheme: '',
-        backgroundColor: 'rgb(255, 255, 255)',
-        color: 'rgb(0, 0, 0)',
-        getPropertyValue: (_prop: string) => '',
+        colorScheme: "",
+        backgroundColor: "rgb(255, 255, 255)",
+        color: "rgb(0, 0, 0)",
+        getPropertyValue: (_prop: string) => "",
         setProperty: () => {},
-        removeProperty: () => '',
-        item: () => '',
-        length: 0
+        removeProperty: () => "",
+        item: () => "",
+        length: 0,
       };
-      
+
       // Return a proxy that returns empty strings for any property access
       return new Proxy(mockStyles, {
         get(target, _prop) {
           if (_prop in target) {
             return (target as Record<string, unknown>)[_prop as string];
           }
-          return '';
-        }
+          return "";
+        },
       }) as CSSStyleDeclaration;
     };
   });
@@ -69,7 +71,7 @@ describe("Dark Detection - Extension Style Detection", () => {
     const { isAlreadyDarkTheme } = await import("../../src/utils/dark-detection");
 
     // Set the extension's applied attribute
-    document.documentElement.setAttribute('udr-applied', 'true');
+    document.documentElement.setAttribute("udr-applied", "true");
 
     // Should return false (meaning: don't skip, allow reapplication)
     const result = isAlreadyDarkTheme();
@@ -80,7 +82,7 @@ describe("Dark Detection - Extension Style Detection", () => {
     const { isAlreadyDarkTheme } = await import("../../src/utils/dark-detection");
 
     // Set the extension's applied attribute (alternative format)
-    document.documentElement.setAttribute('data-udr-applied', '1');
+    document.documentElement.setAttribute("data-udr-applied", "1");
 
     const result = isAlreadyDarkTheme();
     expect(result).toBe(false);
@@ -90,9 +92,9 @@ describe("Dark Detection - Extension Style Detection", () => {
     const { isAlreadyDarkTheme } = await import("../../src/utils/dark-detection");
 
     // Add the extension's style tag
-    const styleTag = document.createElement('style');
-    styleTag.id = 'udr-style';
-    styleTag.textContent = 'body { background: #1a1a1a; }';
+    const styleTag = document.createElement("style");
+    styleTag.id = "udr-style";
+    styleTag.textContent = "body { background: #1a1a1a; }";
     document.head.appendChild(styleTag);
 
     const result = isAlreadyDarkTheme();
@@ -103,9 +105,9 @@ describe("Dark Detection - Extension Style Detection", () => {
     const { isAlreadyDarkTheme } = await import("../../src/utils/dark-detection");
 
     // Add the extension's pre-inject style tag
-    const preInjectTag = document.createElement('style');
-    preInjectTag.id = 'udr-preinject';
-    preInjectTag.textContent = 'html, body { background-color: #1a1a1a !important; }';
+    const preInjectTag = document.createElement("style");
+    preInjectTag.id = "udr-preinject";
+    preInjectTag.textContent = "html, body { background-color: #1a1a1a !important; }";
     document.head.appendChild(preInjectTag);
 
     const result = isAlreadyDarkTheme();
@@ -125,9 +127,9 @@ describe("Dark Detection - Extension Style Detection", () => {
     const { isAlreadyDarkTheme } = await import("../../src/utils/dark-detection");
 
     // Simulate extension having already darkened the page
-    document.documentElement.setAttribute('udr-applied', 'true');
-    document.body.style.backgroundColor = '#1a1a1a';
-    document.body.style.color = '#e0e0e0';
+    document.documentElement.setAttribute("udr-applied", "true");
+    document.body.style.backgroundColor = "#1a1a1a";
+    document.body.style.color = "#e0e0e0";
 
     // Even though the page appears dark, detection should skip
     // and return false (don't skip application)
@@ -138,22 +140,22 @@ describe("Dark Detection - Extension Style Detection", () => {
 
 /**
  * Manual QA Test Cases:
- * 
+ *
  * 1. Initial page load on light site (e.g., Wikipedia):
  *    - Theme should apply correctly
  *    - No oscillation or flickering
- * 
+ *
  * 2. Adjust slider on light site:
  *    - Theme should update with new values
  *    - Should NOT remove theme thinking site is already dark
- * 
+ *
  * 3. Navigate to another page on same site:
  *    - Theme should apply correctly without needing slider adjustment
- * 
+ *
  * 4. Test with actually dark site (e.g., GitHub dark mode):
  *    - With skipDarkSites enabled, should skip application
  *    - After disabling skipDarkSites, should apply normally
- * 
+ *
  * 5. Test reset sliders:
  *    - Should immediately apply default values
  *    - Should NOT require second press

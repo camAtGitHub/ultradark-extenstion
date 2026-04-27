@@ -9,7 +9,7 @@ describe("Reset Sliders", () => {
       contrast: 150,
       sepia: 50,
       grayscale: 30,
-      blueShift: 25
+      blueShift: 25,
     };
 
     // Default values that Reset Sliders should restore
@@ -18,7 +18,7 @@ describe("Reset Sliders", () => {
       contrast: 110,
       sepia: 0,
       grayscale: 0,
-      blueShift: 0
+      blueShift: 0,
     };
 
     // Simulate reset operation
@@ -43,7 +43,7 @@ describe("Reset Sliders", () => {
       contrast: 120,
       sepia: 10,
       grayscale: 5,
-      blueShift: 15
+      blueShift: 15,
     };
 
     // Mock current view settings (what the sliders show)
@@ -52,7 +52,7 @@ describe("Reset Sliders", () => {
       contrast: 130,
       sepia: 20,
       grayscale: 15,
-      blueShift: 25
+      blueShift: 25,
     };
 
     // Default values
@@ -61,7 +61,7 @@ describe("Reset Sliders", () => {
       contrast: 110,
       sepia: 0,
       grayscale: 0,
-      blueShift: 0
+      blueShift: 0,
     };
 
     // Reset sliders - should only affect current view
@@ -100,10 +100,10 @@ describe("Reset Sliders", () => {
       grayscale: 30,
       blueShift: 25,
       perSite: {
-        "https://example.com": { enabled: true }
+        "https://example.com": { enabled: true },
       },
       excludeRegex: ["pattern1", "pattern2"],
-      schedule: { enabled: true, start: "22:00", end: "06:00" }
+      schedule: { enabled: true, start: "22:00", end: "06:00" },
     };
 
     // Default slider values
@@ -112,7 +112,7 @@ describe("Reset Sliders", () => {
       contrast: 110,
       sepia: 0,
       grayscale: 0,
-      blueShift: 0
+      blueShift: 0,
     };
 
     // Reset only the sliders
@@ -147,7 +147,7 @@ describe("Reset Sliders", () => {
       contrast: 110,
       sepia: 0,
       grayscale: 0,
-      blueShift: 0
+      blueShift: 0,
     };
 
     // Default values
@@ -156,7 +156,7 @@ describe("Reset Sliders", () => {
       contrast: 110,
       sepia: 0,
       grayscale: 0,
-      blueShift: 0
+      blueShift: 0,
     };
 
     // Reset operation
@@ -181,7 +181,7 @@ describe("Reset Sliders", () => {
       contrast: 175,
       sepia: 40,
       grayscale: 60,
-      blueShift: 80
+      blueShift: 80,
     };
 
     // Default values
@@ -190,7 +190,7 @@ describe("Reset Sliders", () => {
       contrast: 110,
       sepia: 0,
       grayscale: 0,
-      blueShift: 0
+      blueShift: 0,
     };
 
     // Verify we're testing all 5 sliders
@@ -201,7 +201,9 @@ describe("Reset Sliders", () => {
 
     // Verify all sliders are reset
     sliderNames.forEach((name) => {
-      expect(modifiedValues[name as keyof typeof defaults]).toBe(defaults[name as keyof typeof defaults]);
+      expect(modifiedValues[name as keyof typeof defaults]).toBe(
+        defaults[name as keyof typeof defaults]
+      );
     });
   });
 
@@ -212,7 +214,7 @@ describe("Reset Sliders", () => {
       contrast: 110,
       sepia: 0,
       grayscale: 0,
-      blueShift: 0
+      blueShift: 0,
     };
 
     // Verify the defaults are as expected

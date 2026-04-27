@@ -156,9 +156,7 @@ async function loadSites() {
           domain,
           favicon: getFaviconForDomain(domain),
           settings: {
-            mode:
-              (override.mode as "photon-inverter" | "chroma-semantic") ||
-              "photon-inverter",
+            mode: (override.mode as "photon-inverter" | "chroma-semantic") || "photon-inverter",
             alwaysEnabled: overrides.forceDarkMode || false,
             alwaysDisabled: overrides.exclude || false,
             brightness: override.brightness || 90,
@@ -217,9 +215,7 @@ async function captureActiveTabUrl(): Promise<void> {
 function prioritizeCurrentDomain() {
   if (!currentSite) return;
 
-  const currentIndex = allSites.findIndex(
-    (site) => site.domain === currentSite,
-  );
+  const currentIndex = allSites.findIndex((site) => site.domain === currentSite);
   if (currentIndex > 0) {
     const [current] = allSites.splice(currentIndex, 1);
     allSites.unshift(current);
@@ -258,7 +254,7 @@ function renderSiteList() {
       </div>
       <span class="site-card-chevron">›</span>
     </div>
-  `,
+  `
     )
     .join("");
 
@@ -354,16 +350,9 @@ function selectSite(domain: string) {
   updateSliderBackground(blueShift, site.settings.blueShift, 0, 100);
 }
 
-function updateSliderBackground(
-  slider: HTMLInputElement,
-  value: number,
-  min: number,
-  max: number,
-) {
+function updateSliderBackground(slider: HTMLInputElement, value: number, min: number, max: number) {
   const percent = ((value - min) / (max - min)) * 100;
-  const accent = getComputedStyle(document.documentElement)
-    .getPropertyValue("--accent")
-    .trim();
+  const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
   const track = getComputedStyle(document.documentElement)
     .getPropertyValue("--slider-track")
     .trim();
@@ -387,9 +376,7 @@ async function saveCurrentSiteSettings() {
   modeButtons.forEach((btn) => {
     const btnEl = btn as HTMLElement;
     if (btnEl.classList.contains("active")) {
-      site.settings.mode = btnEl.dataset.mode as
-        | "photon-inverter"
-        | "chroma-semantic";
+      site.settings.mode = btnEl.dataset.mode as "photon-inverter" | "chroma-semantic";
     }
   });
 
@@ -425,9 +412,7 @@ function setupEventListeners() {
     if (!query) {
       filteredSites = [...allSites];
     } else {
-      filteredSites = allSites.filter((site) =>
-        site.domain.toLowerCase().includes(query),
-      );
+      filteredSites = allSites.filter((site) => site.domain.toLowerCase().includes(query));
     }
     renderSiteList();
   });
@@ -470,12 +455,7 @@ function setupEventListeners() {
     gryV = $("#gryV"),
     bluV = $("#bluV");
 
-  function bindSlider(
-    el: HTMLInputElement,
-    label: HTMLElement,
-    min: number,
-    max: number,
-  ) {
+  function bindSlider(el: HTMLInputElement, label: HTMLElement, min: number, max: number) {
     el.addEventListener("input", () => {
       const value = Number(el.value);
       label.textContent = `${value}%`;

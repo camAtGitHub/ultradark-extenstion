@@ -19,7 +19,7 @@ import { readHistory, recentEntries } from "./perf/history";
 import type { NormalizedMetrics } from "./perf/metrics";
 
 const COMMANDS = ["perf", "visual", "report", "history", "reset"] as const;
-type Command = typeof COMMANDS[number];
+type Command = (typeof COMMANDS)[number];
 
 function usage(): void {
   console.log(`
@@ -47,10 +47,10 @@ Examples:
 function runPerf(): void {
   console.log("🏃 Running performance benchmarks...\n");
   try {
-    execSync(
-      "npx vitest run tests/regression/perf/benchmarks.test.ts --reporter=verbose",
-      { stdio: "inherit", cwd: resolve(".") },
-    );
+    execSync("npx vitest run tests/regression/perf/benchmarks.test.ts --reporter=verbose", {
+      stdio: "inherit",
+      cwd: resolve("."),
+    });
   } catch {
     // vitest exits non-zero if tests fail — that's expected
     process.exitCode = 1;
@@ -59,12 +59,12 @@ function runPerf(): void {
 
 function runVisual(args: string[]): void {
   console.log("📸 Running visual regression tests...\n");
-  const flags = args.filter(a => a.startsWith("--")).join(" ");
+  const flags = args.filter((a) => a.startsWith("--")).join(" ");
   try {
-    execSync(
-      `npx tsx tests/regression/visual/capture.ts ${flags}`,
-      { stdio: "inherit", cwd: resolve(".") },
-    );
+    execSync(`npx tsx tests/regression/visual/capture.ts ${flags}`, {
+      stdio: "inherit",
+      cwd: resolve("."),
+    });
   } catch {
     process.exitCode = 1;
   }
@@ -96,25 +96,25 @@ function showReport(): void {
     console.log(`── ${tier} tier ──────────────────────────────────────────`);
     console.log(
       "  " +
-      "Algorithm".padEnd(22) +
-      "Apply(ms)".padEnd(12) +
-      "Reset(ms)".padEnd(12) +
-      "CSS(B)".padEnd(10) +
-      "Mutations".padEnd(12) +
-      "µs/node".padEnd(10) +
-      "Git",
+        "Algorithm".padEnd(22) +
+        "Apply(ms)".padEnd(12) +
+        "Reset(ms)".padEnd(12) +
+        "CSS(B)".padEnd(10) +
+        "Mutations".padEnd(12) +
+        "µs/node".padEnd(10) +
+        "Git"
     );
 
     for (const [algo, m] of tierEntries) {
       console.log(
         "  " +
-        algo.padEnd(22) +
-        m.applyTimeMs.toFixed(2).padEnd(12) +
-        m.resetTimeMs.toFixed(2).padEnd(12) +
-        String(m.cssOutputBytes).padEnd(10) +
-        String(m.domMutations).padEnd(12) +
-        m.perNodeApplyUs.toFixed(1).padEnd(10) +
-        (m.gitHash ?? "?"),
+          algo.padEnd(22) +
+          m.applyTimeMs.toFixed(2).padEnd(12) +
+          m.resetTimeMs.toFixed(2).padEnd(12) +
+          String(m.cssOutputBytes).padEnd(10) +
+          String(m.domMutations).padEnd(12) +
+          m.perNodeApplyUs.toFixed(1).padEnd(10) +
+          (m.gitHash ?? "?")
       );
     }
     console.log("");
@@ -130,7 +130,9 @@ function showReport(): void {
       console.log(`  New:      ${summary.newBaselines}`);
       console.log(`  Passed:   ${summary.passed}`);
       console.log(`  Failed:   ${summary.failed}`);
-    } catch { /* ignore parse errors */ }
+    } catch {
+      /* ignore parse errors */
+    }
   }
 }
 
@@ -151,19 +153,25 @@ function showHistory(): void {
       console.log(`  ${algo} / ${tier}:`);
       for (const e of entries) {
         const date = new Date(e.timestamp).toISOString().slice(0, 19);
-        const trend = entries.length > 1 && entries.indexOf(e) > 0
-          ? (() => {
-              const prev = entries[entries.indexOf(e) - 1];
-              const delta = ((e.applyTimeMs - prev.applyTimeMs) / Math.max(prev.applyTimeMs, 0.01)) * 100;
-              return delta > 5 ? `↑${delta.toFixed(0)}%` : delta < -5 ? `↓${Math.abs(delta).toFixed(0)}%` : "→";
-            })()
-          : "";
+        const trend =
+          entries.length > 1 && entries.indexOf(e) > 0
+            ? (() => {
+                const prev = entries[entries.indexOf(e) - 1];
+                const delta =
+                  ((e.applyTimeMs - prev.applyTimeMs) / Math.max(prev.applyTimeMs, 0.01)) * 100;
+                return delta > 5
+                  ? `↑${delta.toFixed(0)}%`
+                  : delta < -5
+                    ? `↓${Math.abs(delta).toFixed(0)}%`
+                    : "→";
+              })()
+            : "";
 
         console.log(
           `    ${date}  ${(e.gitHash ?? "?").padEnd(8)}  ` +
-          `apply=${e.applyTimeMs.toFixed(2).padEnd(8)}ms  ` +
-          `css=${String(e.cssOutputBytes).padEnd(6)}B  ` +
-          trend,
+            `apply=${e.applyTimeMs.toFixed(2).padEnd(8)}ms  ` +
+            `css=${String(e.cssOutputBytes).padEnd(6)}B  ` +
+            trend
         );
       }
       console.log("");
@@ -199,9 +207,19 @@ if (!cmd || !COMMANDS.includes(cmd)) {
 }
 
 switch (cmd) {
-  case "perf":    runPerf(); break;
-  case "visual":  runVisual(extraArgs); break;
-  case "report":  showReport(); break;
-  case "history": showHistory(); break;
-  case "reset":   resetBaselines(); break;
+  case "perf":
+    runPerf();
+    break;
+  case "visual":
+    runVisual(extraArgs);
+    break;
+  case "report":
+    showReport();
+    break;
+  case "history":
+    showHistory();
+    break;
+  case "reset":
+    resetBaselines();
+    break;
 }

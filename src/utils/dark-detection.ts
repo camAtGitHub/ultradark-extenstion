@@ -1,10 +1,6 @@
 // File: src/utils/dark-detection.ts
 import { debugSync } from "./logger";
-import {
-  parseRgbFast,
-  isTransparentFast,
-  getRelativeLuminance,
-} from "./color-utils";
+import { parseRgbFast, isTransparentFast, getRelativeLuminance } from "./color-utils";
 
 const DARK_THRESHOLD = 0.3;
 const DARK_RATIO_THRESHOLD = 0.4;
@@ -23,15 +19,11 @@ export function isAlreadyDarkTheme(): boolean {
   const html = document.documentElement;
   const body = document.body;
 
-  console.log(
-    "[UltraDark Dark Detection] ========== DETECTION START ==========",
-  );
+  console.log("[UltraDark Dark Detection] ========== DETECTION START ==========");
   console.log("[UltraDark Dark Detection] URL:", window.location.href);
 
   if (!html || !body) {
-    console.log(
-      "[UltraDark Dark Detection] ⛔ Body/HTML missing. Result: FALSE",
-    );
+    console.log("[UltraDark Dark Detection] ⛔ Body/HTML missing. Result: FALSE");
     return false;
   }
 
@@ -44,7 +36,7 @@ export function isAlreadyDarkTheme(): boolean {
   console.log("[UltraDark Dark Detection] Checking Extension Markers...");
   if (hasUdrStyle || hasUdrPreinject || hasUdrShield || hasUdrAppliedAttr) {
     console.log(
-      "[UltraDark Dark Detection] ✅ Extension styles detected. Aborting detection to prevent false positives.",
+      "[UltraDark Dark Detection] ✅ Extension styles detected. Aborting detection to prevent false positives."
     );
     return false;
   }
@@ -52,17 +44,13 @@ export function isAlreadyDarkTheme(): boolean {
   // CHECK 1: The Official Standard
   const colorScheme = window.getComputedStyle(html).colorScheme;
   if (colorScheme === "dark") {
-    console.log(
-      '[UltraDark Dark Detection] 🎨 Browser reports "color-scheme: dark". Result: TRUE',
-    );
+    console.log('[UltraDark Dark Detection] 🎨 Browser reports "color-scheme: dark". Result: TRUE');
     return true;
   }
 
   // CHECK 2: Visual Reality (Sampling)
   // OPTIMIZATION: Batched style reads to prevent layout thrashing
-  console.log(
-    "[UltraDark Dark Detection] 🔍 Sampling visual elements for luminance...",
-  );
+  console.log("[UltraDark Dark Detection] 🔍 Sampling visual elements for luminance...");
 
   let darkWeight = 0;
   let totalWeight = 0;
@@ -78,15 +66,14 @@ export function isAlreadyDarkTheme(): boolean {
    */
   const resolveEffectiveBackground = (
     el: Element,
-    styleMap: Map<Element, CSSStyleDeclaration>,
+    styleMap: Map<Element, CSSStyleDeclaration>
   ): string | null => {
     let current: Element | null = el;
     let hop = 0;
     const MAX_HOPS = 5;
 
     while (current && hop < MAX_HOPS) {
-      const style =
-        styleMap.get(current) ?? window.getComputedStyle(current as Element);
+      const style = styleMap.get(current) ?? window.getComputedStyle(current as Element);
       const bg = style.backgroundColor;
       if (!isTransparentFast(bg)) {
         return bg;
@@ -97,7 +84,11 @@ export function isAlreadyDarkTheme(): boolean {
     return null;
   };
 
-  const processElement = (el: Element, source: string, styleMap: Map<Element, CSSStyleDeclaration>) => {
+  const processElement = (
+    el: Element,
+    source: string,
+    styleMap: Map<Element, CSSStyleDeclaration>
+  ) => {
     const bg = resolveEffectiveBackground(el, styleMap);
     if (!bg) {
       skippedTransparent++;
@@ -117,7 +108,7 @@ export function isAlreadyDarkTheme(): boolean {
     const areaWeight = Math.min(3, Math.max(0.5, area / viewport));
 
     console.log(
-      `[UltraDark Dark Detection] Sample <${el.tagName.toLowerCase()}${el.className ? "." + el.className.split(" ")[0] : ""}> (${source}): RGB(${rgb.r}, ${rgb.g}, ${rgb.b}) | Luminance: ${lum.toFixed(3)} | Weight: ${areaWeight.toFixed(2)}`,
+      `[UltraDark Dark Detection] Sample <${el.tagName.toLowerCase()}${el.className ? "." + el.className.split(" ")[0] : ""}> (${source}): RGB(${rgb.r}, ${rgb.g}, ${rgb.b}) | Luminance: ${lum.toFixed(3)} | Weight: ${areaWeight.toFixed(2)}`
     );
 
     if (el === html || el === body) {
@@ -194,7 +185,7 @@ export function isAlreadyDarkTheme(): boolean {
   }
 
   console.log(
-    `[UltraDark Dark Detection] PHASE 1 Stats: Weight=${totalWeight.toFixed(2)}, Skipped(Transp)=${skippedTransparent}, Skipped(Hidden)=${skippedHidden}`,
+    `[UltraDark Dark Detection] PHASE 1 Stats: Weight=${totalWeight.toFixed(2)}, Skipped(Transp)=${skippedTransparent}, Skipped(Hidden)=${skippedHidden}`
   );
 
   // PHASE 2: Fallback (Direct Body Children)
@@ -202,7 +193,7 @@ export function isAlreadyDarkTheme(): boolean {
   // we fall back to the first 5 direct children of body.
   if (totalWeight === 0) {
     console.log(
-      "[UltraDark Dark Detection] ⚠️ Phase 1 yielded 0 valid samples. Starting Phase 2 Fallback (Body Children)...",
+      "[UltraDark Dark Detection] ⚠️ Phase 1 yielded 0 valid samples. Starting Phase 2 Fallback (Body Children)..."
     );
 
     // Get direct children
@@ -214,34 +205,30 @@ export function isAlreadyDarkTheme(): boolean {
     }
 
     console.log(
-      `[UltraDark Dark Detection] PHASE 2 Stats: Weight=${totalWeight.toFixed(2)} (Total)`,
+      `[UltraDark Dark Detection] PHASE 2 Stats: Weight=${totalWeight.toFixed(2)} (Total)`
     );
   }
 
   if (totalWeight === 0) {
     console.log(
-      "[UltraDark Dark Detection] ⚠️ Still no valid samples after Fallback. Defaulting to FALSE (Light).",
+      "[UltraDark Dark Detection] ⚠️ Still no valid samples after Fallback. Defaulting to FALSE (Light)."
     );
     return false;
   }
 
   const ratio = darkWeight / totalWeight;
   console.log(
-    `[UltraDark Dark Detection] 🗳️  Dark Weight: ${darkWeight.toFixed(2)}/${totalWeight.toFixed(2)} (${(ratio * 100).toFixed(0)}%) | RootDarkSignal=${rootDarkSignal}`,
+    `[UltraDark Dark Detection] 🗳️  Dark Weight: ${darkWeight.toFixed(2)}/${totalWeight.toFixed(2)} (${(ratio * 100).toFixed(0)}%) | RootDarkSignal=${rootDarkSignal}`
   );
 
   // Normal threshold: 40% weighted darkness.
   // Root-dark fallback: if html/body is dark, allow a lower ratio to reduce false negatives
   // on transparent-layered SPA shells.
   if (ratio >= DARK_RATIO_THRESHOLD || (rootDarkSignal && ratio >= ROOT_DARK_RATIO_THRESHOLD)) {
-    console.log(
-      "[UltraDark Dark Detection] ✅ Result: TRUE (Dark theme detected)",
-    );
+    console.log("[UltraDark Dark Detection] ✅ Result: TRUE (Dark theme detected)");
     return true;
   } else {
-    console.log(
-      "[UltraDark Dark Detection] ✅ Result: FALSE (Light theme detected)",
-    );
+    console.log("[UltraDark Dark Detection] ✅ Result: FALSE (Light theme detected)");
     return false;
   }
 }

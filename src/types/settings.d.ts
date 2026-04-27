@@ -9,7 +9,7 @@ export type Mode =
 export interface Schedule {
   enabled: boolean;
   start: string; // "22:00"
-  end: string;   // "07:00"
+  end: string; // "07:00"
 }
 export interface SiteOverride {
   enabled?: boolean;
@@ -22,10 +22,10 @@ export interface Settings {
   mode: Mode;
   amoled: boolean;
   brightness: number; // 0..100 (%)
-  contrast: number;   // 50..200 (%)
-  sepia: number;      // 0..100 (%) -> applied as CSS sepia() filter via buildCss
-  grayscale: number;  // 0..100 (%)
-  blueShift: number;  // 0..100 (%) -> hue rotation scaled internally
+  contrast: number; // 50..200 (%)
+  sepia: number; // 0..100 (%) -> applied as CSS sepia() filter via buildCss
+  grayscale: number; // 0..100 (%)
+  blueShift: number; // 0..100 (%) -> hue rotation scaled internally
   optimizerEnabled: boolean;
   skipDarkSites: boolean; // Auto-detect if sites are already dark
   perSite: Record<string, SiteOverride>;

@@ -124,11 +124,7 @@ function invertLightness(rgb: RGB, isBackground: boolean): string {
 /**
  * Process a batch of elements
  */
-function processBatch(
-  elements: Element[],
-  startIndex: number,
-  batchSize: number,
-): number {
+function processBatch(elements: Element[], startIndex: number, batchSize: number): number {
   const endIndex = Math.min(startIndex + batchSize, elements.length);
   let scanned = 0;
 
@@ -244,9 +240,7 @@ export function applyDomWalker(settings: Settings): void {
 
   // Safety guard: Check if document.body exists
   if (!document.body) {
-    debugSync(
-      "[DOM Walker] ⚠️ document.body not available, falling back to Photon Inverter",
-    );
+    debugSync("[DOM Walker] ⚠️ document.body not available, falling back to Photon Inverter");
     applyPhotonInverter(settings);
     return;
   }
@@ -254,11 +248,7 @@ export function applyDomWalker(settings: Settings): void {
   resetDomWalker();
 
   // Use TreeWalker for efficient DOM traversal
-  const walker = document.createTreeWalker(
-    document.body,
-    NodeFilter.SHOW_ELEMENT,
-    null,
-  );
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, null);
 
   debugSync("[DOM Walker] Starting Lazy Traversal");
 
@@ -360,7 +350,7 @@ export function applyDomWalker(settings: Settings): void {
       styleReads.length,
       "elements,",
       changes.length,
-      "style changes",
+      "style changes"
     );
 
     // Continue if more elements remain
@@ -410,11 +400,15 @@ function setupOptimizedMutationObserver(): void {
   // Register interaction listeners (stored for later removal in resetDomWalker)
   scrollHandler = () => {
     isUserInteracting = true;
-    setTimeout(() => { isUserInteracting = false; }, 150);
+    setTimeout(() => {
+      isUserInteracting = false;
+    }, 150);
   };
   inputHandler = () => {
     isUserInteracting = true;
-    setTimeout(() => { isUserInteracting = false; }, 100);
+    setTimeout(() => {
+      isUserInteracting = false;
+    }, 100);
   };
   document.addEventListener("scroll", scrollHandler, { passive: true });
   document.addEventListener("input", inputHandler, { passive: true });
@@ -468,7 +462,7 @@ function setupOptimizedMutationObserver(): void {
       () => {
         processPendingMutations();
       },
-      isUserInteracting ? 100 : 16,
+      isUserInteracting ? 100 : 16
     ); // Longer delay during interaction
   });
 
@@ -484,9 +478,7 @@ function setupOptimizedMutationObserver(): void {
 
     debugSync("[DOM Walker] Optimized MutationObserver attached to body");
   } else {
-    debugSync(
-      "[DOM Walker] ⚠️ document.body disappeared, cannot attach MutationObserver",
-    );
+    debugSync("[DOM Walker] ⚠️ document.body disappeared, cannot attach MutationObserver");
   }
 }
 
@@ -500,9 +492,7 @@ function processPendingMutations(): void {
   pruneDetachedElements(); // idle — safe to prune here
 
   // Deduplicate (same element might be added multiple times)
-  const unique = [...new Set(elements)].filter(
-    (el) => !processedElements.has(el),
-  );
+  const unique = [...new Set(elements)].filter((el) => !processedElements.has(el));
 
   if (unique.length === 0) return;
 

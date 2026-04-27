@@ -17,7 +17,13 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 // ── Mocks MUST be installed before any algorithm import ───────────────────────
-import { installBrowserMock, installCssSupportsMock, installAnimationFrameMock, installNodeFilterMock, installMutationObserverMock } from "./setup";
+import {
+  installBrowserMock,
+  installCssSupportsMock,
+  installAnimationFrameMock,
+  installNodeFilterMock,
+  installMutationObserverMock,
+} from "./setup";
 installBrowserMock();
 installCssSupportsMock();
 installAnimationFrameMock();
@@ -68,10 +74,54 @@ describe("Tier 1: CSS Generation Benchmarks", () => {
 
   describe("buildCss() — shared style-template", () => {
     const presets = [
-      { name: "defaults",          args: { brightness: 100, contrast: 105, sepia: 0, grayscale: 0, hueRotateDeg: 0, amoled: false, invert: false } },
-      { name: "defaults+invert",   args: { brightness: 100, contrast: 105, sepia: 0, grayscale: 0, hueRotateDeg: 0, amoled: false, invert: true  } },
-      { name: "amoled+invert",     args: { brightness: 100, contrast: 105, sepia: 0, grayscale: 0, hueRotateDeg: 0, amoled: true,  invert: true  } },
-      { name: "full-adjustments",  args: { brightness: 85, contrast: 120, sepia: 15, grayscale: 10, hueRotateDeg: 30, amoled: false, invert: true } },
+      {
+        name: "defaults",
+        args: {
+          brightness: 100,
+          contrast: 105,
+          sepia: 0,
+          grayscale: 0,
+          hueRotateDeg: 0,
+          amoled: false,
+          invert: false,
+        },
+      },
+      {
+        name: "defaults+invert",
+        args: {
+          brightness: 100,
+          contrast: 105,
+          sepia: 0,
+          grayscale: 0,
+          hueRotateDeg: 0,
+          amoled: false,
+          invert: true,
+        },
+      },
+      {
+        name: "amoled+invert",
+        args: {
+          brightness: 100,
+          contrast: 105,
+          sepia: 0,
+          grayscale: 0,
+          hueRotateDeg: 0,
+          amoled: true,
+          invert: true,
+        },
+      },
+      {
+        name: "full-adjustments",
+        args: {
+          brightness: 85,
+          contrast: 120,
+          sepia: 15,
+          grayscale: 10,
+          hueRotateDeg: 30,
+          amoled: false,
+          invert: true,
+        },
+      },
     ];
 
     for (const preset of presets) {
@@ -105,15 +155,47 @@ describe("Tier 1: CSS Generation Benchmarks", () => {
     }
 
     it("invert mode CSS is larger than non-invert (has media reinversion + background fix)", () => {
-      const noInvert = buildCss({ brightness: 100, contrast: 105, sepia: 0, grayscale: 0, hueRotateDeg: 0, amoled: false, invert: false });
-      const withInvert = buildCss({ brightness: 100, contrast: 105, sepia: 0, grayscale: 0, hueRotateDeg: 0, amoled: false, invert: true });
+      const noInvert = buildCss({
+        brightness: 100,
+        contrast: 105,
+        sepia: 0,
+        grayscale: 0,
+        hueRotateDeg: 0,
+        amoled: false,
+        invert: false,
+      });
+      const withInvert = buildCss({
+        brightness: 100,
+        contrast: 105,
+        sepia: 0,
+        grayscale: 0,
+        hueRotateDeg: 0,
+        amoled: false,
+        invert: true,
+      });
 
       expect(byteLength(withInvert)).toBeGreaterThan(byteLength(noInvert));
     });
 
     it("AMOLED mode adds #000 background rules", () => {
-      const noAmoled = buildCss({ brightness: 100, contrast: 105, sepia: 0, grayscale: 0, hueRotateDeg: 0, amoled: false, invert: true });
-      const withAmoled = buildCss({ brightness: 100, contrast: 105, sepia: 0, grayscale: 0, hueRotateDeg: 0, amoled: true, invert: true });
+      const noAmoled = buildCss({
+        brightness: 100,
+        contrast: 105,
+        sepia: 0,
+        grayscale: 0,
+        hueRotateDeg: 0,
+        amoled: false,
+        invert: true,
+      });
+      const withAmoled = buildCss({
+        brightness: 100,
+        contrast: 105,
+        sepia: 0,
+        grayscale: 0,
+        hueRotateDeg: 0,
+        amoled: true,
+        invert: true,
+      });
 
       expect(byteLength(withAmoled)).toBeGreaterThan(byteLength(noAmoled));
       expect(withAmoled).toContain("#000");
@@ -153,7 +235,6 @@ describe("Tier 1: CSS Generation Benchmarks", () => {
   });
 });
 
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // TIER 2: ALGORITHM EXECUTION BENCHMARKS
 // Run full apply→reset cycles against synthetic DOM fixtures.
@@ -175,10 +256,13 @@ describe("Tier 2: Algorithm Execution Benchmarks", () => {
   // ── Per-algorithm, per-tier benchmark ───────────────────────────────────────
   // We dynamically import algorithms to avoid top-level side-effect issues.
 
-  const algorithmLoaders: Record<Mode, () => Promise<{
-    apply: (s: ReturnType<typeof settingsForMode>) => void;
-    reset: () => void;
-  }>> = {
+  const algorithmLoaders: Record<
+    Mode,
+    () => Promise<{
+      apply: (s: ReturnType<typeof settingsForMode>) => void;
+      reset: () => void;
+    }>
+  > = {
     "photon-inverter": async () => {
       const mod = await import("../../../src/content/algorithms/photon-inverter");
       return { apply: mod.applyPhotonInverter, reset: mod.removePhotonInverter };
@@ -238,7 +322,6 @@ describe("Tier 2: Algorithm Execution Benchmarks", () => {
             const resetStart = performance.now();
             reset();
             resetTime = performance.now() - resetStart;
-
           } catch (e) {
             error = (e as Error).message ?? String(e);
           } finally {
@@ -247,9 +330,7 @@ describe("Tier 2: Algorithm Execution Benchmarks", () => {
 
           if (error) {
             // Log but don't fail — algorithm needs real browser
-            console.warn(
-              `  ⚠ ${algorithm}/${tier}: jsdom incompatible — ${error.slice(0, 120)}`,
-            );
+            console.warn(`  ⚠ ${algorithm}/${tier}: jsdom incompatible — ${error.slice(0, 120)}`);
             // Still record partial data if we got any
             if (applyTime < 0) return;
           }
@@ -293,7 +374,7 @@ describe("Tier 2: Algorithm Execution Benchmarks", () => {
       }
 
       for (const tier of Object.keys(DOM_TIERS) as DomTier[]) {
-        const tierResults = allResults.filter(r => r.tier === tier);
+        const tierResults = allResults.filter((r) => r.tier === tier);
         if (tierResults.length < 2) continue;
 
         const rankings = rankAlgorithms(tierResults);
@@ -302,8 +383,8 @@ describe("Tier 2: Algorithm Execution Benchmarks", () => {
         for (const r of rankings) {
           console.log(
             `  #${r.compositeRank} ${r.algorithm.padEnd(20)} ` +
-            `apply=${r.ranks.applyTimeMs} reset=${r.ranks.resetTimeMs} ` +
-            `css=${r.ranks.cssOutputBytes} mutations=${r.ranks.domMutations}`,
+              `apply=${r.ranks.applyTimeMs} reset=${r.ranks.resetTimeMs} ` +
+              `css=${r.ranks.cssOutputBytes} mutations=${r.ranks.domMutations}`
           );
         }
       }
@@ -351,7 +432,7 @@ describe("Tier 2: Algorithm Execution Benchmarks", () => {
         console.warn(
           "\n  ⚠ Performance regressions detected! Review the metrics above.",
           "\n  To accept the new baseline, re-run the benchmarks.",
-          "\n  To investigate, compare git hashes in .baselines/perf-history.jsonl",
+          "\n  To investigate, compare git hashes in .baselines/perf-history.jsonl"
         );
       }
 

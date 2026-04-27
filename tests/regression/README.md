@@ -56,6 +56,7 @@ tests/regression/
 Always reliable, no real browser needed. Benchmarks `buildCss()` (shared by 4 algorithms) and `generatePhotonInverterCSS()` against multiple settings presets.
 
 **What it catches:**
+
 - Template generation time spikes
 - CSS output size bloat
 - Missing or extraneous rules after refactoring
@@ -64,25 +65,25 @@ Always reliable, no real browser needed. Benchmarks `buildCss()` (shared by 4 al
 
 Runs full `apply → reset` cycles against synthetic DOM fixtures of increasing complexity:
 
-| Tier   | Nodes | Depth | Simulates                   |
-|--------|-------|-------|-----------------------------|
-| small  | 50    | 3     | Blog post                   |
-| medium | 500   | 6     | News site                   |
-| large  | 2000  | 10    | Dashboard                   |
-| spa    | 3000  | 15    | React SPA (Uber Eats-like)  |
+| Tier   | Nodes | Depth | Simulates                  |
+| ------ | ----- | ----- | -------------------------- |
+| small  | 50    | 3     | Blog post                  |
+| medium | 500   | 6     | News site                  |
+| large  | 2000  | 10    | Dashboard                  |
+| spa    | 3000  | 15    | React SPA (Uber Eats-like) |
 
 DOM fixtures use a deterministic PRNG so results are reproducible. The `spa` tier includes obfuscated classes and deep wrapper nesting to simulate real SPA structures.
 
 **Metrics tracked per algorithm per tier:**
 
-| Metric           | What it measures                              | Why it matters                           |
-|------------------|-----------------------------------------------|------------------------------------------|
-| `applyTimeMs`    | Wall-clock time to apply the algorithm        | Primary user-facing latency              |
-| `resetTimeMs`    | Wall-clock time to clean up                   | Algorithm switching performance          |
-| `cssOutputBytes` | Size of injected CSS                          | Network/parse overhead, bloat detection  |
-| `domMutations`   | Elements with inline style modifications      | Layout thrash risk                       |
-| `perNodeApplyUs` | Microseconds per DOM node (normalized)        | **Cross-tier comparable** efficiency     |
-| `cssPerNode`     | CSS bytes per DOM node (normalized)           | Scaling characteristics                  |
+| Metric           | What it measures                         | Why it matters                          |
+| ---------------- | ---------------------------------------- | --------------------------------------- |
+| `applyTimeMs`    | Wall-clock time to apply the algorithm   | Primary user-facing latency             |
+| `resetTimeMs`    | Wall-clock time to clean up              | Algorithm switching performance         |
+| `cssOutputBytes` | Size of injected CSS                     | Network/parse overhead, bloat detection |
+| `domMutations`   | Elements with inline style modifications | Layout thrash risk                      |
+| `perNodeApplyUs` | Microseconds per DOM node (normalized)   | **Cross-tier comparable** efficiency    |
+| `cssPerNode`     | CSS bytes per DOM node (normalized)      | Scaling characteristics                 |
 
 ### Regression Detection
 
@@ -90,13 +91,13 @@ Each run is compared against the previous baseline. Thresholds are configurable 
 
 ```typescript
 REGRESSION_THRESHOLDS = {
-  applyTimeMs:    0.25,  // 25% slower → flag
-  resetTimeMs:    0.30,  // 30% slower → flag
-  cssOutputBytes: 0.15,  // 15% larger → flag
-  domMutations:   0.10,  // 10% more   → flag
-  perNodeApplyUs: 0.25,  // 25% slower per-node → flag
-  cssPerNode:     0.15,  // 15% more CSS per node → flag
-}
+  applyTimeMs: 0.25, // 25% slower → flag
+  resetTimeMs: 0.3, // 30% slower → flag
+  cssOutputBytes: 0.15, // 15% larger → flag
+  domMutations: 0.1, // 10% more   → flag
+  perNodeApplyUs: 0.25, // 25% slower per-node → flag
+  cssPerNode: 0.15, // 15% more CSS per node → flag
+};
 ```
 
 Results are stored in an append-only JSONL file (`perf-history.jsonl`) with git hash and timestamp, so you can trace regressions back to specific commits.
@@ -148,14 +149,14 @@ npx tsx tests/regression/visual/capture.ts --site=ubereats-au --algo=oklch-casca
 
 Configured in `config.ts`, easy to add more:
 
-| Site                | Tags                    | Why it's here                          |
-|---------------------|-------------------------|----------------------------------------|
-| IMDB Top 250        | media, list-heavy       | Complex list layouts, media elements   |
-| The Register        | news, text-heavy        | Text-heavy, traditional layout         |
-| Uber Eats AU        | spa, react, obfuscated  | The SPA that broke scrolling           |
-| GitHub Explore      | spa, dark-native        | Already-dark detection edge case       |
-| Wikipedia           | static, text-heavy      | Baseline "should always look good"     |
-| Stack Overflow      | list-heavy, mixed       | Mixed content, user-generated styles   |
+| Site           | Tags                   | Why it's here                        |
+| -------------- | ---------------------- | ------------------------------------ |
+| IMDB Top 250   | media, list-heavy      | Complex list layouts, media elements |
+| The Register   | news, text-heavy       | Text-heavy, traditional layout       |
+| Uber Eats AU   | spa, react, obfuscated | The SPA that broke scrolling         |
+| GitHub Explore | spa, dark-native       | Already-dark detection edge case     |
+| Wikipedia      | static, text-heavy     | Baseline "should always look good"   |
+| Stack Overflow | list-heavy, mixed      | Mixed content, user-generated styles |
 
 ### Adding a New Test Site
 
@@ -208,21 +209,21 @@ npx vitest run tests/unit/ tests/algorithms.test.ts
 4. **In PR review:** Check the regression report output for any flagged metrics
 5. **Periodically:** Run `history` to spot gradual drift across commits
 
-
 ## Example of Benchmark Results
+
 The tiers are based upon a sampling of websites the author accessed on a typical work day.
 
 Summary of what the benchmarks reveal:
 
 **Scaling behavior across the new tiers** (µs/node — lower is better):
 
-| Algorithm | small (400) | medium (2K) | large (5K) | heavy (12K) | extreme (85K) | Pattern |
-|---|---|---|---|---|---|---|
-| oklch-cascade | 231.2 | 4.5 | 1.8 | 2.2 | 1.7 | Flat after warmup — **O(1) per-node** |
-| photon-inverter | 69.9 | 18.2 | 3.9 | 2.1 | 1.9 | Flat after warmup — **O(1) per-node** |
-| chroma-semantic | 449.1 | 43.5 | 17.6 | 14.8 | 10.8 | Decreasing — **CSS-only, amortized** |
-| perceptual-remap | 50.1 | 46.9 | 54.7 | 48.5 | 43.6 | Stable — **linear O(n)** |
-| dom-walker | 478.9 | 142.7 | 67.1 | 68.9 | 60.2 | Stable at scale — **linear O(n)** |
+| Algorithm        | small (400) | medium (2K) | large (5K) | heavy (12K) | extreme (85K) | Pattern                               |
+| ---------------- | ----------- | ----------- | ---------- | ----------- | ------------- | ------------------------------------- |
+| oklch-cascade    | 231.2       | 4.5         | 1.8        | 2.2         | 1.7           | Flat after warmup — **O(1) per-node** |
+| photon-inverter  | 69.9        | 18.2        | 3.9        | 2.1         | 1.9           | Flat after warmup — **O(1) per-node** |
+| chroma-semantic  | 449.1       | 43.5        | 17.6       | 14.8        | 10.8          | Decreasing — **CSS-only, amortized**  |
+| perceptual-remap | 50.1        | 46.9        | 54.7       | 48.5        | 43.6          | Stable — **linear O(n)**              |
+| dom-walker       | 478.9       | 142.7       | 67.1       | 68.9        | 60.2          | Stable at scale — **linear O(n)**     |
 
 **no algorithm shows O(n²) behavior** — the extreme tier at 85K nodes was the key test for that, and every algorithm's per-node cost is flat or decreasing. Dom-walker is the slowest in wall-clock (5.1s at extreme) but still linear. Oklch-cascade dominates at scale with sub-2µs/node.
 

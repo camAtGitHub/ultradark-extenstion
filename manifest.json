@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "UltraDark Reader",
-  "version": "2026.04.240028",
+  "version": "2026.04.280043",
   "description": "High-quality dark mode extension",
   "browser_action": {
     "default_title": "UltraDark",
@@ -15,14 +15,7 @@
     "scripts": ["src/background/index.js"],
     "persistent": true
   },
-  "permissions": [
-    "storage",
-    "tabs",
-    "activeTab",
-    "alarms",
-    "contextMenus",
-    "<all_urls>"
-  ],
+  "permissions": ["storage", "tabs", "activeTab", "alarms", "contextMenus", "<all_urls>"],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

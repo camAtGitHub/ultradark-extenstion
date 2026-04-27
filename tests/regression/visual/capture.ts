@@ -46,10 +46,10 @@ interface DiffSummary {
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
-const VISUAL_THRESHOLD = 0.5;  // % of pixels that can differ before flagging
+const VISUAL_THRESHOLD = 0.5; // % of pixels that can differ before flagging
 const SCREENSHOT_DIR = resolve(PATHS.visualDir);
 const VIEWPORT = { width: 1280, height: 800 };
-const SETTLE_DELAY_MS = 2000;  // Wait for algorithm to finish applying
+const SETTLE_DELAY_MS = 2000; // Wait for algorithm to finish applying
 
 // ── Directory helpers ─────────────────────────────────────────────────────────
 
@@ -81,19 +81,15 @@ async function main(): Promise<void> {
   // Parse CLI args
   const args = process.argv.slice(2);
   const updateBaselines = args.includes("--update");
-  const siteFilter = args.find(a => a.startsWith("--site="))?.split("=")[1];
-  const algoFilter = args.find(a => a.startsWith("--algo="))?.split("=")[1] as Mode | undefined;
+  const siteFilter = args.find((a) => a.startsWith("--site="))?.split("=")[1];
+  const algoFilter = args.find((a) => a.startsWith("--algo="))?.split("=")[1] as Mode | undefined;
 
   ensureDirs();
   ensureBuild();
 
   // Filter sites and algorithms
-  const sites = siteFilter
-    ? TEST_SITES.filter(s => s.name === siteFilter)
-    : TEST_SITES;
-  const algorithms = algoFilter
-    ? ALL_ALGORITHMS.filter(a => a === algoFilter)
-    : ALL_ALGORITHMS;
+  const sites = siteFilter ? TEST_SITES.filter((s) => s.name === siteFilter) : TEST_SITES;
+  const algorithms = algoFilter ? ALL_ALGORITHMS.filter((a) => a === algoFilter) : ALL_ALGORITHMS;
 
   if (sites.length === 0) {
     console.error(`❌ No site found matching: ${siteFilter}`);
@@ -106,8 +102,8 @@ async function main(): Promise<void> {
   } catch {
     console.error(
       "❌ Playwright not installed. Run:\n" +
-      "   npm install --save-dev playwright @playwright/test\n" +
-      "   npx playwright install firefox"
+        "   npm install --save-dev playwright @playwright/test\n" +
+        "   npx playwright install firefox"
     );
     process.exit(1);
   }
@@ -117,7 +113,7 @@ async function main(): Promise<void> {
 
   const extensionPath = resolve("dist");
   const context = await firefox.firefox.launchPersistentContext("", {
-    headless: false,  // Extensions require headed mode in Firefox
+    headless: false, // Extensions require headed mode in Firefox
     viewport: VIEWPORT,
     args: [
       // web-ext approach: use temporary addon loading
@@ -166,10 +162,13 @@ async function main(): Promise<void> {
           // This injects a script that changes the algorithm setting
           await page.evaluate(async (mode: string) => {
             // Send message to content script to switch algorithm
-            window.postMessage({
-              type: "udr:set-mode",
-              mode,
-            }, "*");
+            window.postMessage(
+              {
+                type: "udr:set-mode",
+                mode,
+              },
+              "*"
+            );
           }, algo);
 
           // Wait for algorithm to settle
@@ -201,7 +200,9 @@ async function main(): Promise<void> {
             if (passed) {
               console.log(`    ✅ Diff: ${diffPercent?.toFixed(2)}%`);
             } else {
-              console.log(`    ❌ Diff: ${diffPercent?.toFixed(2)}% (threshold: ${VISUAL_THRESHOLD}%)`);
+              console.log(
+                `    ❌ Diff: ${diffPercent?.toFixed(2)}% (threshold: ${VISUAL_THRESHOLD}%)`
+              );
             }
           }
 
@@ -253,7 +254,7 @@ async function main(): Promise<void> {
 async function computePixelDiff(
   baselinePath: string,
   currentPath: string,
-  diffOutputPath: string,
+  diffOutputPath: string
 ): Promise<number> {
   let PNG: typeof import("pngjs").PNG;
   let pixelmatch: typeof import("pixelmatch").default;
@@ -277,14 +278,11 @@ async function computePixelDiff(
 
   const diff = new PNG({ width, height });
 
-  const numDiffPixels = pixelmatch(
-    baseline.data,
-    current.data,
-    diff.data,
-    width,
-    height,
-    { threshold: 0.1, alpha: 0.3, diffColor: [255, 0, 255] },
-  );
+  const numDiffPixels = pixelmatch(baseline.data, current.data, diff.data, width, height, {
+    threshold: 0.1,
+    alpha: 0.3,
+    diffColor: [255, 0, 255],
+  });
 
   // Write diff image
   writeFileSync(diffOutputPath, PNG.sync.write(diff));
@@ -298,9 +296,9 @@ async function computePixelDiff(
 function summarize(results: CaptureResult[]): DiffSummary {
   return {
     totalCaptures: results.length,
-    newBaselines: results.filter(r => r.isNew).length,
-    passed: results.filter(r => r.passed && !r.isNew).length,
-    failed: results.filter(r => !r.passed && !r.isNew).length,
+    newBaselines: results.filter((r) => r.isNew).length,
+    passed: results.filter((r) => r.passed && !r.isNew).length,
+    failed: results.filter((r) => !r.passed && !r.isNew).length,
     results,
   };
 }
@@ -314,7 +312,7 @@ function printSummary(summary: DiffSummary): void {
 
   if (summary.failed > 0) {
     console.log("\n  Failed comparisons:");
-    for (const r of summary.results.filter(r => !r.passed && !r.isNew)) {
+    for (const r of summary.results.filter((r) => !r.passed && !r.isNew)) {
       console.log(`    ❌ ${r.site}/${r.algorithm}: ${r.diffPercent?.toFixed(2)}% diff`);
       console.log(`       Diff image: ${r.diffPath}`);
     }
@@ -323,7 +321,7 @@ function printSummary(summary: DiffSummary): void {
 
 // ── Run ───────────────────────────────────────────────────────────────────────
 
-main().catch(err => {
+main().catch((err) => {
   console.error("Fatal error:", err);
   process.exit(1);
 });

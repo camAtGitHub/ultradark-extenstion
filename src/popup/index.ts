@@ -30,7 +30,7 @@ async function captureActiveTabUrl(): Promise<void> {
  */
 function debounce<T extends (...args: unknown[]) => void>(
   func: T,
-  wait = 250,
+  wait = 250
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -121,12 +121,10 @@ async function init() {
     slider: HTMLInputElement,
     value: number,
     min: number,
-    max: number,
+    max: number
   ) {
     const percent = ((value - min) / (max - min)) * 100;
-    const accent = getComputedStyle(document.documentElement)
-      .getPropertyValue("--accent")
-      .trim();
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
     const track = getComputedStyle(document.documentElement)
       .getPropertyValue("--slider-track")
       .trim();
@@ -143,10 +141,7 @@ async function init() {
       active: true,
       currentWindow: true,
     });
-    if (tab?.id)
-      browser.tabs
-        .sendMessage(tab.id, { type: "udr:settings-updated" })
-        .catch(() => {});
+    if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
   };
 
   // Mode button click handler
@@ -162,9 +157,7 @@ async function init() {
           currentWindow: true,
         });
         if (tab?.id)
-          browser.tabs
-            .sendMessage(tab.id, { type: "udr:settings-updated" })
-            .catch(() => {});
+          browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
       }
     });
   });
@@ -174,7 +167,7 @@ async function init() {
     key: keyof Settings,
     label: HTMLElement,
     min: number,
-    max: number,
+    max: number
   ) {
     // Create a debounced version of the settings update function
     const debouncedUpdate = debounce(async (value: number) => {
@@ -186,9 +179,7 @@ async function init() {
         currentWindow: true,
       });
       if (tab?.id)
-        browser.tabs
-          .sendMessage(tab.id, { type: "udr:settings-updated" })
-          .catch(() => {});
+        browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
     }, 250); // 250ms debounce delay
 
     el.oninput = () => {
@@ -206,10 +197,7 @@ async function init() {
     if (optimizerEnabled) {
       contrast.disabled = true;
       contrast.title = "Disabled: Optimizer controls contrast automatically";
-      contrast.setAttribute(
-        "aria-label",
-        "Contrast slider (disabled - optimizer active)",
-      );
+      contrast.setAttribute("aria-label", "Contrast slider (disabled - optimizer active)");
       contrastSliderRow?.classList.add("disabled");
     } else {
       contrast.disabled = false;
@@ -236,9 +224,7 @@ async function init() {
           currentWindow: true,
         });
         if (tab?.id)
-          browser.tabs
-            .sendMessage(tab.id, { type: "udr:settings-updated" })
-            .catch(() => {});
+          browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
       };
 
   bindRange(brightness, "brightness", briV, 50, 120);
@@ -299,10 +285,7 @@ async function init() {
       active: true,
       currentWindow: true,
     });
-    if (tab?.id)
-      browser.tabs
-        .sendMessage(tab.id, { type: "udr:settings-updated" })
-        .catch(() => {});
+    if (tab?.id) browser.tabs.sendMessage(tab.id, { type: "udr:settings-updated" }).catch(() => {});
   });
 
   // Add Active Site button handler
@@ -319,18 +302,15 @@ async function init() {
       activeTabUrl.startsWith("chrome://")
     ) {
       alert(
-        "Cannot add override for internal extension/browser pages. Please navigate to a website (http:// or https://) first.",
+        "Cannot add override for internal extension/browser pages. Please navigate to a website (http:// or https://) first."
       );
       return;
     }
 
     // Only allow http:// and https:// URLs
-    if (
-      !activeTabUrl.startsWith("http://") &&
-      !activeTabUrl.startsWith("https://")
-    ) {
+    if (!activeTabUrl.startsWith("http://") && !activeTabUrl.startsWith("https://")) {
       alert(
-        `Cannot add override for ${activeTabUrl.split(":")[0]}: URLs. Only http:// and https:// sites are supported.`,
+        `Cannot add override for ${activeTabUrl.split(":")[0]}: URLs. Only http:// and https:// sites are supported.`
       );
       return;
     }
@@ -339,17 +319,13 @@ async function init() {
 
     // Check if already exists
     if (s.perSite[origin]) {
-      alert(
-        `Override for ${origin} already exists. Open "More options" to modify it.`,
-      );
+      alert(`Override for ${origin} already exists. Open "More options" to modify it.`);
       return;
     }
 
     s.perSite[origin] = {};
     await setSettings(s);
-    alert(
-      `Added ${origin} to per-site overrides. Open "More options" to configure it.`,
-    );
+    alert(`Added ${origin} to per-site overrides. Open "More options" to configure it.`);
   });
 }
 

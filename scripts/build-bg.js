@@ -9,14 +9,15 @@ build({
   bundle: true,
   outfile: `${outdir}/index.js`,
   platform: "browser",
-  format: "iife",        // browser-safe IIFE (no require)
+  format: "iife", // browser-safe IIFE (no require)
   target: ["es2020"],
   sourcemap: false,
-  minify: false
-}).then(() => {
-  console.log("✔ background built with esbuild -> dist/src/background/index.js");
-}).catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
-
+  minify: false,
+})
+  .then(() => {
+    console.log("✔ background built with esbuild -> dist/src/background/index.js");
+  })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

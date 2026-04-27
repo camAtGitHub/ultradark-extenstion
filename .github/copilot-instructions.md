@@ -18,10 +18,10 @@ Use these instructions to boot a development environment, build, debug, test, an
 
 ### Prerequisites
 
-* Node.js (LTS; Node 18+ recommended) and npm installed.
+- Node.js (LTS; Node 18+ recommended) and npm installed.
   On Windows: use Node installer or `nvm-windows`. WSL works fine for the commands below.
-* Git to clone the repository.
-* Firefox (release). You will use `about:debugging` to load the temporary add-on.
+- Git to clone the repository.
+- Firefox (release). You will use `about:debugging` to load the temporary add-on.
 
 ### Clone + install
 
@@ -94,8 +94,8 @@ dist/
 
 ### 1. Manifest version
 
-* This project uses **Manifest V2** (MV2) for compatibility on current Firefox builds.
-* Make sure your source `manifest.json` is MV2-compatible (use `"browser_action"` not `"action"`, `"permissions"` not `"host_permissions"` in MV2).
+- This project uses **Manifest V2** (MV2) for compatibility on current Firefox builds.
+- Make sure your source `manifest.json` is MV2-compatible (use `"browser_action"` not `"action"`, `"permissions"` not `"host_permissions"` in MV2).
 
 **Must include** for development: a stable Add-on ID to enable storage APIs properly:
 
@@ -109,40 +109,40 @@ dist/
 }
 ```
 
-* `data_collection_permissions` is required for new AMO submissions (declare `["none"]` if you collect nothing).
+- `data_collection_permissions` is required for new AMO submissions (declare `["none"]` if you collect nothing).
 
 ### 2. Background bundling — esbuild IIFE
 
-* Background scripts must be browser-safe and cannot use CommonJS `require()`. We produce a browser IIFE via esbuild.
-* We intentionally **build Vite first** then `build-bg.cjs` writes `dist/src/background/index.js` so `vite build` does not wipe it. `package.json` `build` script is:
+- Background scripts must be browser-safe and cannot use CommonJS `require()`. We produce a browser IIFE via esbuild.
+- We intentionally **build Vite first** then `build-bg.cjs` writes `dist/src/background/index.js` so `vite build` does not wipe it. `package.json` `build` script is:
 
 ```json
 "build": "vite build && npm run build:bg",
 "build:bg": "node ./scripts/build-bg.cjs"
 ```
 
-* `scripts/build-bg.cjs` uses `format: 'iife'`, `platform: 'browser'`, `bundle: true`.
+- `scripts/build-bg.cjs` uses `format: 'iife'`, `platform: 'browser'`, `bundle: true`.
 
 ### 3. Web Worker bundling (content/optimizer-worker.ts)
 
-* Use Vite worker loader so Vite knows to emit the worker bundle. **Top-level import** in `src/content/index.ts`:
+- Use Vite worker loader so Vite knows to emit the worker bundle. **Top-level import** in `src/content/index.ts`:
 
 ```ts
-import WorkerUrl from "./optimizer-worker?worker&url";  // must be top-level import
+import WorkerUrl from "./optimizer-worker?worker&url"; // must be top-level import
 // ...
 worker = new Worker(WorkerUrl);
 ```
 
-* **Important:** `import` statements must be at the top level of the file (not inside functions/conditionals). If you see `import declarations may only appear at top level`, move the import above other code.
+- **Important:** `import` statements must be at the top level of the file (not inside functions/conditionals). If you see `import declarations may only appear at top level`, move the import above other code.
 
 ### 4. Vite output shape & config
 
-* `vite.config.ts` uses `rollupOptions.input` for multiple entries: `content`, `popup`, `options` (do not include `background` there).
-* We copy `manifest.json` into `dist/` using a small plugin (or rely on manual copy). The build script is written to ensure `dist/manifest.json` exists.
+- `vite.config.ts` uses `rollupOptions.input` for multiple entries: `content`, `popup`, `options` (do not include `background` there).
+- We copy `manifest.json` into `dist/` using a small plugin (or rely on manual copy). The build script is written to ensure `dist/manifest.json` exists.
 
 ### 5. Build order / emptyOutDir
 
-* If your `background` disappears after build, it’s because `vite build` empties `dist/`. Build order matters — **vite build** first, **esbuild** second. This is baked into scripts above.
+- If your `background` disappears after build, it’s because `vite build` empties `dist/`. Build order matters — **vite build** first, **esbuild** second. This is baked into scripts above.
 
 ---
 
@@ -158,14 +158,14 @@ Edit code → build → reload extension
    ```
 
    (faster: `npm run build:bg` if you only changed background; `vite build` if only popup/content)
+
 3. Reload extension in Firefox:
+   - Remove the temporary add-on and **Load Temporary Add-on** → `dist/manifest.json`
+   - Or click **Reload** if the add-on is already loaded in `about:debugging`.
 
-   * Remove the temporary add-on and **Load Temporary Add-on** → `dist/manifest.json`
-   * Or click **Reload** if the add-on is already loaded in `about:debugging`.
 4. Inspect:
-
-   * Background script console: `Inspect` in `about:debugging`.
-   * Page console for content script messages (F12 on the page).
+   - Background script console: `Inspect` in `about:debugging`.
+   - Page console for content script messages (F12 on the page).
 
 ---
 
@@ -206,7 +206,7 @@ Add/verify these scripts in `package.json`:
 }
 ```
 
-* `build-bg.cjs` content (already in repo): uses `esbuild.build({ entryPoints: ['src/background/index.ts'], outfile: 'dist/src/background/index.js', bundle: true, format: 'iife', platform: 'browser', target: ['es2020'] })`.
+- `build-bg.cjs` content (already in repo): uses `esbuild.build({ entryPoints: ['src/background/index.ts'], outfile: 'dist/src/background/index.js', bundle: true, format: 'iife', platform: 'browser', target: ['es2020'] })`.
 
 ---
 
@@ -216,16 +216,16 @@ Add/verify these scripts in `package.json`:
 - Copy existing coding styles from the project. Use consistent indentation, naming conventions, and file organization.
 
 ---
+
 # Testing & linting
 
-* **Unit / function tests:** If present, run with `npm test` (we recommend `vitest` for TypeScript). Add tests under `__tests__` or alongside modules with `.spec.ts`.
-* **Linting & formatting:** `eslint` + `prettier`. Use `npm run lint` as configured.
-* **Manual QA:** load `dist/manifest.json`, exercise:
-
-  * global toggle on various websites (news, Gmail, streaming).
-  * per-site toggles and regex exclusion (test `example.com`, `sub.example.com`).
-  * contrast optimizer: enable/disable and verify CSS updates.
-  * worker: check background & content console messages for worker messages.
+- **Unit / function tests:** If present, run with `npm test` (we recommend `vitest` for TypeScript). Add tests under `__tests__` or alongside modules with `.spec.ts`.
+- **Linting & formatting:** `eslint` + `prettier`. Use `npm run lint` as configured.
+- **Manual QA:** load `dist/manifest.json`, exercise:
+  - global toggle on various websites (news, Gmail, streaming).
+  - per-site toggles and regex exclusion (test `example.com`, `sub.example.com`).
+  - contrast optimizer: enable/disable and verify CSS updates.
+  - worker: check background & content console messages for worker messages.
 
 ---
 
@@ -237,6 +237,7 @@ Add/verify these scripts in `package.json`:
    npm run clean
    npm run build
    ```
+
 2. Create a zip of `dist/` contents (not the parent folder) for upload:
 
    ```bash
@@ -244,6 +245,7 @@ Add/verify these scripts in `package.json`:
    zip -r ../ultradark-reader-v1.0.0.zip *
    cd ..
    ```
+
 3. Include a privacy policy if you declare any data collection. If you don’t collect external data, your manifest must state `"data_collection_permissions": { "required":["none"], "optional": [] }`.
 4. Follow AMO submission guidelines and tests. Validate in the developer hub.
 
@@ -251,10 +253,10 @@ Add/verify these scripts in `package.json`:
 
 # Security & privacy notes
 
-* Do not request more permissions than needed. Use `<all_urls>` only if necessary and clearly document why.
-* If you send user data outside of the extension, declare it in `data_collection_permissions` and provide a privacy policy.
-* Sanitize any dynamic CSS or strings to avoid injection into page contexts.
-* Avoid loading remote scripts in the extension context.
+- Do not request more permissions than needed. Use `<all_urls>` only if necessary and clearly document why.
+- If you send user data outside of the extension, declare it in `data_collection_permissions` and provide a privacy policy.
+- Sanitize any dynamic CSS or strings to avoid injection into page contexts.
+- Avoid loading remote scripts in the extension context.
 
 ---
 
@@ -297,19 +299,19 @@ awk 'FNR==1{f=FILENAME} { if(/import / && NR>5) print f ":" FNR ":" $0 }' src/*.
 
 # Recommended README additions (for maintainers)
 
-* Exact Node and npm versions used.
-* How to run a dev iteration (build → reload).
-* Manifest MV2 notes.
-* Where to change Add-on ID.
-* How to package a release.
+- Exact Node and npm versions used.
+- How to run a dev iteration (build → reload).
+- Manifest MV2 notes.
+- Where to change Add-on ID.
+- How to package a release.
 
 ---
 
 # Final checklist before considering a change merged
 
-* `npm run build` completes cleanly (no errors).
-* `dist/manifest.json` present and MV2-compliant with `browser_specific_settings.gecko.id`.
-* `dist/src/background/index.js` exists and contains no `require`.
-* Worker entry emitted into `dist/assets/` (worker file present) and `content` uses `?worker&url`.
-* Basic functional manual QA performed (toggle, per-site, contrast optimizer).
-* Linting passed and unit tests green (if present).
+- `npm run build` completes cleanly (no errors).
+- `dist/manifest.json` present and MV2-compliant with `browser_specific_settings.gecko.id`.
+- `dist/src/background/index.js` exists and contains no `require`.
+- Worker entry emitted into `dist/assets/` (worker file present) and `content` uses `?worker&url`.
+- Basic functional manual QA performed (toggle, per-site, contrast optimizer).
+- Linting passed and unit tests green (if present).

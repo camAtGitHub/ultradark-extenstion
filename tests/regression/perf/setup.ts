@@ -57,7 +57,7 @@ export function installNodeFilterMock(): void {
     (globalThis as Record<string, unknown>).NodeFilter = {
       SHOW_ELEMENT: 1,
       SHOW_TEXT: 4,
-      SHOW_ALL: 0xFFFFFFFF,
+      SHOW_ALL: 0xffffffff,
       FILTER_ACCEPT: 1,
       FILTER_REJECT: 2,
       FILTER_SKIP: 3,
@@ -71,7 +71,9 @@ export function installMutationObserverMock(): void {
     (globalThis as Record<string, unknown>).MutationObserver = class {
       observe() {}
       disconnect() {}
-      takeRecords() { return []; }
+      takeRecords() {
+        return [];
+      }
     };
   }
 }
@@ -97,7 +99,15 @@ export function bindFixtureGlobals(fixture: DomFixture): () => void {
 
   // Expose DOM constructors from jsdom (algorithms check `instanceof HTMLElement` etc.)
   const win = fixture.window as unknown as Record<string, unknown>;
-  for (const ctor of ["HTMLElement", "Element", "Node", "Text", "HTMLStyleElement", "HTMLImageElement", "SVGElement"]) {
+  for (const ctor of [
+    "HTMLElement",
+    "Element",
+    "Node",
+    "Text",
+    "HTMLStyleElement",
+    "HTMLImageElement",
+    "SVGElement",
+  ]) {
     if (win[ctor]) {
       (globalThis as Record<string, unknown>)[ctor] = win[ctor];
     }
@@ -106,11 +116,17 @@ export function bindFixtureGlobals(fixture: DomFixture): () => void {
   // Ensure location exists
   try {
     Object.defineProperty(fixture.window, "location", {
-      value: { href: "https://test.example.com", origin: "https://test.example.com", hostname: "test.example.com" },
+      value: {
+        href: "https://test.example.com",
+        origin: "https://test.example.com",
+        hostname: "test.example.com",
+      },
       writable: true,
       configurable: true,
     });
-  } catch { /* already defined */ }
+  } catch {
+    /* already defined */
+  }
 
   // Return teardown function
   return () => {

@@ -112,6 +112,7 @@ UltraDark Reader uses two browser storage APIs:
 ```
 
 **What it affects:**
+
 - **enabled**: Controls whether dark theme is applied globally
 - **mode**: Determines theme algorithm:
   - `architect`: CSS-based declarative approach (fast, efficient)
@@ -141,6 +142,7 @@ UltraDark Reader uses two browser storage APIs:
 **Example Value:** `true`
 
 **What it affects:**
+
 - When `true`: All debug logs are output to console with `[UltraDark]` prefix
 - When `false`: Only info, warn, and error logs are shown (no debug logs)
 - Debug logs include:
@@ -152,6 +154,7 @@ UltraDark Reader uses two browser storage APIs:
   - Optimizer worker messages
 
 **Usage:**
+
 - Set via the "Enable debug logging" toggle in Options page
 - Changes are immediately broadcast to all tabs and background script
 - Useful for diagnosing theme application issues and performance problems
@@ -161,27 +164,31 @@ UltraDark Reader uses two browser storage APIs:
 ## Storage Access Patterns
 
 ### Reading Settings
+
 ```typescript
 import { getSettings } from "../utils/storage";
 const settings = await getSettings(); // Returns merged Settings with defaults
 ```
 
 ### Writing Settings
+
 ```typescript
 import { setSettings } from "../utils/storage";
 await setSettings(updatedSettings); // Replaces entire settings object
 ```
 
 ### Partial Updates
+
 ```typescript
 import { updateSettings } from "../utils/storage";
 await updateSettings({ brightness: 95 }); // Updates only specified fields
 ```
 
 ### Debug Mode
+
 ```typescript
 // Read
-const result = await browser.storage.local.get('isDebugMode');
+const result = await browser.storage.local.get("isDebugMode");
 const isDebug = result.isDebugMode === true;
 
 // Write

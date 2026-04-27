@@ -26,11 +26,7 @@ import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 import { getSettings, originFromUrl } from "../../utils/storage";
-import {
-  parseRgbFast,
-  getRelativeLuminance,
-  getContrastRatio,
-} from "../../utils/color-utils";
+import { parseRgbFast, getRelativeLuminance, getContrastRatio } from "../../utils/color-utils";
 
 // ============================================================================
 // CONSTANTS & CONFIGURATION
@@ -174,25 +170,13 @@ const SEMANTIC_ROLES: ReadonlyArray<{
   },
   {
     role: "navigation",
-    selectors: [
-      "nav",
-      "header",
-      '[class*="navbar"]',
-      '[class*="header"]',
-      '[class*="nav-"]',
-    ],
+    selectors: ["nav", "header", '[class*="navbar"]', '[class*="header"]', '[class*="nav-"]'],
     ariaRoles: ["navigation", "banner"],
     elevationLevel: 2,
   },
   {
     role: "card",
-    selectors: [
-      '[class*="card"]',
-      '[class*="panel"]',
-      '[class*="tile"]',
-      "section",
-      "aside",
-    ],
+    selectors: ['[class*="card"]', '[class*="panel"]', '[class*="tile"]', "section", "aside"],
     ariaRoles: ["region", "complementary"],
     elevationLevel: 3,
   },
@@ -210,14 +194,7 @@ const SEMANTIC_ROLES: ReadonlyArray<{
   },
   {
     role: "data",
-    selectors: [
-      "table",
-      "pre",
-      "code",
-      '[class*="table"]',
-      '[class*="grid"]',
-      '[class*="code"]',
-    ],
+    selectors: ["table", "pre", "code", '[class*="table"]', '[class*="grid"]', '[class*="code"]'],
     ariaRoles: ["grid", "treegrid", "table"],
     elevationLevel: 3,
   },
@@ -310,25 +287,11 @@ function isOverBudget(startTime: number, budget: number): boolean {
 /**
  * Lighten a color by a percentage to meet contrast requirements
  */
-function lightenColor(
-  r: number,
-  g: number,
-  b: number,
-  percent: number,
-): string {
+function lightenColor(r: number, g: number, b: number, percent: number): string {
   const factor = 1 + percent / 100;
-  const newR = Math.min(
-    255,
-    Math.round(r * factor + (255 - r) * (percent / 100)),
-  );
-  const newG = Math.min(
-    255,
-    Math.round(g * factor + (255 - g) * (percent / 100)),
-  );
-  const newB = Math.min(
-    255,
-    Math.round(b * factor + (255 - b) * (percent / 100)),
-  );
+  const newR = Math.min(255, Math.round(r * factor + (255 - r) * (percent / 100)));
+  const newG = Math.min(255, Math.round(g * factor + (255 - g) * (percent / 100)));
+  const newB = Math.min(255, Math.round(b * factor + (255 - b) * (percent / 100)));
   return `rgb(${newR}, ${newG}, ${newB})`;
 }
 
@@ -480,10 +443,7 @@ function detectFramework(): FrameworkInfo {
                 if (framework.pattern.test(cssText)) {
                   info.name = framework.name;
                   info.detected = true;
-                  debugSync(
-                    "[Chroma v2] Detected framework via stylesheet scan:",
-                    framework.name,
-                  );
+                  debugSync("[Chroma v2] Detected framework via stylesheet scan:", framework.name);
                   break outerLoop;
                 }
               }
@@ -501,9 +461,7 @@ function detectFramework(): FrameworkInfo {
 
   // Check if framework has dark mode available
   if (info.detected) {
-    const frameworkConfig = FRAMEWORK_PATTERNS.find(
-      (f) => f.name === info.name,
-    );
+    const frameworkConfig = FRAMEWORK_PATTERNS.find((f) => f.name === info.name);
 
     if (frameworkConfig?.darkModeSelector) {
       // Check if dark mode class/attribute exists in any stylesheet
@@ -549,10 +507,7 @@ function detectFramework(): FrameworkInfo {
 function attemptNativeDarkModeActivation(frameworkName: string): boolean {
   const html = document.documentElement;
 
-  debugSync(
-    "[Chroma v2] Attempting native dark mode activation for:",
-    frameworkName,
-  );
+  debugSync("[Chroma v2] Attempting native dark mode activation for:", frameworkName);
 
   // Try common dark mode activation patterns
   const activationStrategies = [
@@ -642,9 +597,7 @@ function hijackCSSVariables(settings: Settings): boolean {
 
   // Calculate warmth-adjusted palette
   const warmth = settings.sepia || 0; // Use sepia slider for warmth
-  const baseBg = settings.amoled
-    ? BACKGROUND_PALETTE[0]
-    : BACKGROUND_PALETTE[1];
+  const baseBg = settings.amoled ? BACKGROUND_PALETTE[0] : BACKGROUND_PALETTE[1];
   const adjustedBg = applyWarmth(baseBg, warmth);
   const adjustedSurface = applyWarmth(BACKGROUND_PALETTE[2], warmth);
   const adjustedCard = applyWarmth(BACKGROUND_PALETTE[3], warmth);
@@ -700,9 +653,7 @@ function hijackCSSVariables(settings: Settings): boolean {
   for (const varName of commonBgVars) {
     const value = rootStyle.getPropertyValue(varName).trim();
     if (value && !processedVars.has(varName)) {
-      const mappedColor = cardLikePattern.test(varName)
-        ? adjustedCard
-        : adjustedBg;
+      const mappedColor = cardLikePattern.test(varName) ? adjustedCard : adjustedBg;
       overrides.push(`${varName}: ${mappedColor} !important;`);
       processedVars.add(varName);
       hijackCount++;
@@ -755,16 +706,12 @@ function hijackCSSVariables(settings: Settings): boolean {
                 if (prop.startsWith("--") && !processedVars.has(prop)) {
                   // Categorize and override based on naming pattern
                   if (VARIABLE_PATTERNS.background.test(prop)) {
-                    const mappedColor = cardLikePattern.test(prop)
-                      ? adjustedCard
-                      : adjustedSurface;
+                    const mappedColor = cardLikePattern.test(prop) ? adjustedCard : adjustedSurface;
                     overrides.push(`${prop}: ${mappedColor} !important;`);
                     processedVars.add(prop);
                     hijackCount++;
                   } else if (VARIABLE_PATTERNS.foreground.test(prop)) {
-                    overrides.push(
-                      `${prop}: ${TEXT_PALETTE.primary} !important;`,
-                    );
+                    overrides.push(`${prop}: ${TEXT_PALETTE.primary} !important;`);
                     processedVars.add(prop);
                     hijackCount++;
                   } else if (VARIABLE_PATTERNS.border.test(prop)) {
@@ -777,7 +724,7 @@ function hijackCSSVariables(settings: Settings): boolean {
                     if (originalValue.includes("rgba")) {
                       const dimmedShadow = originalValue.replace(
                         /rgba\(([^)]+)\)/g,
-                        "rgba(0, 0, 0, 0.3)",
+                        "rgba(0, 0, 0, 0.3)"
                       );
                       overrides.push(`${prop}: ${dimmedShadow} !important;`);
                       processedVars.add(prop);
@@ -803,9 +750,7 @@ function hijackCSSVariables(settings: Settings): boolean {
 
   // Inject variable overrides
   if (overrides.length > 0) {
-    let style = document.getElementById(
-      STYLE_IDS.variableHijack,
-    ) as HTMLStyleElement | null;
+    let style = document.getElementById(STYLE_IDS.variableHijack) as HTMLStyleElement | null;
 
     if (!style) {
       style = document.createElement("style");
@@ -862,11 +807,7 @@ function classifyElement(element: HTMLElement): SemanticRole {
 /**
  * Get the elevation level for an element based on its role and depth
  */
-function getElevationLevel(
-  role: SemanticRole,
-  depth: number,
-  settings: Settings,
-): number {
+function getElevationLevel(role: SemanticRole, depth: number, settings: Settings): number {
   // Find base elevation for role
   const roleDef = SEMANTIC_ROLES.find((r) => r.role === role);
   const baseLevel = roleDef?.elevationLevel ?? 2;
@@ -881,10 +822,7 @@ function getElevationLevel(
   // AMOLED mode starts at level 0
   const minLevel = settings.amoled ? 0 : 1;
 
-  return Math.min(
-    Math.max(baseLevel + adjustedBonus, minLevel),
-    BACKGROUND_PALETTE.length - 1,
-  );
+  return Math.min(Math.max(baseLevel + adjustedBonus, minLevel), BACKGROUND_PALETTE.length - 1);
 }
 
 /**
@@ -894,15 +832,13 @@ function applySemanticStyling(
   element: HTMLElement,
   role: SemanticRole,
   depth: number,
-  settings: Settings,
+  settings: Settings
 ): void {
   if (processedElements.has(element)) return;
 
   // Skip invisible elements (but NOT fixed-position elements like navbars)
   if (element.checkVisibility) {
-    if (
-      !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
-    ) {
+    if (!element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) {
       return;
     }
   }
@@ -913,9 +849,7 @@ function applySemanticStyling(
 
   // Determine if element has an explicit background
   const hasExplicitBg =
-    currentBg &&
-    currentBg !== "rgba(0, 0, 0, 0)" &&
-    currentBg !== "transparent";
+    currentBg && currentBg !== "rgba(0, 0, 0, 0)" && currentBg !== "transparent";
 
   // Calculate warmth adjustment
   const warmth = settings.sepia || 0;
@@ -1014,22 +948,13 @@ function validateAndFixContrast(element: HTMLElement): boolean {
       newParsed = parseRgbFast(newColor);
 
       if (newParsed) {
-        const newLuminance = getRelativeLuminance(
-          newParsed.r,
-          newParsed.g,
-          newParsed.b,
-        );
+        const newLuminance = getRelativeLuminance(newParsed.r, newParsed.g, newParsed.b);
         newContrast = getContrastRatio(newLuminance, bgLuminance);
       }
     }
 
     // Cap at near-white to avoid pure white glare
-    if (
-      newParsed &&
-      newParsed.r > 242 &&
-      newParsed.g > 242 &&
-      newParsed.b > 242
-    ) {
+    if (newParsed && newParsed.r > 242 && newParsed.g > 242 && newParsed.b > 242) {
       newColor = TEXT_PALETTE.heading; // Use predefined near-white
     }
 
@@ -1056,9 +981,7 @@ function handleSpecialElements(settings: Settings): void {
   debugSync("[Chroma v2] Phase 5: Special Element Handling");
 
   // Create styles for special elements
-  let style = document.getElementById(
-    STYLE_IDS.semanticStyles,
-  ) as HTMLStyleElement | null;
+  let style = document.getElementById(STYLE_IDS.semanticStyles) as HTMLStyleElement | null;
 
   if (!style) {
     style = document.createElement("style");
@@ -1296,7 +1219,7 @@ export function applyChromaSemantic(settings: Settings): void {
   debugSync("[Chroma v2] ════════════════════════════════════════════");
   debugSync("[Chroma v2] Starting Chroma-Semantic Engine v2.0");
   debugSync(
-    '[Chroma v2] ℹ️ run "__chromaDiag()" in console to get diagnostics for Chroma-Semantic',
+    '[Chroma v2] ℹ️ run "__chromaDiag()" in console to get diagnostics for Chroma-Semantic'
   );
   debugSync("[Chroma v2] ════════════════════════════════════════════");
 
@@ -1323,9 +1246,7 @@ export function applyChromaSemantic(settings: Settings): void {
   stats.nativeDarkModeActivated = detectedFramework.darkModeActivated;
 
   if (detectedFramework.darkModeActivated) {
-    debugSync(
-      "[Chroma v2] ✓ Native dark mode activated - applying minimal enhancements",
-    );
+    debugSync("[Chroma v2] ✓ Native dark mode activated - applying minimal enhancements");
 
     // Apply only special element handling for native dark mode sites
     handleSpecialElements(settings);
@@ -1338,11 +1259,7 @@ export function applyChromaSemantic(settings: Settings): void {
     setupMutationObserver(settings);
 
     const elapsed = performance.now() - startTime;
-    debugSync(
-      "[Chroma v2] ✓ Complete (native mode) in",
-      elapsed.toFixed(2),
-      "ms",
-    );
+    debugSync("[Chroma v2] ✓ Complete (native mode) in", elapsed.toFixed(2), "ms");
     return;
   }
 
@@ -1367,11 +1284,7 @@ export function applyChromaSemantic(settings: Settings): void {
     setupMutationObserver(settings);
 
     const elapsed = performance.now() - startTime;
-    debugSync(
-      "[Chroma v2] ✓ Complete (variable fast path) in",
-      elapsed.toFixed(2),
-      "ms",
-    );
+    debugSync("[Chroma v2] ✓ Complete (variable fast path) in", elapsed.toFixed(2), "ms");
     return;
   }
 
@@ -1403,9 +1316,7 @@ export function applyChromaSemantic(settings: Settings): void {
   function processNextBatch(): void {
     // Check performance budget
     if (isOverBudget(startTime, PHASE_BUDGETS.totalBudget)) {
-      debugSync(
-        "[Chroma v2] ⚠️ Performance budget exceeded, triggering fallback",
-      );
+      debugSync("[Chroma v2] ⚠️ Performance budget exceeded, triggering fallback");
       triggerFallback(settings);
       return;
     }
@@ -1459,8 +1370,7 @@ export function applyChromaSemantic(settings: Settings): void {
     debugSync("[Chroma v2] Phase 4: Contrast Validation");
 
     // Validate contrast on text elements
-    const textSelectors =
-      "p, span, li, a, h1, h2, h3, h4, h5, h6, td, th, label, small";
+    const textSelectors = "p, span, li, a, h1, h2, h3, h4, h5, h6, td, th, label, small";
     const textElements = document.querySelectorAll(textSelectors);
     const textLimit = Math.min(textElements.length, 200);
 
@@ -1507,14 +1417,10 @@ export function applyChromaSemantic(settings: Settings): void {
  */
 function applyBaseStyles(settings: Settings): void {
   const warmth = settings.sepia || 0;
-  const baseBg = settings.amoled
-    ? BACKGROUND_PALETTE[0]
-    : BACKGROUND_PALETTE[1];
+  const baseBg = settings.amoled ? BACKGROUND_PALETTE[0] : BACKGROUND_PALETTE[1];
   const adjustedBg = applyWarmth(baseBg, warmth);
 
-  let style = document.getElementById(
-    STYLE_IDS.baseStyles,
-  ) as HTMLStyleElement | null;
+  let style = document.getElementById(STYLE_IDS.baseStyles) as HTMLStyleElement | null;
 
   if (!style) {
     style = document.createElement("style");
@@ -1580,10 +1486,7 @@ export function getChromaDiagnostics(): object {
     framework: detectedFramework,
     stats,
     styleTagsPresent: Object.fromEntries(
-      Object.entries(STYLE_IDS).map(([k, id]) => [
-        k,
-        !!document.getElementById(id),
-      ]),
+      Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)])
     ),
     processedCount: stats?.elementsProcessed ?? 0,
     bodyBg: getComputedStyle(document.body).backgroundColor,
@@ -1624,10 +1527,7 @@ if (typeof window !== "undefined") {
             optimizerEnabled: settings.optimizerEnabled,
           },
           styleTagsPresent: Object.fromEntries(
-            Object.entries(STYLE_IDS).map(([k, id]) => [
-              k,
-              !!document.getElementById(id),
-            ]),
+            Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)])
           ),
           processedCount: stats?.elementsProcessed ?? 0,
           bodyBg: getComputedStyle(document.body).backgroundColor,

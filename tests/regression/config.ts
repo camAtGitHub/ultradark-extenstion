@@ -58,11 +58,36 @@ export function settingsForMode(mode: Mode): Settings {
 // from the medium tier onwards, exposing missed deep subtrees.
 
 export const DOM_TIERS = {
-  small:   { nodes: 400,   depth: 10, spaLike: false, description: "Lightweight page (text blog, docs)" },
-  medium:  { nodes: 2000,  depth: 22, spaLike: false, description: "Typical page (news site, Uber Eats-class)" },
-  large:   { nodes: 5000,  depth: 37, spaLike: false, description: "Heavy page (IMDB, Register, deep Google-class)" },
-  heavy:   { nodes: 12000, depth: 43, spaLike: true,  description: "Post-scroll SPA (GitHub, IMDB after lazy-load)" },
-  extreme: { nodes: 85000, depth: 40, spaLike: true,  description: "Stress test (YouTube after multi-page navigation)" },
+  small: {
+    nodes: 400,
+    depth: 10,
+    spaLike: false,
+    description: "Lightweight page (text blog, docs)",
+  },
+  medium: {
+    nodes: 2000,
+    depth: 22,
+    spaLike: false,
+    description: "Typical page (news site, Uber Eats-class)",
+  },
+  large: {
+    nodes: 5000,
+    depth: 37,
+    spaLike: false,
+    description: "Heavy page (IMDB, Register, deep Google-class)",
+  },
+  heavy: {
+    nodes: 12000,
+    depth: 43,
+    spaLike: true,
+    description: "Post-scroll SPA (GitHub, IMDB after lazy-load)",
+  },
+  extreme: {
+    nodes: 85000,
+    depth: 40,
+    spaLike: true,
+    description: "Stress test (YouTube after multi-page navigation)",
+  },
 } as const;
 
 export type DomTier = keyof typeof DOM_TIERS;
@@ -72,12 +97,12 @@ export type DomTier = keyof typeof DOM_TIERS;
 // Keeps noise from flaky timing out of regression reports.
 
 export const REGRESSION_THRESHOLDS = {
-  applyTimeMs:       0.25,  // 25% slower → flag
-  resetTimeMs:       0.30,  // 30% slower → flag
-  cssOutputBytes:    0.15,  // 15% larger → flag
-  domMutations:      0.10,  // 10% more mutations → flag
-  perNodeApplyUs:    0.25,  // 25% slower per-node → flag
-  cssPerNode:        0.15,  // 15% more CSS per node → flag
+  applyTimeMs: 0.25, // 25% slower → flag
+  resetTimeMs: 0.3, // 30% slower → flag
+  cssOutputBytes: 0.15, // 15% larger → flag
+  domMutations: 0.1, // 10% more mutations → flag
+  perNodeApplyUs: 0.25, // 25% slower per-node → flag
+  cssPerNode: 0.15, // 15% more CSS per node → flag
 } as const;
 
 export type MetricName = keyof typeof REGRESSION_THRESHOLDS;
@@ -86,17 +111,17 @@ export type MetricName = keyof typeof REGRESSION_THRESHOLDS;
 
 export const BENCH_CONFIG = {
   /** Warm-up runs discarded before measurement */
-  warmupRuns:   3,
+  warmupRuns: 3,
   /** Measured runs (median is taken) */
   measuredRuns: 10,
   /** Default max time (ms) for a single algorithm apply before aborting */
-  timeoutMs:    5000,
+  timeoutMs: 5000,
   /** Per-tier timeout overrides (extreme tier needs much more headroom) */
   tierTimeoutMs: {
-    small:   2000,
-    medium:  5000,
-    large:   10000,
-    heavy:   30000,
+    small: 2000,
+    medium: 5000,
+    large: 10000,
+    heavy: 30000,
     extreme: 120000,
   } as Record<DomTier, number>,
   /** Tiers where timing-based regression comparison is skipped (jitter-dominated) */
@@ -160,6 +185,6 @@ export const TEST_SITES: TestSite[] = [
 
 export const PATHS = {
   baselinesDir: "tests/regression/.baselines",
-  perfHistory:  "tests/regression/.baselines/perf-history.jsonl",
-  visualDir:    "tests/regression/.baselines/screenshots",
+  perfHistory: "tests/regression/.baselines/perf-history.jsonl",
+  visualDir: "tests/regression/.baselines/screenshots",
 };
