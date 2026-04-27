@@ -1,6 +1,15 @@
 // File: src/utils/dark-detection.ts
 import { debugSync } from "./logger";
-import { parseRgbFast, getRelativeLuminance } from "./color-utils";
+import {
+  parseRgbFast,
+  isTransparentFast,
+  getRelativeLuminance,
+} from "./color-utils";
+
+const DARK_THRESHOLD = 0.3;
+const DARK_RATIO_THRESHOLD = 0.4;
+const ROOT_DARK_RATIO_THRESHOLD = 0.32;
+const MAX_SAMPLES = 28;
 
 /**
  * ADVANCED DARK DETECTION
@@ -55,10 +64,11 @@ export function isAlreadyDarkTheme(): boolean {
     "[UltraDark Dark Detection] 🔍 Sampling visual elements for luminance...",
   );
 
-  let darkVotes = 0;
-  let validSamples = 0;
+  let darkWeight = 0;
+  let totalWeight = 0;
   let skippedTransparent = 0;
   let skippedHidden = 0;
+  let rootDarkSignal = false;
 
   /**
    * BATCHED DARK DETECTION
@@ -66,35 +76,63 @@ export function isAlreadyDarkTheme(): boolean {
    * Strategy: Read all computed styles in a single batch, THEN process.
    * This prevents forced synchronous layouts between reads.
    */
-  const processElement = (
+  const resolveEffectiveBackground = (
     el: Element,
-    source: string,
-    precomputedBg?: string,
-  ) => {
-    // Use precomputed background if provided (batch mode)
-    const bg = precomputedBg ?? window.getComputedStyle(el).backgroundColor;
-    const rgb = parseRgbFast(bg);
+    styleMap: Map<Element, CSSStyleDeclaration>,
+  ): string | null => {
+    let current: Element | null = el;
+    let hop = 0;
+    const MAX_HOPS = 5;
 
+    while (current && hop < MAX_HOPS) {
+      const style =
+        styleMap.get(current) ?? window.getComputedStyle(current as Element);
+      const bg = style.backgroundColor;
+      if (!isTransparentFast(bg)) {
+        return bg;
+      }
+      current = current.parentElement;
+      hop++;
+    }
+    return null;
+  };
+
+  const processElement = (el: Element, source: string, styleMap: Map<Element, CSSStyleDeclaration>) => {
+    const bg = resolveEffectiveBackground(el, styleMap);
+    if (!bg) {
+      skippedTransparent++;
+      return;
+    }
+
+    const rgb = parseRgbFast(bg);
     if (!rgb) {
       skippedTransparent++;
       return;
     }
 
     const lum = getRelativeLuminance(rgb.r, rgb.g, rgb.b);
-    const threshold = 0.2;
+    const rect = el.getBoundingClientRect();
+    const area = Math.max(1, rect.width * rect.height);
+    const viewport = Math.max(1, window.innerWidth * window.innerHeight);
+    const areaWeight = Math.min(3, Math.max(0.5, area / viewport));
 
     console.log(
-      `[UltraDark Dark Detection] Sample <${el.tagName.toLowerCase()}${el.className ? "." + el.className.split(" ")[0] : ""}> (${source}): RGB(${rgb.r}, ${rgb.g}, ${rgb.b}) | Luminance: ${lum.toFixed(3)}`,
+      `[UltraDark Dark Detection] Sample <${el.tagName.toLowerCase()}${el.className ? "." + el.className.split(" ")[0] : ""}> (${source}): RGB(${rgb.r}, ${rgb.g}, ${rgb.b}) | Luminance: ${lum.toFixed(3)} | Weight: ${areaWeight.toFixed(2)}`,
     );
 
-    if (lum < threshold) {
-      darkVotes++;
+    if (el === html || el === body) {
+      rootDarkSignal = rootDarkSignal || lum < DARK_THRESHOLD;
     }
-    validSamples++;
+
+    if (lum < DARK_THRESHOLD) {
+      darkWeight += areaWeight;
+    }
+    totalWeight += areaWeight;
   };
 
   // PHASE 1: High-Priority Semantic Elements
   const selectors = [
+    "html",
     "body", // Always check body first
     "main",
     '[role="main"]',
@@ -114,13 +152,27 @@ export function isAlreadyDarkTheme(): boolean {
 
   // PHASE 1A: Collect all elements first (no style reads)
   const elementsToSample: Array<{ el: Element; source: string }> = [];
+  const seen = new Set<Element>();
   for (const sel of selectors) {
     const elements = document.querySelectorAll(sel);
-    elements.forEach((el) => elementsToSample.push({ el, source: sel }));
+    elements.forEach((el) => {
+      if (seen.has(el) || elementsToSample.length >= MAX_SAMPLES) return;
+      seen.add(el);
+      elementsToSample.push({ el, source: sel });
+    });
+  }
+
+  // Add a bounded set of direct body children for framework wrappers
+  // where semantic selectors miss the visual root (e.g. div#__nuxt, div[data-reactroot]).
+  for (const child of Array.from(body.children)) {
+    if (elementsToSample.length >= MAX_SAMPLES) break;
+    if (seen.has(child)) continue;
+    seen.add(child);
+    elementsToSample.push({ el: child, source: "body-child" });
   }
 
   // PHASE 1B: Batch read all computed styles (single layout pass)
-  const styleCache = new Map<Element, string>();
+  const styleCache = new Map<Element, CSSStyleDeclaration>();
   for (const { el, source } of elementsToSample) {
     // Visibility check is cheaper than full style computation
     // Skip obviously hidden elements before expensive style reads
@@ -131,25 +183,24 @@ export function isAlreadyDarkTheme(): boolean {
         continue;
       }
     }
-    styleCache.set(el, window.getComputedStyle(el).backgroundColor);
+    styleCache.set(el, window.getComputedStyle(el));
   }
 
   // PHASE 1C: Process cached styles (no layout impact)
   for (const { el, source } of elementsToSample) {
-    const cachedBg = styleCache.get(el);
-    if (cachedBg !== undefined) {
-      processElement(el, source, cachedBg);
+    if (styleCache.has(el)) {
+      processElement(el, source, styleCache);
     }
   }
 
   console.log(
-    `[UltraDark Dark Detection] PHASE 1 Stats: Valid=${validSamples}, Skipped(Transp)=${skippedTransparent}, Skipped(Hidden)=${skippedHidden}`,
+    `[UltraDark Dark Detection] PHASE 1 Stats: Weight=${totalWeight.toFixed(2)}, Skipped(Transp)=${skippedTransparent}, Skipped(Hidden)=${skippedHidden}`,
   );
 
   // PHASE 2: Fallback (Direct Body Children)
   // If Phase 1 yielded NO valid samples (e.g., generic structure not caught by selectors),
   // we fall back to the first 5 direct children of body.
-  if (validSamples === 0) {
+  if (totalWeight === 0) {
     console.log(
       "[UltraDark Dark Detection] ⚠️ Phase 1 yielded 0 valid samples. Starting Phase 2 Fallback (Body Children)...",
     );
@@ -159,28 +210,30 @@ export function isAlreadyDarkTheme(): boolean {
     const limit = Math.min(children.length, 5); // Sample max 5 children to save time
 
     for (let i = 0; i < limit; i++) {
-      processElement(children[i], `body-child[${i}]`);
+      processElement(children[i], `body-child[${i}]`, styleCache);
     }
 
     console.log(
-      `[UltraDark Dark Detection] PHASE 2 Stats: Valid=${validSamples} (Total)`,
+      `[UltraDark Dark Detection] PHASE 2 Stats: Weight=${totalWeight.toFixed(2)} (Total)`,
     );
   }
 
-  if (validSamples === 0) {
+  if (totalWeight === 0) {
     console.log(
       "[UltraDark Dark Detection] ⚠️ Still no valid samples after Fallback. Defaulting to FALSE (Light).",
     );
     return false;
   }
 
-  const ratio = darkVotes / validSamples;
+  const ratio = darkWeight / totalWeight;
   console.log(
-    `[UltraDark Dark Detection] 🗳️  Dark Votes: ${darkVotes}/${validSamples} (${(ratio * 100).toFixed(0)}%)`,
+    `[UltraDark Dark Detection] 🗳️  Dark Weight: ${darkWeight.toFixed(2)}/${totalWeight.toFixed(2)} (${(ratio * 100).toFixed(0)}%) | RootDarkSignal=${rootDarkSignal}`,
   );
 
-  // If more than 40% of the visible structure is dark, we call it a dark site.
-  if (ratio > 0.4) {
+  // Normal threshold: 40% weighted darkness.
+  // Root-dark fallback: if html/body is dark, allow a lower ratio to reduce false negatives
+  // on transparent-layered SPA shells.
+  if (ratio >= DARK_RATIO_THRESHOLD || (rootDarkSignal && ratio >= ROOT_DARK_RATIO_THRESHOLD)) {
     console.log(
       "[UltraDark Dark Detection] ✅ Result: TRUE (Dark theme detected)",
     );

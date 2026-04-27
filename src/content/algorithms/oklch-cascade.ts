@@ -802,7 +802,7 @@ ${S} * {
 // PHASE 4: SPECIAL ELEMENT HANDLING
 // ============================================================================
 
-function generateSpecialCSS(settings: Settings, _useOklch: boolean): string {
+function generateSpecialCSS(_settings: Settings, _useOklch: boolean): string {
   const S = `html[udr-applied="true"][data-udr-mode="${ENGINE_MODE}"]`;
 
   /**
@@ -965,8 +965,8 @@ function setupMutationObserver(settings: Settings, useOklch: boolean): void {
 
     if (pending.length > 0 && !scheduled) {
       scheduled = true;
-      if ("requestIdleCallback" in window) {
-        (window as any).requestIdleCallback(flushPending, { timeout: 100 });
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(() => flushPending(), { timeout: 100 });
       } else {
         requestAnimationFrame(flushPending);
       }

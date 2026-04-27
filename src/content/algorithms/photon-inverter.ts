@@ -13,6 +13,7 @@
 import type { Settings } from "../../types/settings";
 import { STYLE_TAG_ID } from "../../utils/defaults";
 import { debugSync } from "../../utils/logger";
+import { isTransparentFast } from "../../utils/color-utils";
 import { ensureStyleTag } from "../style-template";
 
 const DARK_THEME_SNIPPET_ID = "dark-theme-snippet";
@@ -77,10 +78,9 @@ function fixTransparentBackgrounds(): void {
       const pos = cs.position;
       if (pos === 'absolute' || pos === 'fixed') continue;
       
-      // Optimized transparency check (avoid string methods where possible)
-      if (bg === 'transparent' || 
-          bg === 'rgba(0, 0, 0, 0)' ||
-          (bg.charCodeAt(bg.length - 2) === 48 && bg.endsWith(')'))) {  // ends with '0)'
+      // Transparent backgrounds need a white fallback before inversion.
+      // IMPORTANT: never treat opaque rgb(0,0,0) as transparent.
+      if (bg === "transparent" || isTransparentFast(bg)) {
         elementsToFix.push(el);
       }
     }

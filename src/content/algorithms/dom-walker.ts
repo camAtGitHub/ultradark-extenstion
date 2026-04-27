@@ -103,21 +103,6 @@ function hslToRgb(h: number, s: number, l: number): RGB {
 }
 
 /**
- * Parse RGB color string to RGB object
- * OPTIMIZATION 6: Use shared cached color parser
- */
-function parseRgb(colorStr: string): RGB | null {
-  return parseRgbFast(colorStr);
-}
-
-/**
- * Check if color is transparent
- */
-function isTransparent(colorStr: string): boolean {
-  return isTransparentFast(colorStr);
-}
-
-/**
  * Invert lightness of a color while preserving hue and saturation
  * Backgrounds: If L > 50%, invert
  * Foregrounds: If L < 50%, invert
@@ -137,21 +122,6 @@ function invertLightness(rgb: RGB, isBackground: boolean): string {
 }
 
 /**
- * Find nearest opaque parent background color
- */
-function findOpaqueParentBg(element: Element): string | null {
-  let parent = element.parentElement;
-  while (parent) {
-    const bg = getComputedStyle(parent).backgroundColor;
-    if (!isTransparent(bg)) {
-      return bg;
-    }
-    parent = parent.parentElement;
-  }
-  return null;
-}
-
-/**
  * Process a batch of elements
  */
 function processBatch(
@@ -160,7 +130,20 @@ function processBatch(
   batchSize: number,
 ): number {
   const endIndex = Math.min(startIndex + batchSize, elements.length);
-  let processed = 0;
+  let scanned = 0;
+
+  interface StyleRead {
+    el: HTMLElement;
+    computed: CSSStyleDeclaration;
+  }
+  interface StyleChange {
+    el: HTMLElement;
+    bg?: string;
+    color?: string;
+    borderColor?: string;
+  }
+
+  const styleReads: StyleRead[] = [];
 
   for (let i = startIndex; i < endIndex; i++) {
     const element = elements[i];
@@ -168,16 +151,23 @@ function processBatch(
     // Skip if already processed
     if (!(element instanceof HTMLElement)) continue;
     if (processedElements.has(element)) continue;
+    styleReads.push({ el: element, computed: getComputedStyle(element) });
+    scanned++;
+  }
 
-    const computed = getComputedStyle(element);
+  const changes: StyleChange[] = [];
+
+  for (const { el, computed } of styleReads) {
+    const change: StyleChange = { el };
+    let hasChanges = false;
 
     // Process background color
     const bgColor = computed.backgroundColor;
-    if (bgColor && !isTransparent(bgColor)) {
-      const rgb = parseRgb(bgColor);
+    if (bgColor && !isTransparentFast(bgColor)) {
+      const rgb = parseRgbFast(bgColor);
       if (rgb) {
-        const inverted = invertLightness(rgb, true);
-        element.style.backgroundColor = inverted;
+        change.bg = invertLightness(rgb, true);
+        hasChanges = true;
       }
     }
     // Transparent elements left as-is — overlay divs over images must stay transparent.
@@ -185,28 +175,36 @@ function processBatch(
     // Process text color
     const textColor = computed.color;
     if (textColor) {
-      const rgb = parseRgb(textColor);
+      const rgb = parseRgbFast(textColor);
       if (rgb) {
-        const inverted = invertLightness(rgb, false);
-        element.style.color = inverted;
+        change.color = invertLightness(rgb, false);
+        hasChanges = true;
       }
     }
 
     // Process border colors
     const borderColor = computed.borderColor;
-    if (borderColor && !isTransparent(borderColor)) {
-      const rgb = parseRgb(borderColor);
+    if (borderColor && !isTransparentFast(borderColor)) {
+      const rgb = parseRgbFast(borderColor);
       if (rgb) {
-        const inverted = invertLightness(rgb, false);
-        element.style.borderColor = inverted;
+        change.borderColor = invertLightness(rgb, false);
+        hasChanges = true;
       }
     }
 
-    processedElements.add(element);
-    processed++;
+    if (hasChanges) {
+      changes.push(change);
+    }
+    processedElements.add(el);
   }
 
-  return processed;
+  for (const change of changes) {
+    if (change.bg) change.el.style.backgroundColor = change.bg;
+    if (change.color) change.el.style.color = change.color;
+    if (change.borderColor) change.el.style.borderColor = change.borderColor;
+  }
+
+  return scanned;
 }
 
 export function resetDomWalker(): void {
@@ -449,6 +447,16 @@ function setupOptimizedMutationObserver(): void {
           }
         }
       }
+
+      if (
+        mutation.type === "attributes" &&
+        mutation.target instanceof HTMLElement &&
+        (mutation.attributeName === "style" || mutation.attributeName === "class")
+      ) {
+        if (pendingMutations.length < MAX_PENDING_MUTATIONS) {
+          pendingMutations.push(mutation.target);
+        }
+      }
     }
 
     // Debounce processing
@@ -469,7 +477,8 @@ function setupOptimizedMutationObserver(): void {
     mutationObserver.observe(document.body, {
       childList: true,
       subtree: true,
-      attributes: false, // Don't observe attribute changes
+      attributes: true,
+      attributeFilter: ["style", "class"],
       characterData: false, // Don't observe text changes
     });
 
