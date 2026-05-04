@@ -10,6 +10,7 @@ const DARK_THRESHOLD = 0.3;
 const DARK_RATIO_THRESHOLD = 0.4;
 const ROOT_DARK_RATIO_THRESHOLD = 0.32;
 const MAX_SAMPLES = 28;
+const MIN_SAMPLE_WEIGHT = 10.0; // Guard against low-confidence detections from early CSS loading
 
 /**
  * ADVANCED DARK DETECTION
@@ -225,10 +226,30 @@ export function isAlreadyDarkTheme(): boolean {
     return false;
   }
 
+  // LOW-CONFIDENCE GUARD: If we only sampled a tiny fraction of the page,
+  // we can't be confident in the result. This handles the case where early
+  // detection runs before CSS loads and samples only the shell (white defaults).
+  // Return false to let Shield catch it and recheck after CSS loads.
+  if (totalWeight < MIN_SAMPLE_WEIGHT) {
+    console.log(
+      `[UltraDark Dark Detection] ⚠️ Low-confidence detection: only ${totalWeight.toFixed(2)} units sampled (need ${MIN_SAMPLE_WEIGHT}+). Deferring to Shield + post-load recheck.`,
+    );
+    return false;
+  }
+
   const ratio = darkWeight / totalWeight;
   console.log(
-    `[UltraDark Dark Detection] 🗳️  Dark Weight: ${darkWeight.toFixed(2)}/${totalWeight.toFixed(2)} (${(ratio * 100).toFixed(0)}%) | RootDarkSignal=${rootDarkSignal}`,
+    `[UltraDark Dark Detection] 🗳️  Dark Weight/Total Weight: ${darkWeight.toFixed(2)}/${totalWeight.toFixed(2)} (${(ratio * 100).toFixed(0)}%) | RootDarkSignal=${rootDarkSignal}`,
   );
+
+  // EARLY RETURN: If browser declares color-scheme dark but we sampled all light,
+  // the page's CSS probably hasn't loaded yet. Trust the browser over our sample.
+  if (colorScheme === "dark" && ratio === 0 && totalWeight > 0) {
+    console.log(
+      "[UltraDark Dark Detection] ⚠️ Sampled all light, but browser reports color-scheme:dark. CSS likely not loaded yet. Trusting browser. Result: TRUE",
+    );
+    return true;
+  }
 
   // Normal threshold: 40% weighted darkness.
   // Root-dark fallback: if html/body is dark, allow a lower ratio to reduce false negatives

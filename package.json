@@ -1,6 +1,6 @@
 {
   "name": "ultradark-reader",
-  "version": "2026.04.240028",
+  "version": "2026.04.280152",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,6 +8,8 @@
     "build:bg": "node ./scripts/build-bg.cjs",
     "build:scripts": "node ./scripts/build-scripts.cjs",
     "build": "vite build && npm run build:scripts",
+    "format": "prettier --write '**/*.{ts,tsx,js,jsx,json,css,md}'",
+    "format:check": "prettier --check '**/*.{ts,tsx,js,jsx,json,css,md}'",
     "test": "vitest run",
     "lint": "eslint . && npm run lint:css",
     "lint:css": "stylelint '**/*.css'",
