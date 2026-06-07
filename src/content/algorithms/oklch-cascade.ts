@@ -63,10 +63,13 @@ import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 import { getSettings, originFromUrl } from "../../utils/storage";
+import { parseRgbFast, getRelativeLuminance } from "../../utils/color-utils";
 import {
-  parseRgbFast,
-  getRelativeLuminance,
-} from "../../utils/color-utils";
+  detectFramework,
+  FrameworkInfo,
+  getActivationAttrs,
+  clearActivationAttrs,
+} from "../../utils/native-dark";
 
 // ============================================================================
 // CONSTANTS & CONFIGURATION
@@ -74,10 +77,10 @@ import {
 
 /** Style tag IDs for cleanup */
 const STYLE_IDS = {
-  colorScheme:    "udr-oklch-scheme",
+  colorScheme: "udr-oklch-scheme",
   variableHijack: "udr-oklch-variables",
-  semanticRules:  "udr-oklch-semantic",
-  specialElements:"udr-oklch-special",
+  semanticRules: "udr-oklch-semantic",
+  specialElements: "udr-oklch-special",
 } as const;
 
 /** Diagnostic bridge script ID — separate from STYLE_IDS (script, not style tag) */
@@ -101,27 +104,27 @@ const ENGINE_MODE = "oklch-cascade" as const;
  */
 const OKLCH_PALETTE = {
   levels: [
-    "oklch(0.00  0 0)",   // L0 — AMOLED true black
-    "oklch(0.145 0 0)",   // L1 — page canvas
-    "oklch(0.185 0 0)",   // L2 — primary surfaces
-    "oklch(0.215 0 0)",   // L3 — cards / sections
-    "oklch(0.245 0 0)",   // L4 — nested cards / inputs
-    "oklch(0.275 0 0)",   // L5 — modals / dialogs
-    "oklch(0.305 0 0)",   // L6 — tooltips / popovers
+    "oklch(0.00  0 0)", // L0 — AMOLED true black
+    "oklch(0.145 0 0)", // L1 — page canvas
+    "oklch(0.185 0 0)", // L2 — primary surfaces
+    "oklch(0.215 0 0)", // L3 — cards / sections
+    "oklch(0.245 0 0)", // L4 — nested cards / inputs
+    "oklch(0.275 0 0)", // L5 — modals / dialogs
+    "oklch(0.305 0 0)", // L6 — tooltips / popovers
   ] as readonly string[],
 
   text: {
-    primary:     "oklch(0.88 0 0)",
-    secondary:   "oklch(0.65 0 0)",
-    disabled:    "oklch(0.42 0 0)",
-    heading:     "oklch(0.94 0 0)",
-    link:        "oklch(0.72 0.12 245)",
+    primary: "oklch(0.88 0 0)",
+    secondary: "oklch(0.65 0 0)",
+    disabled: "oklch(0.42 0 0)",
+    heading: "oklch(0.94 0 0)",
+    link: "oklch(0.72 0.12 245)",
     linkVisited: "oklch(0.68 0.10 300)",
-    error:       "oklch(0.65 0.20 25)",
-    success:     "oklch(0.70 0.15 150)",
+    error: "oklch(0.65 0.20 25)",
+    success: "oklch(0.70 0.15 150)",
   },
 
-  border:       "oklch(0.30 0 0)",
+  border: "oklch(0.30 0 0)",
   borderSubtle: "oklch(0.24 0 0)",
 } as const;
 
@@ -130,55 +133,35 @@ const OKLCH_PALETTE = {
  */
 const HEX_FALLBACK_PALETTE = {
   levels: [
-    "#000000", "#1b1b1b", "#252525", "#2d2d2d",
-    "#353535", "#3c3c3c", "#444444",
+    "#000000",
+    "#1b1b1b",
+    "#252525",
+    "#2d2d2d",
+    "#353535",
+    "#3c3c3c",
+    "#444444",
   ] as readonly string[],
   text: {
-    primary:     "#dcdcdc",
-    secondary:   "#999999",
-    heading:     "#efefef",
-    link:        "#6cb6ff",
+    primary: "#dcdcdc",
+    secondary: "#999999",
+    heading: "#efefef",
+    link: "#6cb6ff",
     linkVisited: "#b39ddb",
   },
   border: "#3a3a3a",
 } as const;
 
-// ── Framework detection patterns ─────────────────────────────────────────────
-
-const FRAMEWORK_PATTERNS: ReadonlyArray<{
-  pattern: RegExp;
-  name: string;
-  darkModeSelector?: string;
-}> = [
-  { pattern: /^--tw-/,               name: "tailwind",   darkModeSelector: ".dark" },
-  { pattern: /^--bs-/,               name: "bootstrap",  darkModeSelector: '[data-bs-theme="dark"]' },
-  { pattern: /^--bulma-/,            name: "bulma",      darkModeSelector: '[data-theme="dark"]' },
-  { pattern: /^--color-|^--primer-/, name: "primer",     darkModeSelector: '[data-color-mode="dark"]' },
-  { pattern: /^--mdc-|^--md-/,       name: "material" },
-  { pattern: /^--chakra-/,           name: "chakra",     darkModeSelector: ".chakra-ui-dark" },
-  { pattern: /^--radix-/,            name: "radix" },
-  { pattern: /^--shadcn-/,           name: "shadcn" },
-  { pattern: /^--next-/,             name: "nextjs" },
-];
-
 /** CSS variable semantic patterns for hijacking */
 const VAR_PATTERNS = {
   background: /background|^bg$|bg-|surface|canvas|base-color|page-bg/i,
   foreground: /foreground|^fg$|fg-|text-color|font-color|body-color/i,
-  border:     /border|divider|separator|outline-color/i,
-  shadow:     /shadow/i,
+  border: /border|divider|separator|outline-color/i,
+  shadow: /shadow/i,
 } as const;
 
 // ============================================================================
 // TYPES
 // ============================================================================
-
-interface FrameworkInfo {
-  name: string;
-  detected: boolean;
-  hasNativeDarkMode: boolean;
-  darkModeActivated: boolean;
-}
 
 interface EngineStats {
   startTime: number;
@@ -199,13 +182,6 @@ interface EngineStats {
 let mutationObserver: MutationObserver | null = null;
 let stats: EngineStats | null = null;
 let detectedFramework: FrameworkInfo | null = null;
-
-/**
- * Tracks exactly which HTML attributes were set by THIS engine during
- * activateNativeDark() so that resetOklchCascade() only removes what it added —
- * it will never strip a site's own pre-existing dark-mode attribute.
- */
-const engineSetAttrs = new Set<string>();
 
 /** Feature-probe results (cached for the page lifetime; NOT cleared on reset) */
 let _oklchOk: boolean | null = null;
@@ -288,172 +264,14 @@ function injectColorScheme(): void {
     tag.id = STYLE_IDS.colorScheme;
     (document.head || document.documentElement).prepend(tag);
   }
-  tag.textContent = `:root {\n  color-scheme: dark !important;\n}`;
+  tag.textContent = `:root {
+  color-scheme: dark !important;
+}`;
 }
 
 // ============================================================================
-// PHASE 1: FRAMEWORK DETECTION
+// PHASE 1: Framework detection moved to utils/native-dark.ts
 // ============================================================================
-
-function detectFramework(): FrameworkInfo {
-  debugSync("[OKLCH Cascade] Phase 1: Framework Detection");
-
-  const info: FrameworkInfo = {
-    name: "unknown",
-    detected: false,
-    hasNativeDarkMode: false,
-    darkModeActivated: false,
-  };
-
-  const html = document.documentElement;
-
-  const darkAttrs = [
-    html.getAttribute("data-theme"),
-    html.getAttribute("data-mode"),
-    html.getAttribute("data-color-scheme"),
-  ];
-  if (darkAttrs.some((v) => v === "dark")) {
-    debugSync("[OKLCH Cascade] Native dark mode already active (data-attr)");
-    info.hasNativeDarkMode = true;
-    info.darkModeActivated = true;
-    return info;
-  }
-
-  const cs = getComputedStyle(html).colorScheme;
-  if (cs === "dark" || cs === "dark light") {
-    debugSync("[OKLCH Cascade] Native dark via computed color-scheme");
-    info.hasNativeDarkMode = true;
-    info.darkModeActivated = true;
-    return info;
-  }
-
-  const rootStyle = getComputedStyle(html);
-
-  for (const fw of FRAMEWORK_PATTERNS) {
-    const probes = [
-      `--${fw.name}-bg`, `--${fw.name}-background`, `--${fw.name}-primary`,
-    ];
-    for (const v of probes) {
-      if (rootStyle.getPropertyValue(v).trim()) {
-        info.name = fw.name;
-        info.detected = true;
-        debugSync("[OKLCH Cascade] Detected framework:", fw.name);
-        break;
-      }
-    }
-    if (info.detected) break;
-  }
-
-  if (!info.detected) {
-    try {
-      const sheets = document.styleSheets;
-      const limit = Math.min(sheets.length, 5);
-      outer: for (let i = 0; i < limit; i++) {
-        try {
-          const rules = sheets[i].cssRules;
-          if (!rules) continue;
-          const rl = Math.min(rules.length, 50);
-          for (let j = 0; j < rl; j++) {
-            const r = rules[j];
-            if (
-              r instanceof CSSStyleRule &&
-              (r.selectorText === ":root" || r.selectorText === "html")
-            ) {
-              for (const fw of FRAMEWORK_PATTERNS) {
-                if (fw.pattern.test(r.cssText)) {
-                  info.name = fw.name;
-                  info.detected = true;
-                  debugSync("[OKLCH Cascade] Detected framework via scan:", fw.name);
-                  break outer;
-                }
-              }
-            }
-          }
-        } catch { continue; }
-      }
-    } catch { /* ignore */ }
-  }
-
-  if (info.detected) {
-    const cfg = FRAMEWORK_PATTERNS.find((f) => f.name === info.name);
-    if (cfg?.darkModeSelector) {
-      try {
-        const allSheets = document.styleSheets;
-        for (let si = 0; si < allSheets.length; si++) {
-          try {
-            const sheetRules = allSheets[si].cssRules;
-            if (!sheetRules) continue;
-            for (let ri = 0; ri < sheetRules.length; ri++) {
-              if (
-                sheetRules[ri] instanceof CSSStyleRule &&
-                (sheetRules[ri] as CSSStyleRule).selectorText.includes(cfg.darkModeSelector)
-              ) {
-                info.hasNativeDarkMode = true;
-                break;
-              }
-            }
-          } catch { continue; }
-          if (info.hasNativeDarkMode) break;
-        }
-      } catch { /* ignore */ }
-    }
-  }
-
-  if (info.hasNativeDarkMode && !info.darkModeActivated) {
-    info.darkModeActivated = activateNativeDark(info.name);
-  }
-
-  return info;
-}
-
-function activateNativeDark(fwName: string): boolean {
-  const html = document.documentElement;
-
-  const strategies: Array<{ attr?: string; cls?: string; apply: () => void }> = [
-    { attr: "data-theme",        apply: () => html.setAttribute("data-theme", "dark") },
-    { attr: "data-mode",         apply: () => html.setAttribute("data-mode", "dark") },
-    { attr: "data-color-scheme", apply: () => html.setAttribute("data-color-scheme", "dark") },
-    { cls:  "dark",              apply: () => html.classList.add("dark") },
-  ];
-
-  if (fwName === "bootstrap") {
-    strategies.unshift({ attr: "data-bs-theme", apply: () => html.setAttribute("data-bs-theme", "dark") });
-  } else if (fwName === "chakra") {
-    strategies.unshift({
-      cls: "chakra-ui-dark",
-      apply: () => {
-        html.classList.add("chakra-ui-dark");
-        document.body?.classList.add("chakra-ui-dark");
-      },
-    });
-  }
-
-  for (const strategy of strategies) {
-    try {
-      strategy.apply();
-      const bodyBg = getComputedStyle(document.body).backgroundColor;
-      const rgb = parseRgbFast(bodyBg);
-      if (rgb && getRelativeLuminance(rgb.r, rgb.g, rgb.b) < 0.2) {
-        // Record what this engine set so reset can undo only its own changes
-        if (strategy.attr) engineSetAttrs.add(strategy.attr);
-        if (strategy.cls)  engineSetAttrs.add(`class:${strategy.cls}`);
-        debugSync("[OKLCH Cascade] Native dark activation succeeded");
-        return true;
-      }
-    } catch { continue; }
-  }
-
-  // Revert all attempts
-  html.removeAttribute("data-theme");
-  html.removeAttribute("data-mode");
-  html.removeAttribute("data-color-scheme");
-  html.removeAttribute("data-bs-theme");
-  html.classList.remove("dark", "chakra-ui-dark");
-  document.body?.classList.remove("chakra-ui-dark");
-
-  debugSync("[OKLCH Cascade] Native dark activation failed");
-  return false;
-}
 
 // ============================================================================
 // PHASE 2: CSS VARIABLE HIJACKING
@@ -466,46 +284,73 @@ function hijackCSSVariables(settings: Settings, useOklch: boolean): boolean {
   const processed = new Set<string>();
   let count = 0;
 
-  const baseBg   = bg(settings.amoled ? 0 : 1, useOklch);
+  const baseBg = bg(settings.amoled ? 0 : 1, useOklch);
   const surfaceBg = bg(2, useOklch);
-  const textPri   = txt("primary", useOklch);
-  const brd       = borderColor(useOklch);
+  const textPri = txt("primary", useOklch);
+  const brd = borderColor(useOklch);
 
   const rootStyle = getComputedStyle(document.documentElement);
 
   const bgVars = [
-    "--background", "--bg", "--bg-color", "--background-color",
-    "--surface", "--surface-color", "--canvas", "--base",
-    "--color-background", "--color-bg", "--theme-background",
-    "--page-background", "--body-background", "--main-bg",
-    "--card-bg", "--card-background", "--panel-bg",
+    "--background",
+    "--bg",
+    "--bg-color",
+    "--background-color",
+    "--surface",
+    "--surface-color",
+    "--canvas",
+    "--base",
+    "--color-background",
+    "--color-bg",
+    "--theme-background",
+    "--page-background",
+    "--body-background",
+    "--main-bg",
+    "--card-bg",
+    "--card-background",
+    "--panel-bg",
   ];
   const fgVars = [
-    "--foreground", "--text", "--text-color", "--color", "--fg",
-    "--fg-color", "--color-text", "--color-foreground",
-    "--body-text", "--font-color", "--primary-text",
+    "--foreground",
+    "--text",
+    "--text-color",
+    "--color",
+    "--fg",
+    "--fg-color",
+    "--color-text",
+    "--color-foreground",
+    "--body-text",
+    "--font-color",
+    "--primary-text",
   ];
   const brdVars = [
-    "--border", "--border-color", "--divider", "--separator",
-    "--outline", "--outline-color",
+    "--border",
+    "--border-color",
+    "--divider",
+    "--separator",
+    "--outline",
+    "--outline-color",
   ];
 
   for (const v of bgVars) {
     if (rootStyle.getPropertyValue(v).trim() && !processed.has(v)) {
       overrides.push(`${v}: ${baseBg} !important;`);
-      processed.add(v); count++;
+      processed.add(v);
+      count++;
     }
   }
   for (const v of fgVars) {
     if (rootStyle.getPropertyValue(v).trim() && !processed.has(v)) {
       overrides.push(`${v}: ${textPri} !important;`);
-      processed.add(v); count++;
+      processed.add(v);
+      count++;
     }
   }
   for (const v of brdVars) {
     if (rootStyle.getPropertyValue(v).trim() && !processed.has(v)) {
       overrides.push(`${v}: ${brd} !important;`);
-      processed.add(v); count++;
+      processed.add(v);
+      count++;
     }
   }
 
@@ -531,23 +376,31 @@ function hijackCSSVariables(settings: Settings, useOklch: boolean): boolean {
 
                 if (VAR_PATTERNS.background.test(prop)) {
                   overrides.push(`${prop}: ${surfaceBg} !important;`);
-                  processed.add(prop); count++;
+                  processed.add(prop);
+                  count++;
                 } else if (VAR_PATTERNS.foreground.test(prop)) {
                   overrides.push(`${prop}: ${textPri} !important;`);
-                  processed.add(prop); count++;
+                  processed.add(prop);
+                  count++;
                 } else if (VAR_PATTERNS.border.test(prop)) {
                   overrides.push(`${prop}: ${brd} !important;`);
-                  processed.add(prop); count++;
+                  processed.add(prop);
+                  count++;
                 } else if (VAR_PATTERNS.shadow.test(prop)) {
                   overrides.push(`${prop}: none !important;`);
-                  processed.add(prop); count++;
+                  processed.add(prop);
+                  count++;
                 }
               }
             }
           }
-        } catch { continue; }
+        } catch {
+          continue;
+        }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   if (overrides.length > 0) {
@@ -557,7 +410,9 @@ function hijackCSSVariables(settings: Settings, useOklch: boolean): boolean {
       tag.id = STYLE_IDS.variableHijack;
       document.head.appendChild(tag);
     }
-    tag.textContent = `:root {\n  ${overrides.join("\n  ")}\n}`;
+    tag.textContent = `:root {
+  ${overrides.join("\n  ")}
+}`;
     debugSync("[OKLCH Cascade] Hijacked", count, "CSS variables");
   }
 
@@ -579,12 +434,12 @@ function generateSemanticCSS(settings: Settings, useOklch: boolean): string {
   const L5 = bg(5, useOklch);
   const L6 = bg(6, useOklch);
 
-  const TP  = txt("primary", useOklch);
-  const TS  = txt("secondary", useOklch);
-  const TH  = txt("heading", useOklch);
-  const TL  = txt("link", useOklch);
+  const TP = txt("primary", useOklch);
+  const TS = txt("secondary", useOklch);
+  const TH = txt("heading", useOklch);
+  const TL = txt("link", useOklch);
   const TLV = txt("linkVisited", useOklch);
-  const BD  = borderColor(useOklch);
+  const BD = borderColor(useOklch);
 
   const S = `html[udr-applied="true"][data-udr-mode="${ENGINE_MODE}"]`;
 
@@ -795,7 +650,7 @@ ${S} {
 ${S} * {
   scrollbar-color: ${L4} transparent;
 }
-`;
+  `;
 }
 
 // ============================================================================
@@ -868,7 +723,7 @@ ${S} #app,
 ${S} #root {
   contain: layout style;
 }
-`;
+  `;
 }
 
 // ============================================================================
@@ -888,7 +743,10 @@ function setupMutationObserver(settings: Settings, useOklch: boolean): void {
   const darkBgColor = bg(settings.amoled ? 0 : 1, useOklch);
 
   function flushPending(): void {
-    if (pending.length === 0) { scheduled = false; return; }
+    if (pending.length === 0) {
+      scheduled = false;
+      return;
+    }
 
     const batch = pending.splice(0, 80);
     for (const el of batch) {
@@ -912,7 +770,7 @@ function setupMutationObserver(settings: Settings, useOklch: boolean): void {
             el.style.setProperty(
               "color",
               useOklch ? OKLCH_PALETTE.text.primary : HEX_FALLBACK_PALETTE.text.primary,
-              "important",
+              "important"
             );
           }
         }
@@ -949,15 +807,12 @@ function setupMutationObserver(settings: Settings, useOklch: boolean): void {
       if (
         m.type === "attributes" &&
         (m.attributeName === "class" ||
-         m.attributeName === "data-theme" ||
-         m.attributeName === "data-mode") &&
+          m.attributeName === "data-theme" ||
+          m.attributeName === "data-mode") &&
         m.target instanceof HTMLElement
       ) {
         const html = document.documentElement;
-        if (
-          m.target === html &&
-          html.getAttribute("data-udr-mode") === ENGINE_MODE
-        ) {
+        if (m.target === html && html.getAttribute("data-udr-mode") === ENGINE_MODE) {
           html.style.setProperty("color-scheme", "dark", "important");
         }
       }
@@ -1053,8 +908,14 @@ export function applyOklchCascade(settings: Settings): void {
   const hasRelColor = supportsRelativeColor();
   const hasLightDark = supportsLightDark();
 
-  debugSync("[OKLCH Cascade] Feature support — oklch:", useOklch,
-    "| relative-color:", hasRelColor, "| light-dark:", hasLightDark);
+  debugSync(
+    "[OKLCH Cascade] Feature support — oklch:",
+    useOklch,
+    "| relative-color:",
+    hasRelColor,
+    "| light-dark:",
+    hasLightDark
+  );
 
   if (!useOklch && !CSS.supports?.("color-scheme", "dark")) {
     debugSync("[OKLCH Cascade] ⚠️ Browser too old, falling back to Photon");
@@ -1170,10 +1031,9 @@ export function resetOklchCascade(): void {
   stats = null;
   detectedFramework = null;
 
-  // Revert only the attributes that THIS engine set — never touch pre-existing
-  // dark-mode attributes that the site itself had set.
+  // Revert only the attributes that THIS engine set — tracked by utils/native-dark.ts
   const html = document.documentElement;
-  for (const entry of engineSetAttrs) {
+  for (const entry of getActivationAttrs()) {
     if (entry.startsWith("class:")) {
       const cls = entry.slice(6);
       html.classList.remove(cls);
@@ -1182,7 +1042,7 @@ export function resetOklchCascade(): void {
       html.removeAttribute(entry);
     }
   }
-  engineSetAttrs.clear();
+  clearActivationAttrs();
 
   html.style.removeProperty("color-scheme");
 
@@ -1204,7 +1064,7 @@ export function getOklchDiagnostics(): object {
     framework: detectedFramework,
     stats,
     styleTagsPresent: Object.fromEntries(
-      Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)]),
+      Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)])
     ),
     featureSupport: {
       oklch: _oklchOk,
@@ -1251,7 +1111,7 @@ if (typeof window !== "undefined") {
           },
           featureSupport: { oklch: _oklchOk, relativeColor: _relColorOk, lightDark: _lightDarkOk },
           styleTagsPresent: Object.fromEntries(
-            Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)]),
+            Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)])
           ),
           bodyBg: getComputedStyle(document.body).backgroundColor,
           htmlAttrs: {
@@ -1288,5 +1148,7 @@ if (typeof window !== "undefined") {
     `;
       (document.head || document.documentElement).appendChild(script);
     }
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
 }

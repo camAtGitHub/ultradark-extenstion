@@ -58,11 +58,7 @@ body {
   top: -40%;
   height: 140px;
   opacity: 0.4;
-  background: radial-gradient(
-    circle at top,
-    var(--accent-soft),
-    transparent 70%
-  );
+  background: radial-gradient(circle at top, var(--accent-soft), transparent 70%);
   pointer-events: none;
   z-index: 0;
 }

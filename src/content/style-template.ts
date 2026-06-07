@@ -11,17 +11,17 @@ export function ensureStyleTag(): HTMLStyleElement {
   return tag;
 }
 
-/** 
+/**
  * OPTIMIZATION 11: CSS Containment for Style Isolation
- * 
+ *
  * Generates CSS for Static/Dynamic modes + AMOLED & image fixes using CSS variables.
  * Includes performance optimizations via CSS containment and GPU compositing hints.
  */
 export function buildCss(vars: {
   brightness: number; // %
-  contrast: number;   // %
-  sepia: number;      // %
-  grayscale: number;  // %
+  contrast: number; // %
+  sepia: number; // %
+  grayscale: number; // %
   hueRotateDeg: number;
   amoled: boolean;
   invert: boolean;

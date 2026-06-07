@@ -13,7 +13,7 @@
  * Use Case: Complex SPAs, design-system-heavy sites, accessibility-critical applications
  *
  * Key Differentiators from Other Algorithms:
- * - Detects and activates NATIVE dark modes when available
+ * - Detects and activates NATIVE dark modes when available (centralized in utils/native-dark.ts)
  * - Hijacks CSS custom properties at the source (not per-element)
  * - Understands semantic roles (nav, card, modal) for visual hierarchy
  * - Guarantees WCAG AA contrast compliance
@@ -26,11 +26,8 @@ import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 import { getSettings, originFromUrl } from "../../utils/storage";
-import {
-  parseRgbFast,
-  getRelativeLuminance,
-  getContrastRatio,
-} from "../../utils/color-utils";
+import { parseRgbFast, getRelativeLuminance, getContrastRatio } from "../../utils/color-utils";
+import { detectFramework, FrameworkInfo, clearActivationAttrs } from "../../utils/native-dark";
 
 // ============================================================================
 // CONSTANTS & CONFIGURATION
@@ -81,63 +78,6 @@ const TEXT_PALETTE = {
 } as const;
 
 /**
- * Framework detection patterns
- * Maps CSS variable prefixes to framework identifiers
- *
- * IMPORTANT: Frameworks must use CSS custom properties (CSS variables) to be detected.
- * SASS/LESS-only frameworks that compile to static CSS cannot be reliably detected.
- *
- * Tier 1 frameworks (verified, high market share):
- * - Tailwind, Bootstrap, Bulma, Primer (GitHub)
- *
- * Tier 2 frameworks (verified, niche):
- * - Material Design, Chakra UI, Radix, Shadcn, Next.js
- *
- * Excluded frameworks:
- * - UIkit: Minimal CSS variable usage (LESS-based, static CSS output)
- * - Foundation: Legacy versions don't use CSS variables extensively
- * - Class-less frameworks (MVP.css, Sakura, Simple.css): No CSS variables to hijack
- */
-const FRAMEWORK_PATTERNS: ReadonlyArray<{
-  pattern: RegExp;
-  name: string;
-  darkModeSelector?: string;
-}> = [
-  // Utility-first frameworks
-  { pattern: /^--tw-/, name: "tailwind", darkModeSelector: ".dark" },
-
-  // General purpose frameworks
-  {
-    pattern: /^--bs-/,
-    name: "bootstrap",
-    darkModeSelector: '[data-bs-theme="dark"]',
-  },
-  {
-    pattern: /^--bulma-/,
-    name: "bulma",
-    darkModeSelector: '[data-theme="dark"]',
-  },
-  {
-    pattern: /^--color-|^--primer-/,
-    name: "primer",
-    darkModeSelector: '[data-color-mode="dark"]',
-  },
-
-  // Component libraries & design systems
-  { pattern: /^--mdc-|^--md-/, name: "material" },
-  {
-    pattern: /^--chakra-/,
-    name: "chakra",
-    darkModeSelector: ".chakra-ui-dark",
-  },
-  { pattern: /^--radix-/, name: "radix" },
-  { pattern: /^--shadcn-/, name: "shadcn" },
-
-  // Meta-frameworks
-  { pattern: /^--next-/, name: "nextjs" },
-];
-
-/**
  * CSS variable patterns for hijacking
  * Organized by semantic purpose
  */
@@ -174,25 +114,13 @@ const SEMANTIC_ROLES: ReadonlyArray<{
   },
   {
     role: "navigation",
-    selectors: [
-      "nav",
-      "header",
-      '[class*="navbar"]',
-      '[class*="header"]',
-      '[class*="nav-"]',
-    ],
+    selectors: ["nav", "header", '[class*="navbar"]', '[class*="header"]', '[class*="nav-"]'],
     ariaRoles: ["navigation", "banner"],
     elevationLevel: 2,
   },
   {
     role: "card",
-    selectors: [
-      '[class*="card"]',
-      '[class*="panel"]',
-      '[class*="tile"]',
-      "section",
-      "aside",
-    ],
+    selectors: ['[class*="card"]', '[class*="panel"]', '[class*="tile"]', "section", "aside"],
     ariaRoles: ["region", "complementary"],
     elevationLevel: 3,
   },
@@ -210,14 +138,7 @@ const SEMANTIC_ROLES: ReadonlyArray<{
   },
   {
     role: "data",
-    selectors: [
-      "table",
-      "pre",
-      "code",
-      '[class*="table"]',
-      '[class*="grid"]',
-      '[class*="code"]',
-    ],
+    selectors: ["table", "pre", "code", '[class*="table"]', '[class*="grid"]', '[class*="code"]'],
     ariaRoles: ["grid", "treegrid", "table"],
     elevationLevel: 3,
   },
@@ -258,13 +179,6 @@ type SemanticRole =
   | "data"
   | "generic";
 
-interface FrameworkInfo {
-  name: string;
-  detected: boolean;
-  hasNativeDarkMode: boolean;
-  darkModeActivated: boolean;
-}
-
 interface ProcessingStats {
   startTime: number;
   elementsProcessed: number;
@@ -280,8 +194,6 @@ interface ProcessingStats {
 // ============================================================================
 
 /** WeakSet to track processed elements - prevents memory leaks */
-// Note: declared as `let` (not `const`) so resetChromaSemantic() can reassign it.
-// WeakSet has no `.clear()` method, so reassignment is the only way to drop all references.
 let processedElements = new WeakSet<HTMLElement>();
 
 /** MutationObserver instance for dynamic content */
@@ -310,25 +222,11 @@ function isOverBudget(startTime: number, budget: number): boolean {
 /**
  * Lighten a color by a percentage to meet contrast requirements
  */
-function lightenColor(
-  r: number,
-  g: number,
-  b: number,
-  percent: number,
-): string {
+function lightenColor(r: number, g: number, b: number, percent: number): string {
   const factor = 1 + percent / 100;
-  const newR = Math.min(
-    255,
-    Math.round(r * factor + (255 - r) * (percent / 100)),
-  );
-  const newG = Math.min(
-    255,
-    Math.round(g * factor + (255 - g) * (percent / 100)),
-  );
-  const newB = Math.min(
-    255,
-    Math.round(b * factor + (255 - b) * (percent / 100)),
-  );
+  const newR = Math.min(255, Math.round(r * factor + (255 - r) * (percent / 100)));
+  const newG = Math.min(255, Math.round(g * factor + (255 - g) * (percent / 100)));
+  const newB = Math.min(255, Math.round(b * factor + (255 - b) * (percent / 100)));
   return `rgb(${newR}, ${newG}, ${newB})`;
 }
 
@@ -392,238 +290,8 @@ function findOpaqueBackground(element: HTMLElement): string | null {
 }
 
 // ============================================================================
-// PHASE 1: FRAMEWORK DETECTION
+// PHASE 1: Framework Detection centralized in utils/native-dark.ts
 // ============================================================================
-
-/**
- * Detect CSS frameworks and check for native dark mode support
- * This is the fastest phase - should complete in <5ms
- */
-function detectFramework(): FrameworkInfo {
-  debugSync("[Chroma v2] Phase 1: Framework Detection");
-
-  const info: FrameworkInfo = {
-    name: "unknown",
-    detected: false,
-    hasNativeDarkMode: false,
-    darkModeActivated: false,
-  };
-
-  // Check for data-theme attribute (common pattern)
-  const htmlEl = document.documentElement;
-  const dataTheme = htmlEl.getAttribute("data-theme");
-  const dataMode = htmlEl.getAttribute("data-mode");
-  const colorScheme = htmlEl.getAttribute("data-color-scheme");
-
-  if (dataTheme === "dark" || dataMode === "dark" || colorScheme === "dark") {
-    debugSync("[Chroma v2] Native dark mode already active via data attribute");
-    info.hasNativeDarkMode = true;
-    info.darkModeActivated = true;
-    return info;
-  }
-
-  // Check color-scheme CSS property
-  const computedColorScheme = getComputedStyle(htmlEl).colorScheme;
-  if (computedColorScheme === "dark") {
-    debugSync("[Chroma v2] Native dark mode already active via color-scheme");
-    info.hasNativeDarkMode = true;
-    info.darkModeActivated = true;
-    return info;
-  }
-
-  // Scan CSS variables to detect framework
-  const rootStyle = getComputedStyle(htmlEl);
-
-  // Check a sample of common variable names for each framework
-  for (const framework of FRAMEWORK_PATTERNS) {
-    // Quick check using common variable naming conventions
-    const testVars = [
-      `--${framework.name}-bg`,
-      `--${framework.name}-background`,
-      `--${framework.name}-primary`,
-    ];
-
-    for (const varName of testVars) {
-      const value = rootStyle.getPropertyValue(varName).trim();
-      if (value) {
-        info.name = framework.name;
-        info.detected = true;
-        debugSync("[Chroma v2] Detected framework:", framework.name);
-        break;
-      }
-    }
-
-    if (info.detected) break;
-  }
-
-  // Deep scan stylesheets for framework patterns (limited scope)
-  if (!info.detected) {
-    try {
-      const sheets = document.styleSheets;
-      const sheetLimit = Math.min(sheets.length, 5);
-
-      outerLoop: for (let i = 0; i < sheetLimit; i++) {
-        try {
-          const rules = sheets[i].cssRules;
-          if (!rules) continue;
-
-          const ruleLimit = Math.min(rules.length, 50);
-          for (let j = 0; j < ruleLimit; j++) {
-            const rule = rules[j];
-            if (
-              rule instanceof CSSStyleRule &&
-              (rule.selectorText === ":root" || rule.selectorText === "html")
-            ) {
-              const cssText = rule.cssText;
-
-              for (const framework of FRAMEWORK_PATTERNS) {
-                if (framework.pattern.test(cssText)) {
-                  info.name = framework.name;
-                  info.detected = true;
-                  debugSync(
-                    "[Chroma v2] Detected framework via stylesheet scan:",
-                    framework.name,
-                  );
-                  break outerLoop;
-                }
-              }
-            }
-          }
-        } catch {
-          // CORS error - skip this stylesheet
-          continue;
-        }
-      }
-    } catch (e) {
-      debugSync("[Chroma v2] Error scanning stylesheets:", e);
-    }
-  }
-
-  // Check if framework has dark mode available
-  if (info.detected) {
-    const frameworkConfig = FRAMEWORK_PATTERNS.find(
-      (f) => f.name === info.name,
-    );
-
-    if (frameworkConfig?.darkModeSelector) {
-      // Check if dark mode class/attribute exists in any stylesheet
-      try {
-        const sheets = document.styleSheets;
-        for (let i = 0; i < sheets.length; i++) {
-          try {
-            const rules = sheets[i].cssRules;
-            if (!rules) continue;
-
-            for (let j = 0; j < rules.length; j++) {
-              const rule = rules[j];
-              if (
-                rule instanceof CSSStyleRule &&
-                rule.selectorText.includes(frameworkConfig.darkModeSelector)
-              ) {
-                info.hasNativeDarkMode = true;
-                debugSync("[Chroma v2] Framework has native dark mode support");
-                break;
-              }
-            }
-          } catch {
-            continue;
-          }
-        }
-      } catch {
-        // Ignore errors
-      }
-    }
-  }
-
-  // Attempt to activate native dark mode
-  if (info.hasNativeDarkMode && !info.darkModeActivated) {
-    info.darkModeActivated = attemptNativeDarkModeActivation(info.name);
-  }
-
-  return info;
-}
-
-/**
- * Attempt to activate a framework's native dark mode
- */
-function attemptNativeDarkModeActivation(frameworkName: string): boolean {
-  const html = document.documentElement;
-
-  debugSync(
-    "[Chroma v2] Attempting native dark mode activation for:",
-    frameworkName,
-  );
-
-  // Try common dark mode activation patterns
-  const activationStrategies = [
-    // Data attribute strategies
-    () => {
-      html.setAttribute("data-theme", "dark");
-      return true;
-    },
-    () => {
-      html.setAttribute("data-mode", "dark");
-      return true;
-    },
-    () => {
-      html.setAttribute("data-color-scheme", "dark");
-      return true;
-    },
-    () => {
-      html.classList.add("dark");
-      return true;
-    },
-
-    // Framework-specific strategies
-    () => {
-      if (frameworkName === "bootstrap") {
-        html.setAttribute("data-bs-theme", "dark");
-        return true;
-      }
-      return false;
-    },
-    () => {
-      if (frameworkName === "chakra") {
-        html.classList.add("chakra-ui-dark");
-        document.body.classList.add("chakra-ui-dark");
-        return true;
-      }
-      return false;
-    },
-  ];
-
-  for (const strategy of activationStrategies) {
-    try {
-      if (strategy()) {
-        // Verify activation worked by checking if colors changed
-        const bodyBg = getComputedStyle(document.body).backgroundColor;
-        const parsed = parseRgbFast(bodyBg);
-
-        if (parsed) {
-          const luminance = getRelativeLuminance(parsed.r, parsed.g, parsed.b);
-          if (luminance < 0.2) {
-            debugSync("[Chroma v2] Native dark mode activation successful");
-            return true;
-          }
-        }
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  // Revert failed attempts
-  html.removeAttribute("data-theme");
-  html.removeAttribute("data-mode");
-  html.removeAttribute("data-color-scheme");
-  html.classList.remove("dark");
-  html.removeAttribute("data-bs-theme");
-  html.classList.remove("chakra-ui-dark");
-  document.body?.classList.remove("chakra-ui-dark");
-
-  debugSync("[Chroma v2] Native dark mode activation failed");
-  return false;
-}
 
 // ============================================================================
 // PHASE 2: CSS VARIABLE HIJACKING
@@ -642,9 +310,7 @@ function hijackCSSVariables(settings: Settings): boolean {
 
   // Calculate warmth-adjusted palette
   const warmth = settings.sepia || 0; // Use sepia slider for warmth
-  const baseBg = settings.amoled
-    ? BACKGROUND_PALETTE[0]
-    : BACKGROUND_PALETTE[1];
+  const baseBg = settings.amoled ? BACKGROUND_PALETTE[0] : BACKGROUND_PALETTE[1];
   const adjustedBg = applyWarmth(baseBg, warmth);
   const adjustedSurface = applyWarmth(BACKGROUND_PALETTE[2], warmth);
   const adjustedCard = applyWarmth(BACKGROUND_PALETTE[3], warmth);
@@ -700,9 +366,7 @@ function hijackCSSVariables(settings: Settings): boolean {
   for (const varName of commonBgVars) {
     const value = rootStyle.getPropertyValue(varName).trim();
     if (value && !processedVars.has(varName)) {
-      const mappedColor = cardLikePattern.test(varName)
-        ? adjustedCard
-        : adjustedBg;
+      const mappedColor = cardLikePattern.test(varName) ? adjustedCard : adjustedBg;
       overrides.push(`${varName}: ${mappedColor} !important;`);
       processedVars.add(varName);
       hijackCount++;
@@ -755,16 +419,12 @@ function hijackCSSVariables(settings: Settings): boolean {
                 if (prop.startsWith("--") && !processedVars.has(prop)) {
                   // Categorize and override based on naming pattern
                   if (VARIABLE_PATTERNS.background.test(prop)) {
-                    const mappedColor = cardLikePattern.test(prop)
-                      ? adjustedCard
-                      : adjustedSurface;
+                    const mappedColor = cardLikePattern.test(prop) ? adjustedCard : adjustedSurface;
                     overrides.push(`${prop}: ${mappedColor} !important;`);
                     processedVars.add(prop);
                     hijackCount++;
                   } else if (VARIABLE_PATTERNS.foreground.test(prop)) {
-                    overrides.push(
-                      `${prop}: ${TEXT_PALETTE.primary} !important;`,
-                    );
+                    overrides.push(`${prop}: ${TEXT_PALETTE.primary} !important;`);
                     processedVars.add(prop);
                     hijackCount++;
                   } else if (VARIABLE_PATTERNS.border.test(prop)) {
@@ -777,7 +437,7 @@ function hijackCSSVariables(settings: Settings): boolean {
                     if (originalValue.includes("rgba")) {
                       const dimmedShadow = originalValue.replace(
                         /rgba\(([^)]+)\)/g,
-                        "rgba(0, 0, 0, 0.3)",
+                        "rgba(0, 0, 0, 0.3)"
                       );
                       overrides.push(`${prop}: ${dimmedShadow} !important;`);
                       processedVars.add(prop);
@@ -803,9 +463,7 @@ function hijackCSSVariables(settings: Settings): boolean {
 
   // Inject variable overrides
   if (overrides.length > 0) {
-    let style = document.getElementById(
-      STYLE_IDS.variableHijack,
-    ) as HTMLStyleElement | null;
+    let style = document.getElementById(STYLE_IDS.variableHijack) as HTMLStyleElement | null;
 
     if (!style) {
       style = document.createElement("style");
@@ -813,7 +471,9 @@ function hijackCSSVariables(settings: Settings): boolean {
       document.head.appendChild(style);
     }
 
-    style.textContent = `:root {\n  ${overrides.join("\n  ")}\n}`;
+    style.textContent = `:root {
+  ${overrides.join("\\n  ")}
+}`;
 
     debugSync("[Chroma v2] Hijacked", hijackCount, "CSS variables");
   }
@@ -862,11 +522,7 @@ function classifyElement(element: HTMLElement): SemanticRole {
 /**
  * Get the elevation level for an element based on its role and depth
  */
-function getElevationLevel(
-  role: SemanticRole,
-  depth: number,
-  settings: Settings,
-): number {
+function getElevationLevel(role: SemanticRole, depth: number, settings: Settings): number {
   // Find base elevation for role
   const roleDef = SEMANTIC_ROLES.find((r) => r.role === role);
   const baseLevel = roleDef?.elevationLevel ?? 2;
@@ -881,10 +537,7 @@ function getElevationLevel(
   // AMOLED mode starts at level 0
   const minLevel = settings.amoled ? 0 : 1;
 
-  return Math.min(
-    Math.max(baseLevel + adjustedBonus, minLevel),
-    BACKGROUND_PALETTE.length - 1,
-  );
+  return Math.min(Math.max(baseLevel + adjustedBonus, minLevel), BACKGROUND_PALETTE.length - 1);
 }
 
 /**
@@ -894,15 +547,13 @@ function applySemanticStyling(
   element: HTMLElement,
   role: SemanticRole,
   depth: number,
-  settings: Settings,
+  settings: Settings
 ): void {
   if (processedElements.has(element)) return;
 
   // Skip invisible elements (but NOT fixed-position elements like navbars)
   if (element.checkVisibility) {
-    if (
-      !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
-    ) {
+    if (!element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) {
       return;
     }
   }
@@ -913,9 +564,7 @@ function applySemanticStyling(
 
   // Determine if element has an explicit background
   const hasExplicitBg =
-    currentBg &&
-    currentBg !== "rgba(0, 0, 0, 0)" &&
-    currentBg !== "transparent";
+    currentBg && currentBg !== "rgba(0, 0, 0, 0)" && currentBg !== "transparent";
 
   // Calculate warmth adjustment
   const warmth = settings.sepia || 0;
@@ -1014,22 +663,13 @@ function validateAndFixContrast(element: HTMLElement): boolean {
       newParsed = parseRgbFast(newColor);
 
       if (newParsed) {
-        const newLuminance = getRelativeLuminance(
-          newParsed.r,
-          newParsed.g,
-          newParsed.b,
-        );
+        const newLuminance = getRelativeLuminance(newParsed.r, newParsed.g, newParsed.b);
         newContrast = getContrastRatio(newLuminance, bgLuminance);
       }
     }
 
     // Cap at near-white to avoid pure white glare
-    if (
-      newParsed &&
-      newParsed.r > 242 &&
-      newParsed.g > 242 &&
-      newParsed.b > 242
-    ) {
+    if (newParsed && newParsed.r > 242 && newParsed.g > 242 && newParsed.b > 242) {
       newColor = TEXT_PALETTE.heading; // Use predefined near-white
     }
 
@@ -1056,9 +696,7 @@ function handleSpecialElements(settings: Settings): void {
   debugSync("[Chroma v2] Phase 5: Special Element Handling");
 
   // Create styles for special elements
-  let style = document.getElementById(
-    STYLE_IDS.semanticStyles,
-  ) as HTMLStyleElement | null;
+  let style = document.getElementById(STYLE_IDS.semanticStyles) as HTMLStyleElement | null;
 
   if (!style) {
     style = document.createElement("style");
@@ -1296,7 +934,7 @@ export function applyChromaSemantic(settings: Settings): void {
   debugSync("[Chroma v2] ════════════════════════════════════════════");
   debugSync("[Chroma v2] Starting Chroma-Semantic Engine v2.0");
   debugSync(
-    '[Chroma v2] ℹ️ run "__chromaDiag()" in console to get diagnostics for Chroma-Semantic',
+    '[Chroma v2] ℹ️ run "__chromaDiag()" in console to get diagnostics for Chroma-Semantic'
   );
   debugSync("[Chroma v2] ════════════════════════════════════════════");
 
@@ -1315,7 +953,7 @@ export function applyChromaSemantic(settings: Settings): void {
   };
 
   // ══════════════════════════════════════════════════════════════════════════
-  // PHASE 1: Framework Detection
+  // PHASE 1: Framework Detection (centralized in utils/native-dark.ts)
   // ══════════════════════════════════════════════════════════════════════════
 
   detectedFramework = detectFramework();
@@ -1323,9 +961,7 @@ export function applyChromaSemantic(settings: Settings): void {
   stats.nativeDarkModeActivated = detectedFramework.darkModeActivated;
 
   if (detectedFramework.darkModeActivated) {
-    debugSync(
-      "[Chroma v2] ✓ Native dark mode activated - applying minimal enhancements",
-    );
+    debugSync("[Chroma v2] ✓ Native dark mode activated - applying minimal enhancements");
 
     // Apply only special element handling for native dark mode sites
     handleSpecialElements(settings);
@@ -1338,11 +974,7 @@ export function applyChromaSemantic(settings: Settings): void {
     setupMutationObserver(settings);
 
     const elapsed = performance.now() - startTime;
-    debugSync(
-      "[Chroma v2] ✓ Complete (native mode) in",
-      elapsed.toFixed(2),
-      "ms",
-    );
+    debugSync("[Chroma v2] ✓ Complete (native mode) in", elapsed.toFixed(2), "ms");
     return;
   }
 
@@ -1367,11 +999,7 @@ export function applyChromaSemantic(settings: Settings): void {
     setupMutationObserver(settings);
 
     const elapsed = performance.now() - startTime;
-    debugSync(
-      "[Chroma v2] ✓ Complete (variable fast path) in",
-      elapsed.toFixed(2),
-      "ms",
-    );
+    debugSync("[Chroma v2] ✓ Complete (variable fast path) in", elapsed.toFixed(2), "ms");
     return;
   }
 
@@ -1403,9 +1031,7 @@ export function applyChromaSemantic(settings: Settings): void {
   function processNextBatch(): void {
     // Check performance budget
     if (isOverBudget(startTime, PHASE_BUDGETS.totalBudget)) {
-      debugSync(
-        "[Chroma v2] ⚠️ Performance budget exceeded, triggering fallback",
-      );
+      debugSync("[Chroma v2] ⚠️ Performance budget exceeded, triggering fallback");
       triggerFallback(settings);
       return;
     }
@@ -1459,8 +1085,7 @@ export function applyChromaSemantic(settings: Settings): void {
     debugSync("[Chroma v2] Phase 4: Contrast Validation");
 
     // Validate contrast on text elements
-    const textSelectors =
-      "p, span, li, a, h1, h2, h3, h4, h5, h6, td, th, label, small";
+    const textSelectors = "p, span, li, a, h1, h2, h3, h4, h5, h6, td, th, label, small";
     const textElements = document.querySelectorAll(textSelectors);
     const textLimit = Math.min(textElements.length, 200);
 
@@ -1507,14 +1132,10 @@ export function applyChromaSemantic(settings: Settings): void {
  */
 function applyBaseStyles(settings: Settings): void {
   const warmth = settings.sepia || 0;
-  const baseBg = settings.amoled
-    ? BACKGROUND_PALETTE[0]
-    : BACKGROUND_PALETTE[1];
+  const baseBg = settings.amoled ? BACKGROUND_PALETTE[0] : BACKGROUND_PALETTE[1];
   const adjustedBg = applyWarmth(baseBg, warmth);
 
-  let style = document.getElementById(
-    STYLE_IDS.baseStyles,
-  ) as HTMLStyleElement | null;
+  let style = document.getElementById(STYLE_IDS.baseStyles) as HTMLStyleElement | null;
 
   if (!style) {
     style = document.createElement("style");
@@ -1580,10 +1201,7 @@ export function getChromaDiagnostics(): object {
     framework: detectedFramework,
     stats,
     styleTagsPresent: Object.fromEntries(
-      Object.entries(STYLE_IDS).map(([k, id]) => [
-        k,
-        !!document.getElementById(id),
-      ]),
+      Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)])
     ),
     processedCount: stats?.elementsProcessed ?? 0,
     bodyBg: getComputedStyle(document.body).backgroundColor,
@@ -1624,10 +1242,7 @@ if (typeof window !== "undefined") {
             optimizerEnabled: settings.optimizerEnabled,
           },
           styleTagsPresent: Object.fromEntries(
-            Object.entries(STYLE_IDS).map(([k, id]) => [
-              k,
-              !!document.getElementById(id),
-            ]),
+            Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)])
           ),
           processedCount: stats?.elementsProcessed ?? 0,
           bodyBg: getComputedStyle(document.body).backgroundColor,
@@ -1640,32 +1255,6 @@ if (typeof window !== "undefined") {
         window.postMessage({ type: "UDR_CHROMA_DIAG_RESPONSE", diag }, "*");
       }
     });
-
-    // Inject function that uses message passing
-    if (!document.getElementById(DIAG_SCRIPT_ID)) {
-      const script = document.createElement("script");
-      script.id = DIAG_SCRIPT_ID;
-      script.textContent = `
-      window.__chromaDiag = function() {
-        return new Promise(function(resolve) {
-          window.postMessage({ type: "UDR_CHROMA_DIAG_REQUEST" }, "*");
-          var handler = function(event) {
-            if (event.data?.type === "UDR_CHROMA_DIAG_RESPONSE") {
-              console.log("[Chroma Diag]", JSON.stringify(event.data.diag, null, 2));
-              resolve(event.data.diag);
-              window.removeEventListener("message", handler);
-            }
-          };
-          window.addEventListener("message", handler);
-          setTimeout(function() {
-            window.removeEventListener("message", handler);
-            resolve({ error: "Timeout waiting for diagnostic data" });
-          }, 1000);
-        });
-      };
-    `;
-      (document.head || document.documentElement).appendChild(script);
-    }
   } catch {
     // Silent fail - diagnostics are non-critical
   }
@@ -1702,26 +1291,7 @@ export function resetChromaSemantic(): void {
   stats = null;
   detectedFramework = null;
 
-  // Remove any dark mode activations we did
-  const html = document.documentElement;
-
-  // Only remove attributes we might have added
-  if (html.getAttribute("data-theme") === "dark") {
-    html.removeAttribute("data-theme");
-  }
-  if (html.getAttribute("data-mode") === "dark") {
-    html.removeAttribute("data-mode");
-  }
-  if (html.getAttribute("data-color-scheme") === "dark") {
-    html.removeAttribute("data-color-scheme");
-  }
-  if (html.getAttribute("data-bs-theme") === "dark") {
-    html.removeAttribute("data-bs-theme");
-  }
-
-  html.classList.remove("dark");
-  html.classList.remove("chakra-ui-dark");
-  document.body?.classList.remove("chakra-ui-dark");
-
+  clearActivationAttrs();
   debugSync("[Chroma v2] Reset complete");
 }
+

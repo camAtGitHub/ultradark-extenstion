@@ -1,12 +1,5 @@
 import { defineConfig } from "vite";
-import {
-  copyFileSync,
-  readFileSync,
-  writeFileSync,
-  mkdirSync,
-  existsSync,
-  readdirSync,
-} from "fs";
+import { copyFileSync, readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 import { resolve } from "path";
 
 export default defineConfig({
@@ -38,9 +31,7 @@ export default defineConfig({
       name: "copy-assets",
       writeBundle() {
         const manifestPath = resolve(__dirname, "dist/manifest.json");
-        const originalManifest = JSON.parse(
-          readFileSync("manifest.json", "utf-8"),
-        );
+        const originalManifest = JSON.parse(readFileSync("manifest.json", "utf-8"));
 
         // Copy icons
         const iconsDir = resolve(__dirname, "dist/src/assets/icons");

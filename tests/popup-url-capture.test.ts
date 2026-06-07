@@ -17,9 +17,7 @@ describe("Popup URL Capture", () => {
 
   it("should capture active tab URL when popup opens", async () => {
     const testUrl = "https://example.com/page";
-    mockBrowser.tabs.query.mockResolvedValue([
-      { url: testUrl, id: 1, active: true }
-    ]);
+    mockBrowser.tabs.query.mockResolvedValue([{ url: testUrl, id: 1, active: true }]);
 
     const [tab] = await mockBrowser.tabs.query({ active: true, currentWindow: true });
     expect(tab?.url).toBe(testUrl);
@@ -27,16 +25,13 @@ describe("Popup URL Capture", () => {
   });
 
   it("should reject moz-extension:// URLs", () => {
-    const internalUrls = [
-      "moz-extension://12345/popup.html",
-      "about:blank",
-      "chrome://settings",
-    ];
+    const internalUrls = ["moz-extension://12345/popup.html", "about:blank", "chrome://settings"];
 
-    internalUrls.forEach(url => {
-      const isInternal = url.startsWith("moz-extension://") || 
-                        url.startsWith("about:") || 
-                        url.startsWith("chrome://");
+    internalUrls.forEach((url) => {
+      const isInternal =
+        url.startsWith("moz-extension://") ||
+        url.startsWith("about:") ||
+        url.startsWith("chrome://");
       expect(isInternal).toBe(true);
     });
   });
@@ -45,21 +40,17 @@ describe("Popup URL Capture", () => {
     const validUrls = [
       "http://example.com",
       "https://example.com",
-      "https://sub.example.com/path?query=1"
+      "https://sub.example.com/path?query=1",
     ];
 
-    const invalidUrls = [
-      "ftp://example.com",
-      "file:///path/to/file",
-      "data:text/plain,hello"
-    ];
+    const invalidUrls = ["ftp://example.com", "file:///path/to/file", "data:text/plain,hello"];
 
-    validUrls.forEach(url => {
+    validUrls.forEach((url) => {
       const isValid = url.startsWith("http://") || url.startsWith("https://");
       expect(isValid).toBe(true);
     });
 
-    invalidUrls.forEach(url => {
+    invalidUrls.forEach((url) => {
       const isValid = url.startsWith("http://") || url.startsWith("https://");
       expect(isValid).toBe(false);
     });
@@ -67,13 +58,11 @@ describe("Popup URL Capture", () => {
 
   it("should store active tab URL at popup initialization", async () => {
     const testUrl = "https://github.com/user/repo";
-    mockBrowser.tabs.query.mockResolvedValue([
-      { url: testUrl, id: 123, active: true }
-    ]);
+    mockBrowser.tabs.query.mockResolvedValue([{ url: testUrl, id: 123, active: true }]);
 
     // Simulate what happens when popup opens
     let capturedUrl: string | null = null;
-    
+
     async function captureActiveTabUrl(): Promise<void> {
       try {
         const [tab] = await mockBrowser.tabs.query({ active: true, currentWindow: true });
@@ -93,7 +82,7 @@ describe("Popup URL Capture", () => {
     mockBrowser.tabs.query.mockResolvedValue([]);
 
     let capturedUrl: string | null = null;
-    
+
     async function captureActiveTabUrl(): Promise<void> {
       try {
         const [tab] = await mockBrowser.tabs.query({ active: true, currentWindow: true });
@@ -113,7 +102,7 @@ describe("Popup URL Capture", () => {
     mockBrowser.tabs.query.mockRejectedValue(new Error("Permission denied"));
 
     let capturedUrl: string | null = null;
-    
+
     async function captureActiveTabUrl(): Promise<void> {
       try {
         const [tab] = await mockBrowser.tabs.query({ active: true, currentWindow: true });

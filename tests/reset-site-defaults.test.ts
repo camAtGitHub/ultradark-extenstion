@@ -13,14 +13,14 @@ describe("Reset Site to Defaults", () => {
 
   it("should remove per-site override when resetting to defaults", () => {
     const origin = "https://example.com";
-    
+
     // Add a per-site override
     mockSettings.perSite[origin] = {
       override: {
         brightness: 120,
         contrast: 150,
-        sepia: 20
-      }
+        sepia: 20,
+      },
     };
 
     expect(mockSettings.perSite[origin]).toBeDefined();
@@ -34,17 +34,17 @@ describe("Reset Site to Defaults", () => {
 
   it("should preserve global defaults when resetting per-site settings", () => {
     const origin = "https://example.com";
-    
+
     // Modify global settings
     mockSettings.brightness = 95;
     mockSettings.contrast = 115;
-    
+
     // Add a per-site override
     mockSettings.perSite[origin] = {
       override: {
         brightness: 120,
-        contrast: 150
-      }
+        contrast: 150,
+      },
     };
 
     // Store global values before reset
@@ -63,16 +63,16 @@ describe("Reset Site to Defaults", () => {
     const siteA = "https://site-a.com";
     const siteB = "https://site-b.com";
     const siteC = "https://site-c.com";
-    
+
     // Add overrides for multiple sites
     mockSettings.perSite[siteA] = {
-      override: { brightness: 100 }
+      override: { brightness: 100 },
     };
     mockSettings.perSite[siteB] = {
-      override: { brightness: 110 }
+      override: { brightness: 110 },
     };
     mockSettings.perSite[siteC] = {
-      override: { brightness: 120 }
+      override: { brightness: 120 },
     };
 
     expect(Object.keys(mockSettings.perSite)).toHaveLength(3);
@@ -89,7 +89,7 @@ describe("Reset Site to Defaults", () => {
 
   it("should handle resetting a site that has no custom settings", () => {
     const origin = "https://no-override.com";
-    
+
     // No per-site override exists
     expect(mockSettings.perSite[origin]).toBeUndefined();
 
@@ -102,7 +102,7 @@ describe("Reset Site to Defaults", () => {
 
   it("should reset all per-site properties including enabled and exclude flags", () => {
     const origin = "https://complex-site.com";
-    
+
     // Add a complex per-site override with multiple properties
     mockSettings.perSite[origin] = {
       enabled: true,
@@ -113,8 +113,8 @@ describe("Reset Site to Defaults", () => {
         contrast: 150,
         sepia: 30,
         grayscale: 10,
-        blueShift: 5
-      }
+        blueShift: 5,
+      },
     };
 
     expect(mockSettings.perSite[origin].enabled).toBe(true);
@@ -145,7 +145,7 @@ describe("Reset Site to Defaults", () => {
     const testUrls = [
       { url: "https://example.com/path", origin: "https://example.com" },
       { url: "http://localhost:3000/test", origin: "http://localhost:3000" },
-      { url: "https://sub.domain.com/page?query=1", origin: "https://sub.domain.com" }
+      { url: "https://sub.domain.com/page?query=1", origin: "https://sub.domain.com" },
     ];
 
     testUrls.forEach(({ url, origin }) => {

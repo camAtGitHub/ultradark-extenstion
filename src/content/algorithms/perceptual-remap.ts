@@ -50,20 +50,23 @@ import type { Settings } from "../../types/settings";
 import { debugSync } from "../../utils/logger";
 import { applyPhotonInverter } from "./photon-inverter";
 import { getSettings, originFromUrl } from "../../utils/storage";
+import { parseRgbFast, getRelativeLuminance } from "../../utils/color-utils";
 import {
-  parseRgbFast,
-  getRelativeLuminance,
-} from "../../utils/color-utils";
+  detectFramework,
+  FrameworkInfo,
+  getActivationAttrs,
+  clearActivationAttrs,
+} from "../../utils/native-dark";
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
 
 const STYLE_IDS = {
-  colorScheme:    "udr-premap-scheme",
-  remapRules:     "udr-premap-rules",
+  colorScheme: "udr-premap-scheme",
+  remapRules: "udr-premap-rules",
   variableHijack: "udr-premap-hijack",
-  specialRules:   "udr-premap-special",
+  specialRules: "udr-premap-special",
 } as const;
 
 /** Diagnostic bridge script ID — separate from STYLE_IDS (script, not style tag) */
@@ -89,27 +92,11 @@ const SAMPLE_SELECTORS =
   '[class*="header"],[class*="sidebar"],[class*="content"],[class*="container"],' +
   '[role="main"],[role="navigation"],[role="dialog"]';
 
-const FRAMEWORK_PATTERNS: ReadonlyArray<{
-  pattern: RegExp;
-  name: string;
-  darkModeSelector?: string;
-}> = [
-  { pattern: /^--tw-/,               name: "tailwind",  darkModeSelector: ".dark" },
-  { pattern: /^--bs-/,               name: "bootstrap", darkModeSelector: '[data-bs-theme="dark"]' },
-  { pattern: /^--bulma-/,            name: "bulma",     darkModeSelector: '[data-theme="dark"]' },
-  { pattern: /^--color-|^--primer-/, name: "primer",    darkModeSelector: '[data-color-mode="dark"]' },
-  { pattern: /^--mdc-|^--md-/,       name: "material" },
-  { pattern: /^--chakra-/,           name: "chakra",    darkModeSelector: ".chakra-ui-dark" },
-  { pattern: /^--radix-/,            name: "radix" },
-  { pattern: /^--shadcn-/,           name: "shadcn" },
-  { pattern: /^--next-/,             name: "nextjs" },
-];
-
 const VAR_PATTERNS = {
   background: /background|^bg$|bg-|surface|canvas|base-color|page-bg/i,
   foreground: /foreground|^fg$|fg-|text-color|font-color|body-color/i,
-  border:     /border|divider|separator|outline-color/i,
-  shadow:     /shadow/i,
+  border: /border|divider|separator|outline-color/i,
+  shadow: /shadow/i,
 } as const;
 
 // ============================================================================
@@ -117,27 +104,22 @@ const VAR_PATTERNS = {
 // ============================================================================
 
 interface OKLCH {
-  L: number;  // 0–1  perceptual lightness
-  C: number;  // 0–~0.4  chroma
-  H: number;  // 0–360  hue angle
+  L: number; // 0–1  perceptual lightness
+  C: number; // 0–~0.4  chroma
+  H: number; // 0–360  hue angle
 }
 
 interface ColorMapping {
   original: string;
   key: string;
-  r: number; g: number; b: number;
+  r: number;
+  g: number;
+  b: number;
   oklch: OKLCH;
   role: "bg" | "fg" | "both";
   darkBg: string;
   darkFg: string;
   count: number;
-}
-
-interface FrameworkInfo {
-  name: string;
-  detected: boolean;
-  hasNativeDarkMode: boolean;
-  darkModeActivated: boolean;
 }
 
 interface EngineStats {
@@ -160,13 +142,6 @@ let mutationObserver: MutationObserver | null = null;
 let stats: EngineStats | null = null;
 let detectedFramework: FrameworkInfo | null = null;
 let activeColorMap: Map<string, ColorMapping> = new Map();
-
-/**
- * Tracks exactly which HTML attributes/classes were set by THIS engine during
- * activateNativeDark() so that resetPerceptualRemap() only removes what it
- * added — never stripping a site's own pre-existing dark-mode attribute.
- */
-const engineSetAttrs = new Set<string>();
 
 /** Feature probe cache — NOT cleared on reset (capabilities are session-stable) */
 let _oklchOk: boolean | null = null;
@@ -206,9 +181,9 @@ function linearRgbToOklab(r: number, g: number, b: number): { L: number; a: numb
   const s_ = Math.cbrt(s);
 
   return {
-    L:  0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
-    a:  1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
-    b_: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+    L: 0.2104542553 * l_ + 0.793617785 * m_ - 0.0040720468 * s_,
+    a: 1.9779984951 * l_ - 2.428592205 * m_ + 0.4505937099 * s_,
+    b_: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.808675766 * s_,
   };
 }
 
@@ -240,7 +215,7 @@ function remapForDarkBg(oklch: OKLCH): OKLCH {
 
   let newL: number;
   if (L > 0.6) {
-    newL = 0.10 + (1 - L) * 0.24;
+    newL = 0.1 + (1 - L) * 0.24;
   } else if (L > 0.35) {
     newL = 0.15 + (L - 0.35) * 0.28;
   } else {
@@ -284,137 +259,8 @@ function injectColorScheme(): void {
 }
 
 // ============================================================================
-// PHASE 1: FRAMEWORK DETECTION
+// PHASE 1: Framework detection centralized in utils/native-dark.ts
 // ============================================================================
-
-function detectFramework(): FrameworkInfo {
-  debugSync("[Perceptual Remap] Phase 1: Framework Detection");
-
-  const info: FrameworkInfo = {
-    name: "unknown", detected: false,
-    hasNativeDarkMode: false, darkModeActivated: false,
-  };
-  const html = document.documentElement;
-
-  for (const attr of ["data-theme", "data-mode", "data-color-scheme"]) {
-    if (html.getAttribute(attr) === "dark") {
-      info.hasNativeDarkMode = true;
-      info.darkModeActivated = true;
-      return info;
-    }
-  }
-  const cs = getComputedStyle(html).colorScheme;
-  if (cs === "dark" || cs === "dark light") {
-    info.hasNativeDarkMode = true;
-    info.darkModeActivated = true;
-    return info;
-  }
-
-  const rootStyle = getComputedStyle(html);
-  for (const fw of FRAMEWORK_PATTERNS) {
-    for (const suffix of ["-bg", "-background", "-primary"]) {
-      if (rootStyle.getPropertyValue(`--${fw.name}${suffix}`).trim()) {
-        info.name = fw.name; info.detected = true; break;
-      }
-    }
-    if (info.detected) break;
-  }
-
-  if (!info.detected) {
-    try {
-      const sheets = document.styleSheets;
-      outer: for (let i = 0; i < Math.min(sheets.length, 5); i++) {
-        try {
-          const rules = sheets[i].cssRules;
-          if (!rules) continue;
-          for (let j = 0; j < Math.min(rules.length, 50); j++) {
-            const r = rules[j];
-            if (r instanceof CSSStyleRule && (r.selectorText === ":root" || r.selectorText === "html")) {
-              for (const fw of FRAMEWORK_PATTERNS) {
-                if (fw.pattern.test(r.cssText)) {
-                  info.name = fw.name; info.detected = true; break outer;
-                }
-              }
-            }
-          }
-        } catch { continue; }
-      }
-    } catch { /* ignore */ }
-  }
-
-  if (info.detected) {
-    const cfg = FRAMEWORK_PATTERNS.find((f) => f.name === info.name);
-    if (cfg?.darkModeSelector) {
-      try {
-        const allSheets = document.styleSheets;
-        for (let si = 0; si < allSheets.length; si++) {
-          try {
-            const sheetRules = allSheets[si].cssRules;
-            if (!sheetRules) continue;
-            for (let ri = 0; ri < sheetRules.length; ri++) {
-              if (sheetRules[ri] instanceof CSSStyleRule &&
-                  (sheetRules[ri] as CSSStyleRule).selectorText.includes(cfg.darkModeSelector)) {
-                info.hasNativeDarkMode = true; break;
-              }
-            }
-          } catch { continue; }
-          if (info.hasNativeDarkMode) break;
-        }
-      } catch { /* ignore */ }
-    }
-  }
-
-  if (info.hasNativeDarkMode && !info.darkModeActivated) {
-    info.darkModeActivated = activateNativeDark(info.name);
-  }
-
-  return info;
-}
-
-function activateNativeDark(fwName: string): boolean {
-  const html = document.documentElement;
-  const strategies: Array<{ attr?: string; cls?: string; apply: () => void }> = [
-    { attr: "data-theme",        apply: () => html.setAttribute("data-theme", "dark") },
-    { attr: "data-mode",         apply: () => html.setAttribute("data-mode", "dark") },
-    { attr: "data-color-scheme", apply: () => html.setAttribute("data-color-scheme", "dark") },
-    { cls:  "dark",              apply: () => html.classList.add("dark") },
-  ];
-  if (fwName === "bootstrap") {
-    strategies.unshift({ attr: "data-bs-theme", apply: () => html.setAttribute("data-bs-theme", "dark") });
-  }
-  if (fwName === "chakra") {
-    strategies.unshift({
-      cls: "chakra-ui-dark",
-      apply: () => {
-        html.classList.add("chakra-ui-dark");
-        document.body?.classList.add("chakra-ui-dark");
-      },
-    });
-  }
-
-  for (const strategy of strategies) {
-    try {
-      strategy.apply();
-      const bodyBg = getComputedStyle(document.body).backgroundColor;
-      const rgb = parseRgbFast(bodyBg);
-      if (rgb && getRelativeLuminance(rgb.r, rgb.g, rgb.b) < 0.2) {
-        // Record what this engine set
-        if (strategy.attr) engineSetAttrs.add(strategy.attr);
-        if (strategy.cls)  engineSetAttrs.add(`class:${strategy.cls}`);
-        return true;
-      }
-    } catch { continue; }
-  }
-
-  // Revert all
-  html.removeAttribute("data-theme");
-  html.removeAttribute("data-mode");
-  html.removeAttribute("data-color-scheme");
-  html.removeAttribute("data-bs-theme");
-  html.classList.remove("dark", "chakra-ui-dark");
-  document.body?.classList.remove("chakra-ui-dark");
-  return false;
-}
 
 // ============================================================================
 // PHASE 2: COLOUR PALETTE EXTRACTION
@@ -452,10 +298,16 @@ function extractColorPalette(): Map<string, ColorMapping> {
         if (existing.role === "fg") existing.role = "both";
       } else {
         colorMap.set(key, {
-          original: bgStr, key,
-          r: bgRgb.r, g: bgRgb.g, b: bgRgb.b,
+          original: bgStr,
+          key,
+          r: bgRgb.r,
+          g: bgRgb.g,
+          b: bgRgb.b,
           oklch: rgbToOklch(bgRgb.r, bgRgb.g, bgRgb.b),
-          role: "bg", darkBg: "", darkFg: "", count: 1,
+          role: "bg",
+          darkBg: "",
+          darkFg: "",
+          count: 1,
         });
       }
     }
@@ -469,16 +321,28 @@ function extractColorPalette(): Map<string, ColorMapping> {
         if (existing.role === "bg") existing.role = "both";
       } else {
         colorMap.set(key, {
-          original: fgStr, key,
-          r: fgRgb.r, g: fgRgb.g, b: fgRgb.b,
+          original: fgStr,
+          key,
+          r: fgRgb.r,
+          g: fgRgb.g,
+          b: fgRgb.b,
           oklch: rgbToOklch(fgRgb.r, fgRgb.g, fgRgb.b),
-          role: "fg", darkBg: "", darkFg: "", count: 1,
+          role: "fg",
+          darkBg: "",
+          darkFg: "",
+          count: 1,
         });
       }
     }
   }
 
-  debugSync("[Perceptual Remap] Extracted", colorMap.size, "unique colours from", limit, "elements");
+  debugSync(
+    "[Perceptual Remap] Extracted",
+    colorMap.size,
+    "unique colours from",
+    limit,
+    "elements"
+  );
   return colorMap;
 }
 
@@ -486,10 +350,7 @@ function extractColorPalette(): Map<string, ColorMapping> {
 // PHASE 3: OKLCH REMAPPING
 // ============================================================================
 
-function computeRemappings(
-  colorMap: Map<string, ColorMapping>,
-  amoled: boolean,
-): void {
+function computeRemappings(colorMap: Map<string, ColorMapping>, amoled: boolean): void {
   debugSync("[Perceptual Remap] Phase 3: Computing OKLCH remappings");
 
   for (const mapping of colorMap.values()) {
@@ -511,20 +372,13 @@ function computeRemappings(
 // PHASE 4: STYLESHEET GENERATION
 // ============================================================================
 
-function generateRemapStylesheet(
-  colorMap: Map<string, ColorMapping>,
-  _settings: Settings,
-): string {
+function generateRemapStylesheet(colorMap: Map<string, ColorMapping>, _settings: Settings): string {
   const S = `html[udr-applied="true"][data-udr-mode="${ENGINE_MODE}"]`;
 
   const sorted = Array.from(colorMap.values()).sort((a, b) => b.count - a.count);
 
-  const primaryBg = sorted.find(
-    (c) => (c.role === "bg" || c.role === "both") && c.oklch.L > 0.5,
-  );
-  const primaryFg = sorted.find(
-    (c) => (c.role === "fg" || c.role === "both") && c.oklch.L < 0.5,
-  );
+  const primaryBg = sorted.find((c) => (c.role === "bg" || c.role === "both") && c.oklch.L > 0.5);
+  const primaryFg = sorted.find((c) => (c.role === "fg" || c.role === "both") && c.oklch.L < 0.5);
 
   const defaultDarkBg = primaryBg?.darkBg ?? "oklch(0.145 0 0)";
   const defaultLightFg = primaryFg?.darkFg ?? "oklch(0.88 0 0)";
@@ -533,12 +387,16 @@ function generateRemapStylesheet(
   const canvasBg = defaultDarkBg;
 
   const secondaryBg = sorted.find(
-    (c) => c !== primaryBg && (c.role === "bg" || c.role === "both") && c.oklch.L > 0.4,
+    (c) => c !== primaryBg && (c.role === "bg" || c.role === "both") && c.oklch.L > 0.4
   );
   const elevatedBg = secondaryBg?.darkBg ?? "oklch(0.20 0 0)";
 
   const linkColor = sorted.find(
-    (c) => (c.role === "fg" || c.role === "both") && c.oklch.C > 0.05 && c.oklch.H > 180 && c.oklch.H < 280,
+    (c) =>
+      (c.role === "fg" || c.role === "both") &&
+      c.oklch.C > 0.05 &&
+      c.oklch.H > 180 &&
+      c.oklch.H < 280
   );
   const darkLink = linkColor?.darkFg ?? "oklch(0.72 0.12 245)";
 
@@ -688,7 +546,8 @@ ${S} [class*="popover"], ${S} [class*="dropdown-menu"] {
   background-color: oklch(0.30 0 0) !important;
   color: var(--udr-text-primary) !important;
 }
-`;
+
+  `;
 }
 
 // ============================================================================
@@ -705,37 +564,54 @@ function hijackCSSVariables(_settings: Settings): number {
   const rootStyle = getComputedStyle(document.documentElement);
 
   const bgVars = [
-    "--background", "--bg", "--bg-color", "--background-color",
-    "--surface", "--surface-color", "--canvas",
-    "--color-background", "--color-bg", "--theme-background",
-    "--page-background", "--body-background",
-    "--card-bg", "--card-background",
+    "--background",
+    "--bg",
+    "--bg-color",
+    "--background-color",
+    "--surface",
+    "--surface-color",
+    "--canvas",
+    "--color-background",
+    "--color-bg",
+    "--theme-background",
+    "--page-background",
+    "--body-background",
+    "--card-bg",
+    "--card-background",
   ];
   const fgVars = [
-    "--foreground", "--text", "--text-color", "--color", "--fg",
-    "--fg-color", "--color-text", "--color-foreground",
-    "--body-text", "--font-color",
+    "--foreground",
+    "--text",
+    "--text-color",
+    "--color",
+    "--fg",
+    "--fg-color",
+    "--color-text",
+    "--color-foreground",
+    "--body-text",
+    "--font-color",
   ];
-  const brdVars = [
-    "--border", "--border-color", "--divider", "--separator",
-  ];
+  const brdVars = ["--border", "--border-color", "--divider", "--separator"];
 
   for (const v of bgVars) {
     if (rootStyle.getPropertyValue(v).trim() && !processed.has(v)) {
       overrides.push(`${v}: var(--udr-canvas-bg) !important;`);
-      processed.add(v); count++;
+      processed.add(v);
+      count++;
     }
   }
   for (const v of fgVars) {
     if (rootStyle.getPropertyValue(v).trim() && !processed.has(v)) {
       overrides.push(`${v}: var(--udr-text-primary) !important;`);
-      processed.add(v); count++;
+      processed.add(v);
+      count++;
     }
   }
   for (const v of brdVars) {
     if (rootStyle.getPropertyValue(v).trim() && !processed.has(v)) {
       overrides.push(`${v}: var(--udr-border) !important;`);
-      processed.add(v); count++;
+      processed.add(v);
+      count++;
     }
   }
 
@@ -748,31 +624,41 @@ function hijackCSSVariables(_settings: Settings): number {
           if (!rules) continue;
           for (let j = 0; j < Math.min(rules.length, 100); j++) {
             const rule = rules[j];
-            if (rule instanceof CSSStyleRule &&
-                (rule.selectorText === ":root" || rule.selectorText === "html")) {
+            if (
+              rule instanceof CSSStyleRule &&
+              (rule.selectorText === ":root" || rule.selectorText === "html")
+            ) {
               const style = rule.style;
               for (let k = 0; k < style.length; k++) {
                 const prop = style[k];
                 if (!prop.startsWith("--") || processed.has(prop)) continue;
                 if (VAR_PATTERNS.background.test(prop)) {
                   overrides.push(`${prop}: var(--udr-surface-bg) !important;`);
-                  processed.add(prop); count++;
+                  processed.add(prop);
+                  count++;
                 } else if (VAR_PATTERNS.foreground.test(prop)) {
                   overrides.push(`${prop}: var(--udr-text-primary) !important;`);
-                  processed.add(prop); count++;
+                  processed.add(prop);
+                  count++;
                 } else if (VAR_PATTERNS.border.test(prop)) {
                   overrides.push(`${prop}: var(--udr-border) !important;`);
-                  processed.add(prop); count++;
+                  processed.add(prop);
+                  count++;
                 } else if (VAR_PATTERNS.shadow.test(prop)) {
                   overrides.push(`${prop}: none !important;`);
-                  processed.add(prop); count++;
+                  processed.add(prop);
+                  count++;
                 }
               }
             }
           }
-        } catch { continue; }
+        } catch {
+          continue;
+        }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   if (overrides.length > 0) {
@@ -782,7 +668,9 @@ function hijackCSSVariables(_settings: Settings): number {
       tag.id = STYLE_IDS.variableHijack;
       document.head.appendChild(tag);
     }
-    tag.textContent = `:root {\n  ${overrides.join("\n  ")}\n}`;
+    tag.textContent = `:root {
+  ${overrides.join("\n  ")}
+}`;
   }
 
   debugSync("[Perceptual Remap] Hijacked", count, "CSS variables");
@@ -814,7 +702,11 @@ function sweepInlineStyles(_settings: Settings): void {
             if (mapping) {
               el.style.setProperty("background-color", mapping.darkBg, "important");
             } else {
-              el.style.setProperty("background-color", oklchToCss(remapForDarkBg(rgbToOklch(rgb.r, rgb.g, rgb.b))), "important");
+              el.style.setProperty(
+                "background-color",
+                oklchToCss(remapForDarkBg(rgbToOklch(rgb.r, rgb.g, rgb.b))),
+                "important"
+              );
             }
             fixes++;
           }
@@ -832,7 +724,11 @@ function sweepInlineStyles(_settings: Settings): void {
             if (mapping) {
               el.style.setProperty("color", mapping.darkFg, "important");
             } else {
-              el.style.setProperty("color", oklchToCss(remapForDarkFg(rgbToOklch(rgb.r, rgb.g, rgb.b))), "important");
+              el.style.setProperty(
+                "color",
+                oklchToCss(remapForDarkFg(rgbToOklch(rgb.r, rgb.g, rgb.b))),
+                "important"
+              );
             }
             fixes++;
           }
@@ -881,7 +777,7 @@ ${S} [style*="background-image"]:not(img):not(video):not(picture) {
 ${S} main, ${S} article, ${S} section, ${S} .container, ${S} #app, ${S} #root {
   contain: layout style;
 }
-`;
+  `;
 }
 
 // ============================================================================
@@ -897,7 +793,10 @@ function setupMutationObserver(_settings: Settings): void {
   let scheduled = false;
 
   function flush(): void {
-    if (pending.length === 0) { scheduled = false; return; }
+    if (pending.length === 0) {
+      scheduled = false;
+      return;
+    }
     const batch = pending.splice(0, 80);
 
     for (const el of batch) {
@@ -905,14 +804,22 @@ function setupMutationObserver(_settings: Settings): void {
       if (inlineBg) {
         const rgb = parseRgbFast(inlineBg);
         if (rgb && getRelativeLuminance(rgb.r, rgb.g, rgb.b) > 0.4) {
-          el.style.setProperty("background-color", oklchToCss(remapForDarkBg(rgbToOklch(rgb.r, rgb.g, rgb.b))), "important");
+          el.style.setProperty(
+            "background-color",
+            oklchToCss(remapForDarkBg(rgbToOklch(rgb.r, rgb.g, rgb.b))),
+            "important"
+          );
         }
       }
       const inlineColor = el.style.color;
       if (inlineColor) {
         const rgb = parseRgbFast(inlineColor);
         if (rgb && getRelativeLuminance(rgb.r, rgb.g, rgb.b) < 0.15) {
-          el.style.setProperty("color", oklchToCss(remapForDarkFg(rgbToOklch(rgb.r, rgb.g, rgb.b))), "important");
+          el.style.setProperty(
+            "color",
+            oklchToCss(remapForDarkFg(rgbToOklch(rgb.r, rgb.g, rgb.b))),
+            "important"
+          );
         }
       }
     }
@@ -1106,9 +1013,9 @@ export function resetPerceptualRemap(): void {
   stats = null;
   detectedFramework = null;
 
-  // Revert only what this engine set — never touch site's own attributes
+  // Revert only what this engine set — tracked by utils/native-dark.ts
   const html = document.documentElement;
-  for (const entry of engineSetAttrs) {
+  for (const entry of getActivationAttrs()) {
     if (entry.startsWith("class:")) {
       const cls = entry.slice(6);
       html.classList.remove(cls);
@@ -1117,7 +1024,7 @@ export function resetPerceptualRemap(): void {
       html.removeAttribute(entry);
     }
   }
-  engineSetAttrs.clear();
+  clearActivationAttrs();
 
   html.style.removeProperty("color-scheme");
 
@@ -1132,7 +1039,10 @@ export function resetPerceptualRemap(): void {
 // ============================================================================
 
 export function getPerceptualRemapDiagnostics(): object {
-  const paletteSnapshot: Record<string, { original: string; darkBg: string; darkFg: string; count: number }> = {};
+  const paletteSnapshot: Record<
+    string,
+    { original: string; darkBg: string; darkFg: string; count: number }
+  > = {};
   activeColorMap.forEach((mapping, key) => {
     paletteSnapshot[key] = {
       original: mapping.original,
@@ -1152,7 +1062,7 @@ export function getPerceptualRemapDiagnostics(): object {
     paletteSize: activeColorMap.size,
     featureSupport: { oklch: _oklchOk },
     styleTagsPresent: Object.fromEntries(
-      Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)]),
+      Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)])
     ),
     bodyBg: getComputedStyle(document.body).backgroundColor,
     htmlAttrs: {
@@ -1181,8 +1091,10 @@ if (typeof window !== "undefined") {
         > = {};
         activeColorMap.forEach((mapping, key) => {
           paletteSnapshot[key] = {
-            original: mapping.original, darkBg: mapping.darkBg,
-            darkFg: mapping.darkFg, count: mapping.count,
+            original: mapping.original,
+            darkBg: mapping.darkBg,
+            darkFg: mapping.darkFg,
+            count: mapping.count,
           };
         });
 
@@ -1196,15 +1108,18 @@ if (typeof window !== "undefined") {
           siteSettings,
           hasSiteOverride: !!siteSettings,
           globalSettings: {
-            enabled: settings.enabled, mode: settings.mode,
-            amoled: settings.amoled, brightness: settings.brightness,
-            contrast: settings.contrast, optimizerEnabled: settings.optimizerEnabled,
+            enabled: settings.enabled,
+            mode: settings.mode,
+            amoled: settings.amoled,
+            brightness: settings.brightness,
+            contrast: settings.contrast,
+            optimizerEnabled: settings.optimizerEnabled,
           },
           palette: paletteSnapshot,
           paletteSize: activeColorMap.size,
           featureSupport: { oklch: _oklchOk },
           styleTagsPresent: Object.fromEntries(
-            Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)]),
+            Object.entries(STYLE_IDS).map(([k, id]) => [k, !!document.getElementById(id)])
           ),
           bodyBg: getComputedStyle(document.body).backgroundColor,
           htmlAttrs: {
@@ -1241,5 +1156,7 @@ if (typeof window !== "undefined") {
     `;
       (document.head || document.documentElement).appendChild(script);
     }
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
 }

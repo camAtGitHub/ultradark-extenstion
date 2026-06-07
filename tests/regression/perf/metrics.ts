@@ -9,15 +9,15 @@ import type { DomTier, MetricName } from "../config";
 // ── Raw metric snapshot from a single run ─────────────────────────────────────
 
 export interface RawMetrics {
-  algorithm:     Mode;
-  tier:          DomTier;
-  nodeCount:     number;
-  applyTimeMs:   number;
-  resetTimeMs:   number;
+  algorithm: Mode;
+  tier: DomTier;
+  nodeCount: number;
+  applyTimeMs: number;
+  resetTimeMs: number;
   cssOutputBytes: number;
-  domMutations:  number;
-  timestamp:     number;
-  gitHash?:      string;
+  domMutations: number;
+  timestamp: number;
+  gitHash?: string;
 }
 
 // ── Normalized metrics (per-node costs, efficiency ratios) ────────────────────
@@ -52,15 +52,15 @@ export function aggregateRuns(runs: RawMetrics[]): RawMetrics {
 
   const first = runs[0];
   return {
-    algorithm:      first.algorithm,
-    tier:           first.tier,
-    nodeCount:      first.nodeCount,
-    applyTimeMs:    median(runs.map(r => r.applyTimeMs)),
-    resetTimeMs:    median(runs.map(r => r.resetTimeMs)),
-    cssOutputBytes: median(runs.map(r => r.cssOutputBytes)),
-    domMutations:   median(runs.map(r => r.domMutations)),
-    timestamp:      Date.now(),
-    gitHash:        first.gitHash,
+    algorithm: first.algorithm,
+    tier: first.tier,
+    nodeCount: first.nodeCount,
+    applyTimeMs: median(runs.map((r) => r.applyTimeMs)),
+    resetTimeMs: median(runs.map((r) => r.resetTimeMs)),
+    cssOutputBytes: median(runs.map((r) => r.cssOutputBytes)),
+    domMutations: median(runs.map((r) => r.domMutations)),
+    timestamp: Date.now(),
+    gitHash: first.gitHash,
   };
 }
 
@@ -96,21 +96,23 @@ export function rankAlgorithms(results: NormalizedMetrics[]): AlgorithmRanking[]
     rankMaps[metric] = map;
   }
 
-  return results.map(r => {
-    const ranks: Record<MetricName, number> = {} as never;
-    let compositeRank = 0;
-    for (const metric of RANKED_METRICS) {
-      const rank = rankMaps[metric].get(r.algorithm) ?? results.length;
-      ranks[metric] = rank;
-      compositeRank += rank;
-    }
-    return {
-      algorithm: r.algorithm,
-      tier: r.tier,
-      ranks,
-      compositeRank,
-    };
-  }).sort((a, b) => a.compositeRank - b.compositeRank);
+  return results
+    .map((r) => {
+      const ranks: Record<MetricName, number> = {} as never;
+      let compositeRank = 0;
+      for (const metric of RANKED_METRICS) {
+        const rank = rankMaps[metric].get(r.algorithm) ?? results.length;
+        ranks[metric] = rank;
+        compositeRank += rank;
+      }
+      return {
+        algorithm: r.algorithm,
+        tier: r.tier,
+        ranks,
+        compositeRank,
+      };
+    })
+    .sort((a, b) => a.compositeRank - b.compositeRank);
 }
 
 // ── Metric extraction helper ──────────────────────────────────────────────────

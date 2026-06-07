@@ -5,14 +5,14 @@
  * Provides toggleable debug logging with consistent prefix
  */
 
-const LOG_PREFIX = '[UltraDark]';
+const LOG_PREFIX = "[UltraDark]";
 
 /**
  * Check if debug mode is enabled
  */
 async function isDebugEnabled(): Promise<boolean> {
   try {
-    const result = await browser.storage.local.get('isDebugMode');
+    const result = await browser.storage.local.get("isDebugMode");
     return result.isDebugMode === true;
   } catch {
     // If storage fails, default to false

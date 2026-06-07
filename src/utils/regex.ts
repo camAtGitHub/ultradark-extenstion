@@ -2,7 +2,7 @@
 
 /**
  * OPTIMIZATION 2: Cached Regex Compilation
- * 
+ *
  * Memoization cache to avoid recompiling regex patterns on every URL check.
  * Cache is limited to 100 entries to prevent memory leaks.
  */
@@ -12,11 +12,11 @@ const regexCache = new Map<string, RegExp[]>();
 
 function getCompiledRegexList(patterns: string[]): RegExp[] {
   // Create cache key from patterns (fast string join)
-  const cacheKey = patterns.join('\x00');  // Null separator unlikely in patterns
-  
+  const cacheKey = patterns.join("\x00"); // Null separator unlikely in patterns
+
   const cached = regexCache.get(cacheKey);
   if (cached) return cached;
-  
+
   // Compile and cache
   const compiled: RegExp[] = [];
   for (const p of patterns) {
@@ -29,13 +29,13 @@ function getCompiledRegexList(patterns: string[]): RegExp[] {
       // ignore invalid patterns
     }
   }
-  
+
   // Limit cache size to prevent memory leaks (LRU-like eviction)
   if (regexCache.size >= 100) {
     const firstKey = regexCache.keys().next().value;
     regexCache.delete(firstKey);
   }
-  
+
   regexCache.set(cacheKey, compiled);
   return compiled;
 }
@@ -46,7 +46,7 @@ export function compileRegexList(patterns: string[]): RegExp[] {
 }
 
 export function urlExcluded(url: string, patterns: string[]) {
-  const list = getCompiledRegexList(patterns);  // Now cached
+  const list = getCompiledRegexList(patterns); // Now cached
   const str = url;
   return list.some((re) => re.test(str));
 }
@@ -55,4 +55,3 @@ export function urlExcluded(url: string, patterns: string[]) {
 export function clearRegexCache(): void {
   regexCache.clear();
 }
-

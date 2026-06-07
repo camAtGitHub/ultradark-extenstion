@@ -9,7 +9,7 @@ function debounce<T extends (...args: unknown[]) => void>(
   wait = 250
 ): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  
+
   return (...args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => {
@@ -69,10 +69,10 @@ describe("Debounce Mechanism", () => {
 
     debouncedFn();
     vi.advanceTimersByTime(100);
-    
+
     debouncedFn(); // Reset timer
     vi.advanceTimersByTime(100);
-    
+
     debouncedFn(); // Reset timer again
     vi.advanceTimersByTime(100);
 

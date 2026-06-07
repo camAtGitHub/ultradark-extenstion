@@ -77,6 +77,7 @@ As outlined in `.github/copilot-instructions.md`, strictly obey these mandates r
   3. Never dynamically run/fetch remote user scripts on execution contexts.
 
 ## 4. Changes, Code Edits and Commits
+
 1. Always lint and format your code before committing (npm run lint and npm run format).
 2. After every significant change, run tests to ensure nothing is broken.
 3. After making changes, commit with clear, descriptive messages that explain the "what" and "why" of the change (e.g., "Fix dark mode detection logic to handle edge cases in older browsers"). (Prefer more commits than less).

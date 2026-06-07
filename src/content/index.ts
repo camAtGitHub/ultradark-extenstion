@@ -7,14 +7,9 @@ import { getSettings, setSettings } from "../utils/storage";
 import { urlExcluded } from "../utils/regex";
 import { isAlreadyDarkTheme } from "../utils/dark-detection";
 import { debugSync, initDebugCache, updateDebugCache } from "../utils/logger";
-import {
-  applyPhotonInverter,
-  removePhotonInverter,
-} from "./algorithms/photon-inverter";
-import {
-  applyChromaSemantic,
-  resetChromaSemantic,
-} from "./algorithms/chroma-semantic";
+import { applyPhotonInverter, removePhotonInverter } from "./algorithms/photon-inverter";
+import { detectFramework } from "../utils/native-dark";
+import { applyChromaSemantic, resetChromaSemantic } from "./algorithms/chroma-semantic";
 import { applyDomWalker, resetDomWalker } from "./algorithms/dom-walker";
 import { applyOklchCascade, resetOklchCascade } from "./algorithms/oklch-cascade";
 import { applyPerceptualRemap, resetPerceptualRemap } from "./algorithms/perceptual-remap";
@@ -70,7 +65,7 @@ function invalidateSettingsCache(): void {
 
 async function effectiveSettingsFor(
   url: string,
-  base: Settings,
+  base: Settings
 ): Promise<{ use: Settings; excluded: boolean }> {
   const origin = new URL(url).origin;
   const per = base.perSite[origin] || {};
@@ -136,7 +131,7 @@ function removeShield(): void {
       shield.remove();
       shieldActive = false;
     },
-    { once: true },
+    { once: true }
   );
 
   // Fallback removal if transition doesn't fire
@@ -276,25 +271,20 @@ function applyCss(s: Settings) {
     console.log("[UltraDark] Removing Pre-Inject styles for Photon Inverter.");
     removePreInjectCss();
     applyPhotonInverter(s);
-
   } else if (s.mode === "dom-walker") {
     applyFilterCss(s);
     applyDomWalker(s);
-
   } else if (s.mode === "chroma-semantic") {
     applyFilterCss(s);
     applyChromaSemantic(s);
-
   } else if (s.mode === "oklch-cascade") {
     // applyFilterCss runs first — oklch-cascade must not re-apply slider values
     applyFilterCss(s);
     applyOklchCascade(s);
-
   } else if (s.mode === "perceptual-remap") {
     // applyFilterCss runs first — perceptual-remap must not re-apply slider values
     applyFilterCss(s);
     applyPerceptualRemap(s);
-
   } else {
     console.log("[UltraDark] Unknown mode, falling back to photon-inverter");
     removePreInjectCss();
@@ -308,9 +298,8 @@ function applyCss(s: Settings) {
   document.documentElement.setAttribute("data-udr-mode", s.mode);
   currentMode = s.mode;
   document.documentElement.setAttribute("udr-applied", "true");
-  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[
-    DATA_ATTR_APPLIED
-  ] = "1";
+  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] =
+    "1";
   applied = true;
 }
 
@@ -326,9 +315,8 @@ function removeCss() {
 
   document.documentElement.removeAttribute("udr-applied");
   document.documentElement.removeAttribute("data-udr-mode");
-  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[
-    DATA_ATTR_APPLIED
-  ] = "";
+  (document.documentElement as HTMLElement & { [DATA_ATTR_APPLIED]: string })[DATA_ATTR_APPLIED] =
+    "";
 
   if (document.documentElement.style.backgroundColor) {
     document.documentElement.style.removeProperty("background-color");
@@ -408,10 +396,9 @@ async function startOptimizerIfEnabled(s: Settings): Promise<void> {
     // This direct-call approach is non-blocking and defers worker init until browser idle.
     if (typeof window.requestIdleCallback === "function") {
       debugSync("[UltraDark][Optimizer] Scheduling worker init with: requestIdleCallback");
-      window.requestIdleCallback(
-        () => initializeOptimizerWorker(s).then(resolve),
-        { timeout: 2000 },
-      );
+      window.requestIdleCallback(() => initializeOptimizerWorker(s).then(resolve), {
+        timeout: 2000,
+      });
     } else {
       debugSync("[UltraDark][Optimizer] Scheduling worker init with: requestAnimationFrame");
       requestAnimationFrame(() => initializeOptimizerWorker(s).then(resolve));
@@ -509,11 +496,7 @@ function collectContrastSamples(): Promise<Array<{ fg: string; bg: string }>> {
       // Process phase (no layout impact, fill in missing backgrounds)
       const bodyBg = getComputedStyle(document.body).backgroundColor; // Single read, cached by browser
       for (const data of styleData) {
-        if (
-          data.bg === "rgba(0, 0, 0, 0)" ||
-          data.bg === "transparent" ||
-          !data.bg
-        ) {
+        if (data.bg === "rgba(0, 0, 0, 0)" || data.bg === "transparent" || !data.bg) {
           // Use body background as fallback
           data.bg = bodyBg;
         }
@@ -578,7 +561,9 @@ function scheduleDarkRecheck(): void {
     if (udrShield) udrShield.id = "udr-shield";
 
     if (isDarkNow) {
-      console.log("[UltraDark][Recheck] ✅ Site IS dark after full load. Switching to Passive Mode.");
+      console.log(
+        "[UltraDark][Recheck] ✅ Site IS dark after full load. Switching to Passive Mode."
+      );
       removeCss();
       applyPassiveMode();
     } else {
@@ -653,7 +638,7 @@ async function tick(): Promise<void> {
   // to finish loading before running post-detection. DOMContentLoaded only
   // guarantees the DOM is parsed — external stylesheets may still be pending,
   // causing getComputedStyle to return incomplete values.
-  if (shouldDetectDark && document.readyState !== 'complete') {
+  if (shouldDetectDark && document.readyState !== "complete") {
     console.log("[UltraDark] Waiting briefly for stylesheets before post-detection...");
     await waitForWindowLoad(500);
   }
@@ -679,6 +664,14 @@ async function tick(): Promise<void> {
   }
 
   console.log("[UltraDark] Proceeding with Dark Mode Application. Mode:", use.mode);
+
+  const frameworkInfo = detectFramework();
+  if (frameworkInfo.darkModeActivated) {
+    console.log("[UltraDark] Framework native dark activated centrally. Passive mode.");
+    applyPassiveMode();
+    return;
+  }
+
   ensurePreInjectCss();
   applyCss(use);
 
